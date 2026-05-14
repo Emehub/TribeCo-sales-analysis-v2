@@ -1,0 +1,3 @@
+ID,Type,From Wallet,To Wallet,Amount,Currency,Reference,Status,Country Code,Created At,Disbursement ID,Repayment ID,Terra Transaction ID
+191658,Disbursement,Master Wallet,Seller #1da64674812445d3968c7f93032eeadb Wallet,9.2,KES,RPP-2026-191650 advance (RP advance to Vet's Place),Completed,KE,2026-03-25T08:50:41.244815Z,2,,
+191660,Fee,Master Wallet,Revenue Wallet,0.8,KES,RP fee (Auto fee deduction from RP disbursement),Completed,KE,2026-03-25T08:50:41.341088Z,2,,

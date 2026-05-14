@@ -1,8 +1,7 @@
 # Credentials — never commit
 config.py
 
-# Raw data exports
-data/
+# Raw exports
 exports/
 
 # Python

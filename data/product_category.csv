@@ -1,0 +1,192 @@
+ID,Name,Description,Created At,Group ID,Commission,Is Restricted,Status,Category Type,Industry ID
+2121,General,,2021-01-20T09:45:51.850706Z,1215.0,0.0,False,0,PhysicalItem,
+2122,Vegetable Seed,,2021-01-20T09:45:51.850706Z,1212.0,0.0,False,0,PhysicalItem,
+2123,Cereals,,2021-01-20T09:45:51.850706Z,1212.0,0.0,False,0,PhysicalItem,
+2124,Tree Crop Seeds,,2021-01-20T09:45:51.850706Z,1212.0,0.0,False,0,PhysicalItem,
+2125,Legumes,,2021-01-20T09:45:51.850706Z,1212.0,0.0,False,0,PhysicalItem,
+2126,Syringes,,2021-01-20T09:45:51.850706Z,1213.0,0.0,False,0,PhysicalItem,
+2127,Disposable Gloves,,2021-01-20T09:45:51.850706Z,1213.0,0.0,False,0,PhysicalItem,
+2128,Antiseptics,,2021-01-20T09:45:51.850706Z,1213.0,0.0,False,0,PhysicalItem,
+2129,Masks,,2021-01-20T09:45:51.850706Z,1213.0,0.0,False,0,PhysicalItem,
+2130,Disinfectant,,2021-01-20T09:45:51.850706Z,1213.0,0.0,False,0,PhysicalItem,
+2131,Tubes,,2021-01-20T09:45:51.850706Z,1213.0,0.0,False,0,PhysicalItem,
+2132,Tractors,,2021-01-20T09:45:51.850706Z,1214.0,0.0,False,0,PhysicalItem,
+2133,Parts & Accessories,,2021-01-20T09:45:51.850706Z,1214.0,0.0,False,0,PhysicalItem,
+2134,Sprayers,,2021-01-20T09:45:51.850706Z,1214.0,0.0,False,0,PhysicalItem,
+2135,Hand Tools & Instruments,,2021-01-20T09:45:51.850706Z,1214.0,0.0,False,0,PhysicalItem,
+2136,Pumps,,2021-01-20T09:45:51.850706Z,1214.0,0.0,False,0,PhysicalItem,
+2137,Trailers,,2021-01-20T09:45:51.850706Z,1214.0,0.0,False,0,PhysicalItem,
+2139,Analgesics,,2021-01-20T09:45:51.850706Z,1215.0,0.0,False,0,PhysicalItem,
+2140,Anthelmintics,,2021-01-20T09:45:51.850706Z,1215.0,0.0,False,0,PhysicalItem,
+2141,Anesthetic,,2021-01-20T09:45:51.850706Z,1215.0,0.0,False,0,PhysicalItem,
+2146,Fungicides,,2021-01-20T09:45:51.850706Z,1217.0,0.0,False,0,PhysicalItem,
+2147,Herbicides,,2021-01-20T09:45:51.850706Z,1217.0,0.0,False,0,PhysicalItem,
+2148,Growth Promoters,,2021-01-20T09:45:51.850706Z,1218.0,0.0,False,0,PhysicalItem,
+2149,Micro Nutrients,,2021-01-20T09:45:51.850706Z,1218.0,0.0,False,0,PhysicalItem,
+2150,Fertilizers,,2021-01-20T09:45:51.850706Z,1218.0,0.0,False,0,PhysicalItem,
+2151, Animal Feed,,2021-01-20T09:45:51.850706Z,1219.0,0.0,False,0,PhysicalItem,
+2152,Vitamins and Minerals,,2021-01-20T09:45:51.850706Z,1219.0,0.0,False,0,PhysicalItem,
+2153,Probiotics,,2021-01-20T09:45:51.850706Z,1219.0,0.0,False,0,PhysicalItem,
+15838,Antibiotics & Vitamins,,2021-02-04T10:11:22.949778Z,1215.0,0.0,False,0,PhysicalItem,
+15844,Anticoccidial ,,2021-02-04T10:13:54.422321Z,1215.0,0.0,False,0,PhysicalItem,
+2138,Antibiotics,,2021-01-20T09:45:51.850706Z,1215.0,5.0,False,0,PhysicalItem,
+15978,Tags ,,2021-02-04T15:52:25.826532Z,1213.0,0.0,False,0,PhysicalItem,
+16016,Steroids,,2021-02-04T16:13:30.951811Z,1215.0,0.0,False,0,PhysicalItem,
+2145,Insecticides,,2021-01-20T09:45:51.850706Z,1217.0,0.0,False,0,PhysicalItem,
+24680,Trypanocide,,2021-03-26T16:05:02.962375Z,1215.0,0.0,False,0,PhysicalItem,
+2143,Rumenant Vaccines,,2021-01-20T09:45:51.850706Z,1216.0,0.0,True,0,PhysicalItem,
+2144,Other vaccines,Vaccines,2021-01-20T09:45:51.850706Z,1216.0,5.0,True,0,PhysicalItem,
+2142,Poultry Vaccines,,2021-01-20T09:45:51.850706Z,1216.0,0.0,True,0,PhysicalItem,
+185968,Vaccination,Provision of vaccination services to farmers,2026-01-21T09:06:25.693338Z,1230.0,1.0,False,0,PhysicalItem,
+185972,Organic Maize,Organic,2026-01-21T09:52:32.616497Z,1212.0,1.0,False,0,PhysicalItem,
+194510,Advisory Visits,,2026-04-23T07:54:57.021573Z,,0.0,False,0,Service,193650.0
+194512,Training,,2026-04-23T07:54:57.620852Z,,0.0,False,0,Service,193650.0
+194514,Monitoring,,2026-04-23T07:54:58.188006Z,,0.0,False,0,Service,193650.0
+194516,Input Planning,,2026-04-23T07:54:58.778887Z,,0.0,False,0,Service,193650.0
+187612,Grooming,"Pet and livestock grooming services including nail clipping, bathing, and coat care.",2026-03-16T23:42:56.947389Z,,0.0,False,0,Service,193362.0
+187626,Routine Management (Husbandry Procedures),"Hoof trimming, castration, dehorning, tagging, and other routine husbandry procedures.",2026-03-16T23:43:00.676787Z,,0.0,False,0,Service,193362.0
+187676,Surgical Services,"Spay, neuter, caesarean section, hernia repair, and other surgical procedures.",2026-03-16T23:43:14.227418Z,,0.0,False,0,Service,193362.0
+187692,Reproductive Services,"Artificial insemination, pregnancy diagnosis, fertility assessment, and breeding support.",2026-03-16T23:43:16.619646Z,,0.0,False,0,Service,193362.0
+187706,Diagnostic Services,"Blood sampling, lab testing, imaging, and post-mortem examination.",2026-03-16T23:43:28.636946Z,,0.0,False,0,Service,193362.0
+187720,Herd Health Management,"Herd health planning, mastitis control, vaccination scheduling, and farm monitoring.",2026-03-16T23:43:31.331834Z,,0.0,False,0,Service,193362.0
+187734,Public Health & Certification,"Meat inspection, health certification, export certification, and zoonotic disease surveillance.",2026-03-16T23:43:33.532572Z,,0.0,False,0,Service,193362.0
+194518,Reporting,,2026-04-23T07:54:59.390206Z,,0.0,False,0,Service,193650.0
+194520,Advisory & Onboarding,,2026-04-23T07:55:00.588341Z,,0.0,False,0,Service,193652.0
+194522,Recurring Charges,,2026-04-23T07:55:01.161889Z,,0.0,False,0,Service,193652.0
+194524,Collections,,2026-04-23T07:55:01.750838Z,,0.0,False,0,Service,193652.0
+194526,Reporting,,2026-04-23T07:55:02.354401Z,,0.0,False,0,Service,193652.0
+194528,Compliance,,2026-04-23T07:55:02.986655Z,,0.0,False,0,Service,193652.0
+194530,Listings & Viewings,,2026-04-23T07:55:04.157879Z,,0.0,False,0,Service,193654.0
+194532,Management Fees,,2026-04-23T07:55:04.763666Z,,0.0,False,0,Service,193654.0
+194534,Tenant Services,,2026-04-23T07:55:05.390961Z,,0.0,False,0,Service,193654.0
+194536,Inspections,,2026-04-23T07:55:05.980781Z,,0.0,False,0,Service,193654.0
+194538,Documentation,,2026-04-23T07:55:06.582667Z,,0.0,False,0,Service,193654.0
+194540,Design,,2026-04-23T07:55:07.779145Z,,0.0,False,0,Service,193656.0
+194542,Production,,2026-04-23T07:55:08.317385Z,,0.0,False,0,Service,193656.0
+194544,Campaign Services,,2026-04-23T07:55:08.876813Z,,0.0,False,0,Service,193656.0
+194546,Retainers,,2026-04-23T07:55:09.466997Z,,0.0,False,0,Service,193656.0
+194548,Delivery & Revisions,,2026-04-23T07:55:10.067569Z,,0.0,False,0,Service,193656.0
+194550,Studio Sessions,,2026-04-23T07:55:11.211741Z,,0.0,False,0,Service,193658.0
+194552,Event Coverage,,2026-04-23T07:55:11.859645Z,,0.0,False,0,Service,193658.0
+194554,Editing,,2026-04-23T07:55:12.427136Z,,0.0,False,0,Service,193658.0
+194556,Printing & Delivery,,2026-04-23T07:55:13.02154Z,,0.0,False,0,Service,193658.0
+194560,Print Jobs,,2026-04-23T07:55:14.758815Z,,0.0,False,0,Service,193660.0
+194562,Branding,,2026-04-23T07:55:15.350293Z,,0.0,False,0,Service,193660.0
+187746,Advisory & Extension Services,"Nutrition, housing, bio-security planning, and farmer training.",2026-03-16T23:43:35.332888Z,,0.0,False,0,Service,193362.0
+187660,Clinical & Curative Services,"Diagnosis, treatment, wound management, and emergency care.",2026-03-16T23:43:11.743971Z,,0.0,False,0,Service,193362.0
+187644,Disease control/Preventive health,"Vaccination, deworming, tick and flea control, and routine health programmes.",2026-03-16T23:43:09.33232Z,,0.0,False,0,Service,193362.0
+194352,Consultation,,2026-04-23T07:54:00.648581Z,,0.0,False,0,Service,193628.0
+194354,Diagnostics,,2026-04-23T07:54:01.518055Z,,0.0,False,0,Service,193628.0
+194356,Procedures,,2026-04-23T07:54:02.155415Z,,0.0,False,0,Service,193628.0
+194358,Follow-up Care,,2026-04-23T07:54:02.731699Z,,0.0,False,0,Service,193628.0
+194360,Home Visits,,2026-04-23T07:54:03.344881Z,,0.0,False,0,Service,193628.0
+194362,Administrative Fees,,2026-04-23T07:54:04.187256Z,,0.0,False,0,Service,193628.0
+194364,Site Preparation,,2026-04-23T07:54:05.354141Z,,0.0,False,0,Service,193630.0
+194366,Installation,,2026-04-23T07:54:05.950086Z,,0.0,False,0,Service,193630.0
+194368,Repairs,,2026-04-23T07:54:06.556248Z,,0.0,False,0,Service,193630.0
+194370,Maintenance,,2026-04-23T07:54:07.14614Z,,0.0,False,0,Service,193630.0
+194372,Project Management,,2026-04-23T07:54:07.756147Z,,0.0,False,0,Service,193630.0
+194374,Inspection & Handover,,2026-04-23T07:54:08.429417Z,,0.0,False,0,Service,193630.0
+194376,Diagnostics,,2026-04-23T07:54:09.626599Z,,0.0,False,0,Service,193632.0
+194378,Repair,,2026-04-23T07:54:10.269745Z,,0.0,False,0,Service,193632.0
+194380,Preventive Maintenance,,2026-04-23T07:54:10.886537Z,,0.0,False,0,Service,193632.0
+194382,Installation,,2026-04-23T07:54:11.484925Z,,0.0,False,0,Service,193632.0
+194384,Emergency Call-out,,2026-04-23T07:54:12.11156Z,,0.0,False,0,Service,193632.0
+194386,Parts & Consumables,,2026-04-23T07:54:12.702312Z,,0.0,False,0,Service,193632.0
+194388,Scheduled Transport,,2026-04-23T07:54:13.88503Z,,0.0,False,0,Service,193634.0
+194390,On-demand Transport,,2026-04-23T07:54:14.511879Z,,0.0,False,0,Service,193634.0
+194392,Freight Handling,,2026-04-23T07:54:15.101182Z,,0.0,False,0,Service,193634.0
+194394,Warehouse Support,,2026-04-23T07:54:15.710162Z,,0.0,False,0,Service,193634.0
+194396,Tracking & Reporting,,2026-04-23T07:54:16.269017Z,,0.0,False,0,Service,193634.0
+194398,Contract Services,,2026-04-23T07:54:16.863907Z,,0.0,False,0,Service,193634.0
+194400,Same-day Delivery,,2026-04-23T07:54:17.979802Z,,0.0,False,0,Service,193636.0
+194402,Scheduled Delivery,,2026-04-23T07:54:18.574144Z,,0.0,False,0,Service,193636.0
+194404,Returns Handling,,2026-04-23T07:54:19.163914Z,,0.0,False,0,Service,193636.0
+194406,Bulk Delivery,,2026-04-23T07:54:19.723055Z,,0.0,False,0,Service,193636.0
+194408,Tracking & Proof,,2026-04-23T07:54:20.308926Z,,0.0,False,0,Service,193636.0
+194410,Tuition,,2026-04-23T07:54:21.499037Z,,0.0,False,0,Service,193638.0
+194412,Admissions,,2026-04-23T07:54:22.173385Z,,0.0,False,0,Service,193638.0
+194414,Transport & Meals,,2026-04-23T07:54:22.8276Z,,0.0,False,0,Service,193638.0
+194416,Exams & Activities,,2026-04-23T07:54:23.405358Z,,0.0,False,0,Service,193638.0
+194418,Recurring Fees,,2026-04-23T07:54:24.015757Z,,0.0,False,0,Service,193638.0
+194420,Administrative Charges,,2026-04-23T07:54:24.589187Z,,0.0,False,0,Service,193638.0
+194422,Installation,,2026-04-23T07:54:25.85238Z,,0.0,False,0,Service,193640.0
+194424,Subscriptions,,2026-04-23T07:54:26.427323Z,,0.0,False,0,Service,193640.0
+194426,Support & Maintenance,,2026-04-23T07:54:27.037936Z,,0.0,False,0,Service,193640.0
+194428,Monitoring,,2026-04-23T07:54:27.629327Z,,0.0,False,0,Service,193640.0
+194430,Enterprise Services,,2026-04-23T07:54:28.236355Z,,0.0,False,0,Service,193640.0
+194432,Setup & Deployment,,2026-04-23T07:54:29.390114Z,,0.0,False,0,Service,193642.0
+194434,Support Contracts,,2026-04-23T07:54:30.120546Z,,0.0,False,0,Service,193642.0
+194436,Project Delivery,,2026-04-23T07:54:30.939412Z,,0.0,False,0,Service,193642.0
+194438,Monitoring,,2026-04-23T07:54:31.51552Z,,0.0,False,0,Service,193642.0
+194440,Licensing & Subscriptions,,2026-04-23T07:54:32.107424Z,,0.0,False,0,Service,193642.0
+194442,Training,,2026-04-23T07:54:32.668467Z,,0.0,False,0,Service,193642.0
+194444,Placement,,2026-04-23T07:54:33.821121Z,,0.0,False,0,Service,193644.0
+194446,Contract Staffing,,2026-04-23T07:54:34.390394Z,,0.0,False,0,Service,193644.0
+194448,Payroll Services,,2026-04-23T07:54:34.988449Z,,0.0,False,0,Service,193644.0
+194450,HR Administration,,2026-04-23T07:54:35.61178Z,,0.0,False,0,Service,193644.0
+194452,Training & Assessment,,2026-04-23T07:54:36.188754Z,,0.0,False,0,Service,193644.0
+194454,Routine Cleaning,,2026-04-23T07:54:37.389632Z,,0.0,False,0,Service,193646.0
+194456,Deep Cleaning,,2026-04-23T07:54:38.01381Z,,0.0,False,0,Service,193646.0
+194458,Specialized Services,,2026-04-23T07:54:38.623072Z,,0.0,False,0,Service,193646.0
+194460,Supplies & Consumables,,2026-04-23T07:54:39.184996Z,,0.0,False,0,Service,193646.0
+194462,Emergency Services,,2026-04-23T07:54:39.805117Z,,0.0,False,0,Service,193646.0
+194464,Guarding,,2026-04-23T07:54:41.07256Z,,0.0,False,0,Service,193648.0
+194466,Monitoring,,2026-04-23T07:54:41.645471Z,,0.0,False,0,Service,193648.0
+194468,Patrol,,2026-04-23T07:54:42.218498Z,,0.0,False,0,Service,193648.0
+194470,Installations,,2026-04-23T07:54:42.812544Z,,0.0,False,0,Service,193648.0
+194472,Incident Response,,2026-04-23T07:54:43.397279Z,,0.0,False,0,Service,193648.0
+194474,Operations Management,,2026-04-23T07:54:44.542786Z,,0.0,False,0,Service,194142.0
+194476,Cleaning & Upkeep,,2026-04-23T07:54:45.135669Z,,0.0,False,0,Service,194142.0
+194478,Technical Maintenance,,2026-04-23T07:54:45.70896Z,,0.0,False,0,Service,194142.0
+194480,Utilities & Consumables,,2026-04-23T07:54:46.315521Z,,0.0,False,0,Service,194142.0
+194482,Reporting & Inspections,,2026-04-23T07:54:46.932126Z,,0.0,False,0,Service,194142.0
+194484,Advisory,,2026-04-23T07:54:48.107302Z,,0.0,False,0,Service,194152.0
+194486,Project Work,,2026-04-23T07:54:48.699761Z,,0.0,False,0,Service,194152.0
+194488,Retainers,,2026-04-23T07:54:49.260057Z,,0.0,False,0,Service,194152.0
+194490,Assessments,,2026-04-23T07:54:49.876661Z,,0.0,False,0,Service,194152.0
+194492,Documentation,,2026-04-23T07:54:50.46098Z,,0.0,False,0,Service,194152.0
+194494,Consultation,,2026-04-23T07:54:51.626214Z,,0.0,False,0,Service,193362.0
+194496,Preventive Care,,2026-04-23T07:54:52.219353Z,,0.0,False,0,Service,193362.0
+194498,Vaccination,,2026-04-23T07:54:52.797749Z,,0.0,False,0,Service,193362.0
+194500,Diagnostics,,2026-04-23T07:54:53.387677Z,,0.0,False,0,Service,193362.0
+194502,Treatment,,2026-04-23T07:54:53.982621Z,,0.0,False,0,Service,193362.0
+194504,Procedures,,2026-04-23T07:54:54.593344Z,,0.0,False,0,Service,193362.0
+194506,Farm Visits,,2026-04-23T07:54:55.236623Z,,0.0,False,0,Service,193362.0
+194508,Emergency Care,,2026-04-23T07:54:55.83918Z,,0.0,False,0,Service,193362.0
+194564,Installation,,2026-04-23T07:55:15.958474Z,,0.0,False,0,Service,193660.0
+194566,Delivery,,2026-04-23T07:55:16.588311Z,,0.0,False,0,Service,193660.0
+194574,Content & Creative,,2026-04-23T07:55:19.503961Z,,0.0,False,0,Service,193662.0
+194578,Reporting,,2026-04-23T07:55:20.667671Z,,0.0,False,0,Service,193662.0
+194582,Packages,,2026-04-23T07:55:22.605129Z,,0.0,False,0,Service,193664.0
+194584,Memberships,,2026-04-23T07:55:23.164265Z,,0.0,False,0,Service,193664.0
+194590,Classes & Sessions,,2026-04-23T07:55:25.46829Z,,0.0,False,0,Service,193666.0
+194594,Assessments,,2026-04-23T07:55:26.682418Z,,0.0,False,0,Service,193666.0
+194596,Home / Corporate Visits,,2026-04-23T07:55:27.291178Z,,0.0,False,0,Service,193666.0
+194600,Bookings,,2026-04-23T07:55:29.089207Z,,0.0,False,0,Service,193668.0
+194568,Retainers,,2026-04-23T07:55:17.181354Z,,0.0,False,0,Service,193660.0
+194570,Campaign Planning,,2026-04-23T07:55:18.349111Z,,0.0,False,0,Service,193662.0
+194572,Media Buying,,2026-04-23T07:55:18.925534Z,,0.0,False,0,Service,193662.0
+194576,Retainers,,2026-04-23T07:55:20.059093Z,,0.0,False,0,Service,193662.0
+194580,Appointments,,2026-04-23T07:55:21.94774Z,,0.0,False,0,Service,193664.0
+194586,Home Service,,2026-04-23T07:55:23.739294Z,,0.0,False,0,Service,193664.0
+194588,Add-ons,,2026-04-23T07:55:24.300823Z,,0.0,False,0,Service,193664.0
+194592,Memberships,,2026-04-23T07:55:26.066524Z,,0.0,False,0,Service,193666.0
+194598,Add-ons,,2026-04-23T07:55:27.900355Z,,0.0,False,0,Service,193666.0
+194602,Planning,,2026-04-23T07:55:29.661712Z,,0.0,False,0,Service,193668.0
+194604,Packages,,2026-04-23T07:55:30.286Z,,0.0,False,0,Service,193668.0
+194606,Add-ons,,2026-04-23T07:55:30.90937Z,,0.0,False,0,Service,193668.0
+194608,Event Day Services,,2026-04-23T07:55:31.471638Z,,0.0,False,0,Service,193668.0
+194610,Bookings,,2026-04-23T07:55:32.618389Z,,0.0,False,0,Service,193670.0
+194612,Packages,,2026-04-23T07:55:33.228015Z,,0.0,False,0,Service,193670.0
+194614,Recurring Plans,,2026-04-23T07:55:33.790694Z,,0.0,False,0,Service,193670.0
+194616,Support Services,,2026-04-23T07:55:34.377246Z,,0.0,False,0,Service,193670.0
+194618,Add-ons,,2026-04-23T07:55:35.021993Z,,0.0,False,0,Service,193670.0
+194620,General Services,,2026-04-23T07:55:36.12544Z,,0.0,False,0,Service,193672.0
+194622,Recurring Charges,,2026-04-23T07:55:36.702747Z,,0.0,False,0,Service,193672.0
+194624,Bookings,,2026-04-23T07:55:37.300655Z,,0.0,False,0,Service,193672.0
+194626,Projects,,2026-04-23T07:55:37.947282Z,,0.0,False,0,Service,193672.0
+194628,Administrative Fees,,2026-04-23T07:55:38.523108Z,,0.0,False,0,Service,193672.0
+194558,Equipment,,2026-04-23T07:55:13.631464Z,,0.0,False,0,Service,193658.0
+195792,Add-ons,,2026-04-23T15:49:21.341783Z,,0.0,False,0,Service,193658.0
+196188,Refuse Collection,,2026-04-25T21:08:36.60446Z,,0.0,False,0,Service,193646.0

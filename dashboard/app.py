@@ -2,6 +2,7 @@
 CowTribe Sales Dashboard
 Run: python -m streamlit run d:/company-dashboard/dashboard/app.py
 """
+import os
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -16,7 +17,7 @@ st.set_page_config(
     menu_items={},
 )
 
-DATA      = "d:/company-dashboard/data"
+DATA      = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 CHART_CFG = {"displayModeBar": False}
 
 # ── Global CSS ───────────────────────────────────────────────────────────────────

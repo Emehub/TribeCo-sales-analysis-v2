@@ -1,0 +1,12 @@
+ID,Email Address,Password Hash,Role,Assigned Country Code,First Name,Last Name,Is Active,Created At,Updated At,Created By,Updated By
+81338b8d247c458cb23eff82ee8ae127,superadmin@zhulia.com,$2a$12$LkUPLhecQ/K0yx1Hw6t2zuSJZOhElv12.i3Uz4VLod00s3GyTR3Q.,SuperAdmin,,Super,Admin,True,2026-03-16T23:39:35.363932Z,,,
+eaf64742ba8b419ea8459d1a023efb08,wacera.maina@cowtribe.com,$2a$12$FrRA/ljWjbNihNhor.ZSvO9N/CnQnsXBcGXIaK/qJEYnoRDTYcw.K,CountryAdmin,KE,Wacera,Maina,True,2026-03-24T16:40:14.065142Z,,Super Admin,
+a721d157e4be49b7b46a315d78ee6694,emelia.awin@cowtribe.com,$2a$12$E/5ujcr14tiOmxolwgO5YOixOitbDnxB1RG/bVnbhsvi5WjVHmzAa,ProductSupport,GH,Emelia,Awin,True,2026-03-24T16:41:34.565564Z,,Super Admin,
+5cb08840b92f47b58a12b95cfa5dfada,harold.otieno@cowtribe.com,$2a$12$j.VWe8tzKPd.dJB/qZ3dHOtQO2fRzCDkbaV7F2EqkEDQ8viKYPKPa,AccountManager,KE,Harold,Otieno,True,2026-03-24T16:40:16.877862Z,2026-03-24T16:50:08.705882Z,Super Admin,
+e7aba723d21741349e83da7fef889de7,annette.wanjohi@cowtribe.com,$2a$12$YVjbxaBM9UfhXs4UKHUzOO1tM/fEse2oKUl8Kiiv1/ZcB1Fu.Gs76,SLAManager,KE,Annette,Wanjohi,True,2026-03-24T16:40:24.797558Z,2026-03-25T06:08:49.73955Z,Super Admin,
+c804ff2427b34e2d8e6cd919f8421c9a,brenda.ojwando@cowtribe.com,$2a$12$61Izbw2nHKKKFi.iQgoFz.9nYdYs3btvvjFJ0HWWtiygLSuq3YAAy,FinanceManager,KE,Brenda,Ojwando,True,2026-03-24T16:40:22.979037Z,2026-03-25T06:18:38.307359Z,Super Admin,
+48bb4382dbfa484a8431097b33a11bd7,daniel.mumia@cowtribe.com,$2a$12$YTBQbneyJuSOVzhCJBrsk.S.Fmic.rutgJwlnPQ2/myePX7LMCv8C,AccountManager,KE,Daniel,Mumia,True,2026-03-24T16:40:19.086894Z,2026-03-25T07:49:29.8906Z,Super Admin,
+f241ab89f35e4cf080c1a9d30bfb8232,martin.obubah@cowtribe.com,$2a$12$ScxEIWfGlD7G3uKQehz4POHYcO4mtxXEHCCK29nZF3JtKF4oZqgKK,CreditOfficer,KE,Martin,Obubah,True,2026-03-24T16:40:21.103252Z,2026-03-25T17:15:03.46157Z,Super Admin,
+9b0bcbd971554cf493b56ef6e25a45df,renymark.nguthiru@cowtribe.com,$2a$12$t98uw..h6Ibonp4HYbjyiuYIlUMtY4X.tOmN4n.cr66pJJp3GNCSS,SuperAdmin,KE,Renymark,Nguthiru,True,2026-03-19T08:38:43.839755Z,2026-04-05T16:53:51.887247Z,Super Admin,Super Admin
+350ce2f04a8e43b491ed8276af09d499,michael.wiafe@cowtribe.com,$2a$12$3fJ230UVGH3yGnReAtUWzeHdgEl7wiJA1adEtYolAi9cOxTxj1zwu,FulfilmentManager,GH,Michael,Wiafe,True,2026-04-22T16:45:59.274853Z,2026-04-22T16:47:09.156228Z,Super Admin,
+10da1643fd614bc5a4b78a5b121ac199,akua.sefah@cowtribe.com,$2a$12$bPHvolJpic4tqVWP/n.auOw9t7sjjr7vkPEptX1ddsS5wLl9cMpWm,InventoryManager,GH,Akua,Sefah,True,2026-04-22T16:47:39.432197Z,2026-04-23T14:33:32.05956Z,Super Admin,

@@ -1,0 +1,167 @@
+ID,Description,Created At
+*,Full access,2020-08-10T00:11:17.444285Z
+warehouse.update,Update warehouse,2020-08-10T02:46:48.355808Z
+warehouse.delivery.create,Create warehouse delivery,2020-08-10T02:46:48.355808Z
+warehouse.create,Create warehouse,2020-08-10T02:46:48.355808Z
+users.password.update,Update users password,2020-08-10T02:46:48.355808Z
+users.email.update,Update users email,2020-08-10T02:46:48.355808Z
+users.details.update,Update users details,2020-08-10T02:46:48.355808Z
+users.enable,Enable users,2020-08-10T02:46:48.355808Z
+users.disable,Disable users,2020-08-10T02:46:48.355808Z
+users.create,Create users,2020-08-10T02:46:48.355808Z
+retail_centre.inventory.request,Request retail centre inventory,2020-08-10T02:46:48.355808Z
+retail_centre.update,Update retail centre,2020-08-10T02:46:48.355808Z
+retail_centre.delivery.create,Create retail centre delivery,2020-08-10T02:46:48.355808Z
+fulfillment_centre.create,Create fulfillment centre,2020-08-10T02:46:48.355808Z
+product.suppliers.update,Update product suppliers,2020-08-10T02:46:48.355808Z
+product.sub_categories.update,Update product sub categories,2020-08-10T02:46:48.355808Z
+products.update,Update products,2020-08-10T02:46:48.355808Z
+product.manufacturers.update,Update product manufacturers,2020-08-10T02:46:48.355808Z
+product.categories.update,Update product categories,2020-08-10T02:46:48.355808Z
+product.brands.update,Update product brands,2020-08-10T02:46:48.355808Z
+products.enable,Enable products,2020-08-10T02:46:48.355808Z
+products.disable,Disable products,2020-08-10T02:46:48.355808Z
+product.supplier.create,Create product supplier,2020-08-10T02:46:48.355808Z
+product.sub_categories.create,Create product sub categories,2020-08-10T02:46:48.355808Z
+products.create,Create products,2020-08-10T02:46:48.355808Z
+product.manufacturers.create,Create product manufacturers,2020-08-10T02:46:48.355808Z
+product.categories.create,Create product categories,2020-08-10T02:46:48.355808Z
+product.brands.create,Create product brands,2020-08-10T02:46:48.355808Z
+purchase_order_fulfillment_batch.status.update,Update purchase order fulfillment batch status,2020-08-10T02:46:48.355808Z
+inventory_orders.fulfillment.change_status,Change status inventory orders fulfillment,2020-08-10T02:46:48.355808Z
+inventory_orders.list,List inventory orders,2020-08-10T02:46:48.355808Z
+inventory_orders.fulfillments.list,List inventory orders fulfillments,2020-08-10T02:46:48.355808Z
+purchase_orders.get_summary,Get summary purchase orders,2020-08-10T02:46:48.355808Z
+inventory_orders.get_summary,Get summary inventory orders,2020-08-10T02:46:48.355808Z
+inventory_order_fulfillment.get_summary,Get summary inventory order fulfillment,2020-08-10T02:46:48.355808Z
+inventory_orders.fetch,Fetch inventory orders,2020-08-10T02:46:48.355808Z
+purchase_order_fulfillment_batch.create,Create purchase order fulfillment batch,2020-08-10T02:46:48.355808Z
+purchase_orders.create,Create purchase orders,2020-08-10T02:46:48.355808Z
+inventory_orders.fulfillment.create,Create inventory orders fulfillment,2020-08-10T02:46:48.355808Z
+inventory_orders.create,Create inventory orders,2020-08-10T02:46:48.355808Z
+inventory_orders.confirm,Confirm inventory orders,2020-08-10T02:46:48.355808Z
+regions.update,Update regions,2020-08-10T02:46:48.355808Z
+districts.update,Update districts,2020-08-10T02:46:48.355808Z
+communities.update,Update communities,2020-08-10T02:46:48.355808Z
+regions.delete,Delete regions,2020-08-10T02:46:48.355808Z
+districts.delete,Delete districts,2020-08-10T02:46:48.355808Z
+communities.delete,Delete communities,2020-08-10T02:46:48.355808Z
+regions.create,Create regions,2020-08-10T02:46:48.355808Z
+districts.create,Create districts,2020-08-10T02:46:48.355808Z
+communities.create,Create communities,2020-08-10T02:46:48.355808Z
+inventory_requests.change_status,Change status inventory requests,2020-08-10T02:46:48.355808Z
+inventory_requests.fulfillment.change_status,Change status inventory requests fulfillment,2020-08-10T02:46:48.355808Z
+inventory_orders.fulfillment.update,Update inventory orders fulfillment,2020-08-10T02:46:48.355808Z
+inventory_requests.update,Update inventory requests,2020-08-10T02:46:48.355808Z
+inventory_requests.list,List inventory requests,2020-08-10T02:46:48.355808Z
+inventory_requests.fulfillments.list,List inventory requests fulfillments,2020-08-10T02:46:48.355808Z
+inventory_deliveries.list,List inventory deliveries,2020-08-10T02:46:48.355808Z
+inventory_location.summary.get,Get inventory location summary,2020-08-10T02:46:48.355808Z
+inventory_location.balance.get,Get inventory location balance,2020-08-10T02:46:48.355808Z
+inventory_request.get_summary,Get summary inventory request,2020-08-10T02:46:48.355808Z
+inventory_location.invoice.request,Request inventory location invoice,2020-08-10T02:46:48.355808Z
+inventory_request_fulfillment.get_summary,Get summary inventory request fulfillment,2020-08-10T02:46:48.355808Z
+fulfillment_centre.projection.get,Get fulfillment centre projection,2020-08-10T02:46:48.355808Z
+inventory_requests.confirm,Confirm inventory requests,2020-08-10T02:46:48.355808Z
+customers.create,Create customers,2020-08-10T02:46:48.355808Z
+roles.update,Update roles,2020-08-10T02:46:48.355808Z
+roles.delete,Delete roles,2020-08-10T02:46:48.355808Z
+roles.create,Create roles,2020-08-10T02:46:48.355808Z
+products.set_price,Set price products,2020-08-20T12:42:09.471732Z
+products.patch,Patch products,2020-08-20T12:42:09.471732Z
+retail_centre.create,Create retail centre,2020-08-27T11:19:17.371255Z
+distribution_centre.inventory.request,Request distribution centre inventory,2020-08-27T11:19:17.371255Z
+distribution_centre.update,Update distribution centre,2020-08-27T11:19:17.371255Z
+distribution_centre.delivery.create,Create distribution centre delivery,2020-08-27T11:19:17.371255Z
+distribution_centre.create,Create distribution centre,2020-08-27T11:19:17.371255Z
+retail_centre_details.update,Update retail centre details,2020-08-28T19:46:00.732882Z
+retail_centre_details.create,Create retail centre details,2020-08-28T19:46:00.732882Z
+retail_centre.patch_status,Patch status retail centre,2020-09-09T14:28:22.598435Z
+delivery_window.delete,Delete delivery window,2020-09-09T14:28:22.598435Z
+delivery_window.create,Create delivery window,2020-09-09T14:28:22.598435Z
+retail_centre.product.estimate_patch,Estimate patch retail centre product,2020-10-26T10:01:33.155998Z
+distribution_coverage.create,Create distribution coverage,2020-10-26T10:01:33.155998Z
+client_inventory.get_summary,Get summary client inventory,2020-11-06T20:21:02.753626Z
+pickup_point.patch,Patch pickup point,2020-11-06T20:21:02.753626Z
+pickup_point.create,Create pickup point,2020-11-06T20:21:02.753626Z
+clients.create,Create clients,2020-11-06T20:21:02.753626Z
+inventory_requests.get,Get inventory requests,2020-11-10T12:47:18.914965Z
+inventory_preorder.set_status,Set status inventory preorder,2020-11-20T14:07:27.929838Z
+inventory_preorders.list_search_sort,List search sort inventory preorders,2020-11-20T14:07:27.929838Z
+inventory_preorders.list,List inventory preorders,2020-11-20T14:07:27.929838Z
+inventory_preorders.create,Create inventory preorders,2020-11-20T14:07:27.929838Z
+client.patch_status,Patch status client,2020-11-20T14:07:27.929838Z
+inventory_order.confirm,Confirm inventory order,2020-11-26T18:53:07.377092Z
+products.set_special_status,Set special status products,2020-11-26T18:53:07.377092Z
+preorder_campaign.product.update,Update preorder campaign product,2021-01-07T17:12:48.688557Z
+preorder_campaign.update,Update preorder campaign,2021-01-07T17:12:48.688557Z
+preorder_campaign.product.delete,Delete preorder campaign product,2021-01-07T17:12:48.688557Z
+preorder_campaign.create,Create preorder campaign,2021-01-07T17:12:48.688557Z
+preorder_campaign.product.add,Add preorder campaign product,2021-01-07T17:12:48.688557Z
+inventory_preorder_campaign.set_status,Set status inventory preorder campaign,2021-01-07T17:12:48.688557Z
+inventory_counts.list,List inventory counts,2021-01-22T09:52:23.453522Z
+product.groups.update,Update product groups,2021-01-22T09:52:23.453522Z
+products_image.remove,Remove products image,2021-01-22T09:52:23.453522Z
+product.groups.create,Create product groups,2021-01-22T09:52:23.453522Z
+distribution_centre.inventory_count.create,Create distribution centre inventory count,2021-01-22T09:52:23.453522Z
+retail_centre.shop_category.patch_status,Patch status retail centre shop category,2021-01-22T09:52:23.453522Z
+retail_centre_store.create,Create retail centre store,2021-01-22T09:52:23.453522Z
+retail_centre_owner.create,Create retail centre owner,2021-01-22T09:52:23.453522Z
+retail_centre_company.create,Create retail centre company,2021-01-22T09:52:23.453522Z
+retail_center.shop_category.create,Create retail center shop category,2021-01-22T09:52:23.453522Z
+client.shop_category.patch_status,Patch status client shop category,2021-01-22T09:52:23.453522Z
+waybill.generate,Generate waybill,2021-01-22T09:52:23.453522Z
+purchase_order.generate,Generate purchase order,2021-01-22T09:52:23.453522Z
+client.shop_category.create,Create client shop category,2021-01-22T09:52:23.453522Z
+seller_centre_owner.create,Create seller centre owner,2021-01-22T09:52:23.453522Z
+seller_company.create,Create seller company,2021-01-22T09:52:23.453522Z
+payments.create,Create payments,2021-02-04T01:51:21.627479Z
+payment.charge_webhook,Charge webhook payment,2021-02-04T01:51:21.627479Z
+products.set_status,Set status products,2021-02-04T01:51:21.627479Z
+products.patch_image,Patch image products,2021-02-04T01:51:21.627479Z
+retail_centre.patch_tier,Patch tier retail centre,2021-02-04T01:51:21.627479Z
+product_inventory.set,Set product inventory,2021-02-04T01:51:21.627479Z
+payments.submit.otp,Otp payments submit,2021-02-14T04:35:57.518302Z
+client_inventory_requests.list,List client inventory requests,2021-02-14T04:35:57.518302Z
+preorder_filfillment.set,Set preorder filfillment,2021-03-16T09:43:39.370925Z
+client_checkout.patch_status,Patch status client checkout,2021-03-16T09:43:39.370925Z
+seller_bank.update,Update seller bank,2021-03-16T09:43:39.370925Z
+seller_bank.create,Create seller bank,2021-03-16T09:43:39.370925Z
+back_orders.status.update,Update back orders status,2021-06-05T09:25:54.980765Z
+backorders.orderline.change_status,Change status backorders orderline,2021-06-05T09:25:54.980765Z
+inventory_backorders.list,List inventory backorders,2021-06-05T09:25:54.980765Z
+inventory_backorders.create,Create inventory backorders,2021-06-05T09:25:54.980765Z
+inventory_adjustments.change_status,Change status inventory adjustments,2021-06-16T06:35:04.54538Z
+inventory_adjustments.list,List inventory adjustments,2021-06-16T06:35:04.54538Z
+inventory_adjustments.create,Create inventory adjustments,2021-06-16T06:35:04.54538Z
+client_purchase_order.set_status,Set status client purchase order,2021-09-24T19:24:04.006163Z
+inventory_backorders.fulfillment.update,Update inventory backorders fulfillment,2021-09-24T19:24:04.006163Z
+inventory_backorders.fulfillment.change_status,Change status inventory backorders fulfillment,2021-09-24T19:24:04.006163Z
+backorderlines.status.update,Update backorderlines status,2021-09-24T19:24:04.006163Z
+inventory_backorders.fulfillments.list,List inventory backorders fulfillments,2021-09-24T19:24:04.006163Z
+inventory_backorders.fulfillment.create,Create inventory backorders fulfillment,2021-09-24T19:24:04.006163Z
+invoices.status.update,Update invoices status,2021-10-29T13:44:16.759926Z
+vaccine_template.list,List vaccine template,2024-04-29T12:57:26.439095Z
+poulttry_batch.list,List poulttry batch,2024-04-29T12:57:26.439095Z
+vaccine_template.get,Get vaccine template,2024-04-29T12:57:26.439095Z
+poultry_batch.list,List poultry batch,2024-04-29T12:57:26.439095Z
+vaccine_template.create,Create vaccine template,2024-04-29T12:57:26.439095Z
+poultry_batch.create,Create poultry batch,2024-04-29T12:57:26.439095Z
+vaccine_template.product.create,Create vaccine template product,2024-04-29T12:57:26.439095Z
+vaccine_schedule_item.change_status,Change status vaccine schedule item,2024-05-01T03:13:50.332888Z
+poultry_breed.update,Update poultry breed,2024-06-19T14:44:34.858725Z
+vaccine_schedule_item.change_order_status,Change order status vaccine schedule item,2024-06-19T14:44:34.858725Z
+poultry_breeds.list,List poultry breeds,2024-06-19T14:44:34.858725Z
+poultry_breed.create,Create poultry breed,2024-06-19T14:44:34.858725Z
+products.set_deleted_status,Set deleted status products,2024-06-19T14:44:34.858725Z
+inventory_orders.get_by_reference,Get by reference inventory orders,2024-06-19T14:44:34.858725Z
+leads.status.update,Update leads status,2024-09-12T00:54:06.679659Z
+leads.update,Update leads,2024-09-12T00:54:06.679659Z
+contacts.update,Update contacts,2024-09-12T00:54:06.679659Z
+leads.Sms.Opt,Opt leads Sms,2024-09-12T00:54:06.679659Z
+leads.IsPrimary.update,Update leads IsPrimary,2024-09-12T00:54:06.679659Z
+leads.Email.Opt,Opt leads Email,2024-09-12T00:54:06.679659Z
+contacts.IsPrimary.update,Update contacts IsPrimary,2024-09-12T00:54:06.679659Z
+contacts.Email.Opt,Opt contacts Email,2024-09-12T00:54:06.679659Z
+leads.create,Create leads,2024-09-12T00:54:06.679659Z
+contacts.create,Create contacts,2024-09-12T00:54:06.679659Z

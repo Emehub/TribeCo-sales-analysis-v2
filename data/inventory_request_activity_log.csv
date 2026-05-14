@@ -1,0 +1,248 @@
+ID,Inventory Request ID,Activity Type,Title,Description,Created At
+193482,193474,OrderCreated,Order created,Order #193474,2026-04-21T10:13:45.519493Z
+193486,193474,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-21T10:14:47.377725Z
+193496,193488,OrderCreated,Order created,Order #193488,2026-04-21T10:39:56.090236Z
+193508,193500,OrderCreated,Order created,Order #193500,2026-04-21T11:20:12.113945Z
+193512,193500,Canceled,Order canceled,,2026-04-21T11:21:36.837119Z
+193514,193488,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-21T11:23:52.127947Z
+193524,193516,OrderCreated,Order created,Order #193516,2026-04-21T11:43:42.501782Z
+193528,193516,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-21T11:44:58.435001Z
+193538,193530,OrderCreated,Order created,Order #193530,2026-04-21T12:32:54.309976Z
+193542,193530,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-21T12:33:20.544808Z
+193552,193544,OrderCreated,Order created,Order #193544,2026-04-21T12:39:21.491121Z
+193556,193544,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-21T12:40:58.219241Z
+193566,193558,OrderCreated,Order created,Order #193558,2026-04-21T12:44:03.62714Z
+193570,193558,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-21T12:44:24.10163Z
+193580,193572,OrderCreated,Order created,Order #193572,2026-04-21T12:46:33.598999Z
+193584,193572,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-21T12:46:54.793707Z
+193594,193586,OrderCreated,Order created,Order #193586,2026-04-21T13:02:26.826232Z
+193598,193586,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-21T13:03:26.888422Z
+193608,193600,OrderCreated,Order created,Order #193600,2026-04-21T13:16:09.422195Z
+193612,193600,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-21T13:16:30.129324Z
+193622,193614,OrderCreated,Order created,Order #193614,2026-04-21T13:28:23.83125Z
+193626,193614,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-21T13:28:49.311589Z
+193860,193852,OrderCreated,Order created,Order #193852,2026-04-22T12:47:22.40198Z
+193864,193852,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-22T12:48:42.849781Z
+193878,193866,OrderCreated,Order created,Order #193866,2026-04-22T12:55:16.593508Z
+193882,193866,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-22T12:57:31.541346Z
+193896,193884,OrderCreated,Order created,Order #193884,2026-04-22T13:05:35.205323Z
+193900,193884,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-22T13:06:21.116769Z
+193918,193902,OrderCreated,Order created,Order #193902,2026-04-22T13:30:10.662988Z
+193922,193902,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-22T13:30:54.403905Z
+193932,193924,OrderCreated,Order created,Order #193924,2026-04-22T13:36:35.050735Z
+193936,193924,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-22T13:37:44.29713Z
+193950,193938,OrderCreated,Order created,Order #193938,2026-04-22T13:39:48.174129Z
+193954,193938,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-22T13:40:55.937259Z
+193964,193956,OrderCreated,Order created,Order #193956,2026-04-22T13:47:06.056078Z
+193968,193956,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-22T13:48:20.588142Z
+193978,193970,OrderCreated,Order created,Order #193970,2026-04-22T13:57:21.000998Z
+193982,193970,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-22T13:58:19.871813Z
+193992,193984,OrderCreated,Order created,Order #193984,2026-04-22T14:05:22.592672Z
+194008,193996,OrderCreated,Order created,Order #193996,2026-04-22T14:06:34.239537Z
+194020,194012,OrderCreated,Order created,Order #194012,2026-04-22T14:07:36.467338Z
+194032,194024,OrderCreated,Order created,Order #194024,2026-04-22T14:08:05.518409Z
+194036,193984,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-22T14:10:43.83761Z
+194038,193996,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-22T14:10:47.694831Z
+194040,194012,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-22T14:10:52.016057Z
+194042,194024,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-22T14:10:56.164821Z
+196602,196586,OrderCreated,Order created,Order #196586,2026-04-27T12:28:25.490703Z
+196606,196586,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-27T12:28:49.352989Z
+196608,196586,ReadyToPick,Ready to pick,,2026-04-27T12:32:27.45428Z
+196610,196586,PickedPacked,Picked and packed,,2026-04-27T12:33:05.608687Z
+196612,196586,Shipped,Shipped,Swift Logistics · Swift-196586-27042026,2026-04-27T12:36:08.00931Z
+196620,196586,Delivered,Delivered,,2026-04-27T12:39:01.596395Z
+196740,196728,OrderCreated,Order created,Order #196728,2026-04-28T09:51:29.037694Z
+196744,196728,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-28T09:56:31.007499Z
+196746,196728,ReadyToPick,Ready to pick,,2026-04-28T09:57:16.867018Z
+196748,196728,PickedPacked,Picked and packed,,2026-04-28T09:57:31.49425Z
+196750,196728,Shipped,Shipped,Swift Logistics · Swift-196728-28042026,2026-04-28T09:57:48.578122Z
+196756,196728,Delivered,Delivered,,2026-04-28T09:58:28.544429Z
+196774,196758,OrderCreated,Order created,Order #196758,2026-04-28T10:03:30.335882Z
+196778,196758,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-28T10:05:19.314289Z
+196780,196758,ReadyToPick,Ready to pick,,2026-04-28T10:06:32.60235Z
+196782,196758,PickedPacked,Picked and packed,,2026-04-28T10:06:47.74509Z
+196784,196758,Shipped,Shipped,Speedfly Logistics · Speedfly-196758-28042026,2026-04-28T10:07:11.029677Z
+196792,196758,Delivered,Delivered,,2026-04-28T10:07:30.132216Z
+196814,196794,OrderCreated,Order created,Order #196794,2026-04-28T10:21:48.440309Z
+196818,196794,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-28T10:23:43.192153Z
+196820,196794,ReadyToPick,Ready to pick,,2026-04-28T10:25:31.959146Z
+196822,196794,PickedPacked,Picked and packed,,2026-04-28T10:25:46.682567Z
+196824,196794,Shipped,Shipped,Swift Logistics · Swift-196794-28042026,2026-04-28T10:26:07.704988Z
+196836,196794,Delivered,Delivered,,2026-04-28T10:26:20.655809Z
+196846,196838,OrderCreated,Order created,Order #196838,2026-04-28T10:44:01.361489Z
+196850,196838,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-28T10:44:21.608197Z
+196852,196838,ReadyToPick,Ready to pick,,2026-04-28T11:03:35.398365Z
+196862,196854,OrderCreated,Order created,Order #196854,2026-04-28T11:18:12.536045Z
+196866,196838,PickedPacked,Picked and packed,,2026-04-28T11:30:35.035673Z
+196868,196838,Shipped,Shipped,Swift Logistics · Swift-196838-28042026,2026-04-28T11:30:51.509157Z
+196872,196838,Delivered,Delivered,,2026-04-28T11:31:01.366697Z
+196874,196854,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-28T11:31:29.995655Z
+196876,196854,ReadyToPick,Ready to pick,,2026-04-28T11:34:39.052799Z
+196878,196854,PickedPacked,Picked and packed,,2026-04-28T11:34:53.387899Z
+196880,196854,Shipped,Shipped,Swift Logistics · Swift-196854-28042026,2026-04-28T11:35:10.473159Z
+196886,196854,Delivered,Delivered,,2026-04-28T11:35:27.700886Z
+196896,196888,OrderCreated,Order created,Order #196888,2026-04-28T11:36:53.128855Z
+196900,196888,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-28T11:37:14.060596Z
+196902,196888,ReadyToPick,Ready to pick,,2026-04-28T11:38:06.091851Z
+196904,196888,PickedPacked,Picked and packed,,2026-04-28T11:39:06.693747Z
+196906,196888,Shipped,Shipped,Swift Logistics · Swift-196888-28042026,2026-04-28T11:39:26.90751Z
+196910,196888,Delivered,Delivered,,2026-04-28T11:39:40.985886Z
+196924,196912,OrderCreated,Order created,Order #196912,2026-04-28T11:42:12.249938Z
+196928,196912,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-28T11:43:57.586345Z
+196930,196912,ReadyToPick,Ready to pick,,2026-04-28T11:44:35.696396Z
+196932,196912,PickedPacked,Picked and packed,,2026-04-28T11:44:57.69033Z
+196934,196912,Shipped,Shipped,Swift Logistics · Swift-196912-28042026,2026-04-28T11:45:16.128304Z
+196940,196912,Delivered,Delivered,,2026-04-28T11:45:35.902142Z
+196950,196942,OrderCreated,Order created,Order #196942,2026-04-28T12:00:58.674892Z
+196954,196942,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-28T12:02:25.403166Z
+197090,196942,ReadyToPick,Ready to pick,,2026-04-29T20:10:17.823094Z
+197092,196942,PickedPacked,Picked and packed,,2026-04-29T20:10:37.753723Z
+197094,196942,Shipped,Shipped,Swift Logistics · Swift-196942-29042026,2026-04-29T20:11:10.637757Z
+197098,196942,Delivered,Delivered,,2026-04-29T20:11:43.789519Z
+197108,197100,OrderCreated,Order created,Order #197100,2026-04-29T20:14:12.876397Z
+197112,197100,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-29T20:14:41.069282Z
+197114,197100,ReadyToPick,Ready to pick,,2026-04-29T20:15:09.995884Z
+197116,197100,PickedPacked,Picked and packed,,2026-04-29T20:15:22.847482Z
+197118,197100,Shipped,Shipped,Swift Logistics · Swift-197100-29042026,2026-04-29T20:15:59.943349Z
+197122,197100,Delivered,Delivered,,2026-04-29T20:16:13.759244Z
+197136,197124,OrderCreated,Order created,Order #197124,2026-04-29T20:19:24.43782Z
+197140,197124,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-29T20:19:35.385945Z
+197150,197142,OrderCreated,Order created,Order #197142,2026-04-29T20:20:32.644557Z
+197154,197142,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-29T20:20:43.113638Z
+197156,197124,ReadyToPick,Ready to pick,,2026-04-29T20:21:08.797153Z
+197158,197124,PickedPacked,Picked and packed,,2026-04-29T20:21:19.80867Z
+197160,197124,Shipped,Shipped,Swift Logistics · Swift-197124-29042026,2026-04-29T20:21:41.446221Z
+197166,197124,Delivered,Delivered,,2026-04-29T20:21:51.736793Z
+197168,197142,ReadyToPick,Ready to pick,,2026-04-29T20:22:16.53909Z
+197170,197142,PickedPacked,Picked and packed,,2026-04-29T20:22:29.047583Z
+197172,197142,Shipped,Shipped,Swift Logistics · Swift-197142-29042026,2026-04-29T20:22:55.092711Z
+197178,197142,Delivered,Delivered,,2026-04-29T20:23:04.949692Z
+197196,197180,OrderCreated,Order created,Order #197180,2026-04-29T20:26:21.782452Z
+197200,197180,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-29T20:26:34.864712Z
+197202,197180,ReadyToPick,Ready to pick,,2026-04-29T20:27:23.755632Z
+197204,197180,PickedPacked,Picked and packed,,2026-04-29T20:27:51.773689Z
+197206,197180,Shipped,Shipped,Swift Logistics · Swift-197180-29042026,2026-04-29T20:28:13.950357Z
+197214,197180,Delivered,Delivered,,2026-04-29T20:28:25.026153Z
+197232,197216,OrderCreated,Order created,Order #197216,2026-04-29T20:30:34.128657Z
+197236,197216,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-29T20:30:42.308853Z
+197238,197216,ReadyToPick,Ready to pick,,2026-04-29T20:31:17.650367Z
+197240,197216,PickedPacked,Picked and packed,,2026-04-29T20:31:37.885309Z
+197242,197216,Shipped,Shipped,Swift Logistics · Swift-197216-29042026,2026-04-29T20:32:02.252462Z
+197250,197216,Delivered,Delivered,,2026-04-29T20:32:22.624942Z
+197260,197252,OrderCreated,Order created,Order #197252,2026-04-29T20:34:44.414769Z
+197264,197252,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-29T20:34:55.855484Z
+197266,197252,ReadyToPick,Ready to pick,,2026-04-29T20:35:31.16081Z
+197268,197252,PickedPacked,Picked and packed,,2026-04-29T20:35:52.016446Z
+197270,197252,Shipped,Shipped,Swift Logistics · Swift-197252-29042026,2026-04-29T20:36:06.639857Z
+197274,197252,Delivered,Delivered,,2026-04-29T20:36:14.794556Z
+197288,197276,OrderCreated,Order created,Order #197276,2026-04-29T20:40:34.670611Z
+197292,197276,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-29T20:40:46.753257Z
+197294,197276,ReadyToPick,Ready to pick,,2026-04-29T20:41:30.605999Z
+197296,197276,PickedPacked,Picked and packed,,2026-04-29T20:41:44.303542Z
+197298,197276,Shipped,Shipped,Swift Logistics · Swift-197276-29042026,2026-04-29T20:42:01.713412Z
+197304,197276,Delivered,Delivered,,2026-04-29T20:42:12.989268Z
+197314,197306,OrderCreated,Order created,Order #197306,2026-04-29T20:44:04.870823Z
+197318,197306,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-29T20:44:18.180208Z
+197320,197306,ReadyToPick,Ready to pick,,2026-04-29T20:45:25.627345Z
+197322,197306,PickedPacked,Picked and packed,,2026-04-29T20:45:36.618195Z
+197324,197306,Shipped,Shipped,Swift Logistics · Swift-197306-29042026,2026-04-29T20:45:52.763677Z
+197328,197306,Delivered,Delivered,,2026-04-29T20:46:03.884791Z
+197338,197330,OrderCreated,Order created,Order #197330,2026-04-29T20:48:27.783023Z
+197342,197330,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-29T20:49:04.253678Z
+197344,197330,ReadyToPick,Ready to pick,,2026-04-29T20:51:50.020632Z
+197346,197330,PickedPacked,Picked and packed,,2026-04-29T20:52:01.413964Z
+197348,197330,Shipped,Shipped,Swift Logistics · Swift-197330-29042026,2026-04-29T20:52:18.572405Z
+197352,197330,Delivered,Delivered,,2026-04-29T20:52:26.854629Z
+197362,197354,OrderCreated,Order created,Order #197354,2026-04-29T20:53:28.821179Z
+197366,197354,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-29T20:53:41.399051Z
+197368,197354,ReadyToPick,Ready to pick,,2026-04-29T20:54:18.441415Z
+197370,197354,PickedPacked,Picked and packed,,2026-04-29T20:54:28.785227Z
+197372,197354,Shipped,Shipped,Swift Logistics · Swift-197354-29042026,2026-04-29T20:54:43.572809Z
+197376,197354,Delivered,Delivered,,2026-04-29T20:54:54.434774Z
+197390,197378,OrderCreated,Order created,Order #197378,2026-04-29T20:57:02.123945Z
+197394,197378,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-29T20:57:38.486634Z
+197396,197378,ReadyToPick,Ready to pick,,2026-04-29T20:58:15.043424Z
+197398,197378,PickedPacked,Picked and packed,,2026-04-29T20:58:49.341648Z
+197400,197378,Shipped,Shipped,Swift Logistics · Swift-197378-29042026,2026-04-29T20:59:11.298023Z
+197406,197378,Delivered,Delivered,,2026-04-29T20:59:48.418359Z
+197428,197408,OrderCreated,Order created,Order #197408,2026-04-29T21:01:55.739947Z
+197432,197408,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-29T21:02:55.882753Z
+197434,197408,ReadyToPick,Ready to pick,,2026-04-29T21:04:41.423527Z
+197436,197408,PickedPacked,Picked and packed,,2026-04-29T21:04:56.081616Z
+197438,197408,Shipped,Shipped,Swift Logistics · Swift-197408-29042026,2026-04-29T21:05:17.103478Z
+197448,197408,Delivered,Delivered,,2026-04-29T21:05:26.104544Z
+197458,197450,OrderCreated,Order created,Order #197450,2026-04-29T21:06:55.11289Z
+197462,197450,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-29T21:07:09.881634Z
+197464,197450,ReadyToPick,Ready to pick,,2026-04-29T21:07:53.215252Z
+197466,197450,PickedPacked,Picked and packed,,2026-04-29T21:08:05.738994Z
+197468,197450,Shipped,Shipped,Swift Logistics · Swift-197450-29042026,2026-04-29T21:08:26.448679Z
+197472,197450,Delivered,Delivered,,2026-04-29T21:08:38.269434Z
+197494,197474,OrderCreated,Order created,Order #197474,2026-04-29T21:13:17.992458Z
+197498,197474,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-29T21:14:40.064786Z
+197500,197474,ReadyToPick,Ready to pick,,2026-04-29T21:16:28.901742Z
+197502,197474,PickedPacked,Picked and packed,,2026-04-29T21:16:52.376995Z
+197504,197474,Shipped,Shipped,Swift Logistics · Swift-197474-29042026,2026-04-29T21:17:08.08137Z
+197514,197474,Delivered,Delivered,,2026-04-29T21:17:20.04497Z
+197540,197520,OrderCreated,Order created,Order #197520,2026-04-29T21:41:43.200868Z
+197544,197520,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-29T21:41:55.079767Z
+197546,197520,ReadyToPick,Ready to pick,,2026-04-29T21:42:38.907222Z
+197548,197520,PickedPacked,Picked and packed,,2026-04-29T21:42:59.132592Z
+197550,197520,Shipped,Shipped,Swift Logistics · Swift-197520-29042026,2026-04-29T21:43:20.695965Z
+197560,197520,Delivered,Delivered,,2026-04-29T21:43:36.186026Z
+197574,197562,OrderCreated,Order created,Order #197562,2026-04-29T22:13:10.259657Z
+197578,197562,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-29T22:13:36.313052Z
+197588,197580,OrderCreated,Order created,Order #197580,2026-04-29T22:15:15.867207Z
+197592,197580,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-29T22:15:39.676037Z
+197610,197594,OrderCreated,Order created,Order #197594,2026-04-29T22:16:46.513777Z
+197614,197594,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-04-29T22:17:18.760308Z
+197616,197562,ReadyToPick,Ready to pick,,2026-04-29T22:17:40.022767Z
+197618,197562,PickedPacked,Picked and packed,,2026-04-29T22:18:02.431612Z
+197620,197562,Shipped,Shipped,Swift Logistics · Swift-197562-29042026,2026-04-29T22:18:19.055559Z
+197626,197562,Delivered,Delivered,,2026-04-29T22:18:30.469285Z
+197628,197580,ReadyToPick,Ready to pick,,2026-04-29T22:18:41.536643Z
+197630,197580,PickedPacked,Picked and packed,,2026-04-29T22:19:12.882485Z
+197632,197580,Shipped,Shipped,Swift Logistics · Swift-197580-29042026,2026-04-29T22:19:26.891516Z
+197636,197580,Delivered,Delivered,,2026-04-29T22:19:39.343094Z
+197638,197594,ReadyToPick,Ready to pick,,2026-04-29T22:20:02.718518Z
+197640,197594,PickedPacked,Picked and packed,,2026-04-29T22:20:26.829137Z
+197642,197594,Shipped,Shipped,Swift Logistics · Swift-197594-29042026,2026-04-29T22:20:45.484036Z
+197650,197594,Delivered,Delivered,,2026-04-29T22:20:59.274515Z
+198626,198618,OrderCreated,Order created,Order #198618,2026-05-07T12:47:24.110143Z
+198630,198618,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-05-07T12:48:07.586737Z
+198632,198618,ReadyToPick,Ready to pick,,2026-05-07T12:48:45.969394Z
+198634,198618,PickedPacked,Picked and packed,,2026-05-07T12:49:03.573492Z
+198636,198618,Shipped,Shipped,Swift Logistics · Swift-198618-07052026,2026-05-07T12:49:26.791804Z
+198640,198618,Delivered,Delivered,,2026-05-07T12:49:57.681903Z
+199456,199440,OrderCreated,Order created,Order #199440,2026-05-13T07:08:35.801109Z
+199460,199440,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-05-13T07:09:23.517188Z
+199462,199440,ReadyToPick,Ready to pick,,2026-05-13T07:10:08.64564Z
+199464,199440,PickedPacked,Picked and packed,,2026-05-13T07:10:27.98167Z
+199466,199440,Shipped,Shipped,Swift Logistics · Swift-199440-13052026,2026-05-13T07:10:57.70784Z
+199474,199440,Delivered,Delivered,,2026-05-13T07:11:14.555376Z
+199500,199476,OrderCreated,Order created,Order #199476,2026-05-13T07:16:17.279617Z
+199504,199476,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-05-13T07:17:34.437937Z
+199506,199476,ReadyToPick,Ready to pick,,2026-05-13T07:18:02.540111Z
+199508,199476,PickedPacked,Picked and packed,,2026-05-13T07:19:36.705231Z
+199510,199476,Shipped,Shipped,Swift Logistics · Swift-199476-13052026,2026-05-13T07:20:01.983861Z
+199528,199476,Delivered,Delivered,,2026-05-13T07:20:18.539676Z
+199538,199530,OrderCreated,Order created,Order #199530,2026-05-13T07:21:32.202254Z
+199542,199530,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-05-13T07:22:02.700251Z
+199544,199530,ReadyToPick,Ready to pick,,2026-05-13T07:23:17.758864Z
+199546,199530,PickedPacked,Picked and packed,,2026-05-13T07:25:04.509593Z
+199548,199530,Shipped,Shipped,Swift Logistics · Swift-199530-13052026,2026-05-13T07:25:22.17655Z
+199552,199530,Delivered,Delivered,,2026-05-13T07:25:34.457064Z
+199566,199554,OrderCreated,Order created,Order #199554,2026-05-13T07:27:16.440831Z
+199570,199554,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-05-13T07:28:24.375351Z
+199572,199554,ReadyToPick,Ready to pick,,2026-05-13T07:28:53.158994Z
+199574,199554,PickedPacked,Picked and packed,,2026-05-13T07:29:54.171008Z
+199576,199554,Shipped,Shipped,Swift Logistics · Swift-199554-13052026,2026-05-13T07:30:12.098578Z
+199584,199554,Delivered,Delivered,,2026-05-13T07:30:21.548716Z
+199602,199586,OrderCreated,Order created,Order #199586,2026-05-13T07:39:17.177581Z
+199606,199586,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-05-13T07:42:04.114997Z
+199608,199586,ReadyToPick,Ready to pick,,2026-05-13T07:43:14.092422Z
+199610,199586,PickedPacked,Picked and packed,,2026-05-13T07:44:00.88328Z
+199612,199586,Shipped,Shipped,Swift Logistics · Swift-199586-13052026,2026-05-13T07:44:21.342607Z
+199620,199586,Delivered,Delivered,,2026-05-13T07:44:35.214967Z
+199630,199622,OrderCreated,Order created,Order #199622,2026-05-13T07:48:03.160983Z
+199634,199622,OrderConfirmed,Order confirmed,Awaiting fulfillment,2026-05-13T07:48:11.497579Z
+199636,199622,ReadyToPick,Ready to pick,,2026-05-13T07:49:53.092143Z
