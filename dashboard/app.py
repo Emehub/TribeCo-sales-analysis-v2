@@ -1115,45 +1115,21 @@ elif page == "Reliability":
                   f"{completed_req:,}/{total_req:,} completed", "#14b8a6")
     st.markdown(f'<div class="kpi-grid">{r1}</div>', unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown(chart_wrap("Stockout Rate by Product Category"), unsafe_allow_html=True)
-        cat_bal = ibv_num.groupby("Product Category").agg(
-            Total=("Balance","count"),
-            Stockouts=("Balance", lambda x: (x == 0).sum())
-        ).reset_index()
-        cat_bal["Stockout %"] = (cat_bal["Stockouts"] / cat_bal["Total"] * 100).round(1)
-        cat_bal = cat_bal.sort_values("Stockout %", ascending=False)
-        s_colors = ["#dc2626" if v > 30 else "#f59e0b" if v > 10 else "#16a34a"
-                    for v in cat_bal["Stockout %"]]
-        fig = go.Figure(go.Bar(
-            x=cat_bal["Product Category"], y=cat_bal["Stockout %"],
-            marker_color=s_colors,
-            text=cat_bal["Stockout %"].apply(lambda x: f"{x:.0f}%"),
-            textposition="outside"
-        ))
-        fig.update_layout(**white_layout(300))
-        fig.update_layout(xaxis=dict(tickangle=-20),
-                          yaxis=dict(title="Stockout %", gridcolor="#f3f4f6"))
-        st.plotly_chart(fig, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with col2:
-        st.markdown(chart_wrap("Fulfillment Request Status"), unsafe_allow_html=True)
-        irf_s = irf["Fulfillment Status"].value_counts().reset_index()
-        irf_s.columns = ["Status","Count"]
-        irf_colors = {"Fulfilled":"#16a34a","Pending":"#f59e0b","Processing":"#4f46e5",
-                      "Cancelled":"#dc2626","Failed":"#7f1d1d","Unknown":"#9ca3af"}
-        fig2 = px.pie(irf_s, names="Status", values="Count", hole=0.5,
-                      color="Status", color_discrete_map=irf_colors)
-        fig2.update_traces(textinfo="percent", textposition="inside",
-                           insidetextorientation="horizontal",
-                           textfont=dict(size=13, color="white"))
-        fig2.update_layout(plot_bgcolor="white", paper_bgcolor="white",
-                           margin=dict(t=10,b=10,l=10,r=10), height=300, showlegend=True,
-                           legend=dict(orientation="v", x=1.02, y=0.5, font=dict(size=11)))
-        st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown(chart_wrap("Fulfillment Request Status"), unsafe_allow_html=True)
+    irf_s = irf["Fulfillment Status"].value_counts().reset_index()
+    irf_s.columns = ["Status","Count"]
+    irf_colors = {"Fulfilled":"#16a34a","Pending":"#f59e0b","Processing":"#4f46e5",
+                  "Cancelled":"#dc2626","Failed":"#7f1d1d","Unknown":"#9ca3af"}
+    fig2 = px.pie(irf_s, names="Status", values="Count", hole=0.5,
+                  color="Status", color_discrete_map=irf_colors)
+    fig2.update_traces(textinfo="percent", textposition="inside",
+                       insidetextorientation="horizontal",
+                       textfont=dict(size=13, color="white"))
+    fig2.update_layout(plot_bgcolor="white", paper_bgcolor="white",
+                       margin=dict(t=10,b=10,l=10,r=10), height=340, showlegend=True,
+                       legend=dict(orientation="v", x=1.02, y=0.5, font=dict(size=11)))
+    st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 
