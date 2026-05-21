@@ -3,6 +3,7 @@ CowTribe Sales Dashboard
 Run: python -m streamlit run d:/company-dashboard/dashboard/app.py
 """
 import os
+import time
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -160,7 +161,7 @@ footer { display: none !important; }
 
 
 # ── Data loader ─────────────────────────────────────────────────────────────────
-@st.cache_data
+@st.cache_data(ttl=300)
 def load_all():
     pay  = pd.read_csv(f"{DATA}/payment.csv",           parse_dates=["Created At"])
     inv  = pd.read_csv(f"{DATA}/invoice.csv",           parse_dates=["Created At", "Due Date"])
@@ -243,6 +244,15 @@ all_years     = sorted(inv["Created At"].dt.year.dropna().unique().astype(int).t
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
 def kpi_card(label, value, subtitle, color, badge="", badge_color=""):
+    v_str = str(value)
+    # Hide cards whose value is a plain zero (skip percentage cards — 0% is meaningful)
+    if "%" not in v_str:
+        v_clean = v_str.replace("GHS", "").replace(",", "").replace(" ", "").strip()
+        try:
+            if float(v_clean) == 0:
+                return ""
+        except (ValueError, TypeError):
+            pass
     badge_html = f'<span class="kpi-badge" style="background:{badge_color}22;color:{badge_color}">{badge}</span>' if badge else ""
     return f"""
     <div class="kpi-card" style="border-top-color:{color}">
@@ -250,6 +260,13 @@ def kpi_card(label, value, subtitle, color, badge="", badge_color=""):
         <div class="kpi-value">{value}</div>
         <div class="kpi-sub">{subtitle}</div>
     </div>"""
+
+def kpi_grid(html, max_cols=4):
+    n = html.count('class="kpi-card"')
+    if n == 0:
+        return ""
+    cols = min(n, max_cols)
+    return f'<div class="kpi-grid" style="grid-template-columns:repeat({cols},1fr)">{html}</div>'
 
 def chart_wrap(title, subtitle=""):
     sub = f'<div class="chart-sub">{subtitle}</div>' if subtitle else ""
@@ -318,6 +335,40 @@ with st.sidebar:
         if st.button(item, key=f"nav_{item}", use_container_width=True, type=kind):
             st.session_state["active_page"] = item
             st.rerun()
+
+    # ── Auto-refresh: re-fetches data from disk every 5 minutes ─────────────────
+    @st.fragment(run_every=300)
+    def _auto_refresh():
+        ts_file = os.path.join(DATA, "last_updated.txt")
+        ts_text = ""
+        if os.path.exists(ts_file):
+            try:
+                with open(ts_file, encoding="utf-8") as f:
+                    ts_text = f.read().strip()
+            except Exception:
+                pass
+        label = f"Live · updated {ts_text}" if ts_text else "Live · auto-refresh on"
+        st.markdown(
+            f'<div style="color:rgba(255,255,255,0.55);font-size:11px;'
+            f'padding:10px 16px 6px;border-top:1px solid rgba(255,255,255,0.1);margin-top:6px">'
+            f'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;'
+            f'background:#4ade80;margin-right:5px;vertical-align:middle"></span>'
+            f'{label}</div>',
+            unsafe_allow_html=True,
+        )
+        # On the initial page render, just record the baseline — don't trigger a rerun.
+        if not st.session_state.get("_refresh_initialized"):
+            st.session_state["_refresh_initialized"] = True
+            return
+        # On the full-page rerun we ourselves triggered, skip to avoid a loop.
+        if st.session_state.pop("_refresh_triggered", False):
+            return
+        # Timer-fired run: clear the data cache and reload the page.
+        st.session_state["_refresh_triggered"] = True
+        st.cache_data.clear()
+        st.rerun()
+
+    _auto_refresh()
 
 
 page = st.session_state["active_page"]
@@ -427,7 +478,7 @@ if page == "Overview":
            kpi_card("Outstanding",    f"GHS {outstanding_val:,.0f}", f"{outstanding_pct:.1f}% outstanding",  "#dc2626",
                     f"{outstanding_pct:.1f}%","#dc2626") + \
            kpi_card("Basket Size (AOV)",f"GHS {avg_order_value:,.0f}","Avg order value",                    "#f59e0b")
-    st.markdown(f'<div class="kpi-grid">{row1}</div>', unsafe_allow_html=True)
+    st.markdown(kpi_grid(row1), unsafe_allow_html=True)
 
     # Row 2 — MERL KPIs
     st.markdown("<div style='font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6366f1;margin:16px 0 6px'>MERL Performance Indicators</div>", unsafe_allow_html=True)
@@ -442,7 +493,7 @@ if page == "Overview":
            kpi_card("Reconciliation Rate", f"{recon_rate:.1f}%",
                     "Orders matched to payments", "#4f46e5",
                     f"{recon_rate:.0f}%","#4f46e5")
-    st.markdown(f'<div class="kpi-grid">{row2}</div>', unsafe_allow_html=True)
+    st.markdown(kpi_grid(row2), unsafe_allow_html=True)
 
     row3 = kpi_card("Top-5 Revenue Conc.", f"{rev_top5:.1f}%",
                     f"GHS {rev_top5/100*total_invoiced:,.0f} from top 5", "#f97316") + \
@@ -453,7 +504,7 @@ if page == "Overview":
                     f"{active_pct:.0f}%","#3b82f6") + \
            kpi_card("High-Freq Small Orders", f"{hfso_rate:.1f}%",
                     f"Orders ≤ GHS {low_thresh:,.0f}", "#9ca3af")
-    st.markdown(f'<div class="kpi-grid">{row3}</div>', unsafe_allow_html=True)
+    st.markdown(kpi_grid(row3), unsafe_allow_html=True)
 
     col1, col2 = st.columns([3, 2])
 
@@ -546,7 +597,7 @@ elif page == "Sales Performance":
     r1 = kpi_card("Total Sales", f"GHS {inv_f['Total Order Value'].sum():,.0f}", "Sales in period", "#4f46e5") + \
          kpi_card("Total Orders", f"{len(inv_f):,}", "In selected period", "#14b8a6") + \
          kpi_card("Avg Sale Value", f"GHS {inv_f['Total Order Value'].mean():,.0f}", "Per order", "#f59e0b")
-    st.markdown(f'<div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">{r1}</div>', unsafe_allow_html=True)
+    st.markdown(kpi_grid(r1, max_cols=3), unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
     with col1:
@@ -643,14 +694,14 @@ elif page == "Customers":
                   f"{rep_rate:.0f}%","#16a34a") + \
          kpi_card("Avg Orders/Customer", f"{len(inv_y)/act_c:.1f}" if act_c else ",",
                   f"{act_c} active ordering customers", "#f59e0b")
-    st.markdown(f'<div class="kpi-grid">{r1}</div>', unsafe_allow_html=True)
+    st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
     r2 = kpi_card("Total Registered",  f"{total_customers:,}", "All GH customers",  "#4f46e5") + \
          kpi_card("Active (Status)",   f"{active_customers}",  f"{active_pct:.1f}% of total", "#16a34a",
                   f"{active_pct:.0f}%","#16a34a") + \
          kpi_card("Inactive",          f"{inactive}",          f"{100-active_pct:.1f}% of total","#dc2626") + \
          kpi_card("Ordering Customers",f"{act_c}",             f"Placed orders in {yr}", "#3b82f6")
-    st.markdown(f'<div class="kpi-grid">{r2}</div>', unsafe_allow_html=True)
+    st.markdown(kpi_grid(r2), unsafe_allow_html=True)
 
     top_cust = top_cust_y.head(10).copy()
     top_cust.columns = ["Customer", "Total Value"]
@@ -725,7 +776,7 @@ elif page == "Payments":
                   "#dc2626", f"{outstanding_pct_y:.1f}%", "#dc2626") + \
          kpi_card("Successful Payments", f"{success_pay_y.shape[0]:,}", "Transactions", "#4f46e5") + \
          kpi_card("Avg Payment",         f"GHS {rep_y['Amount'].mean():,.0f}", "Per repayment", "#f97316")
-    st.markdown(f'<div class="kpi-grid">{r1}</div>', unsafe_allow_html=True)
+    st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
     with col1:
@@ -807,7 +858,7 @@ elif page == "Weekly Scorecard":
          kpi_card("Overdue Invoices",    f"{len(overdue_inv):,}",
                   "Requiring follow-up", "#dc2626",
                   f"{len(overdue_inv)}", "#dc2626")
-    st.markdown(f'<div class="kpi-grid">{r1}</div>', unsafe_allow_html=True)
+    st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
     col1, col2 = st.columns([3, 2])
     with col1:
@@ -850,7 +901,7 @@ elif page == "Weekly Scorecard":
         st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown(chart_wrap("Weekly Breakdown", "Orders, invoiced value and collections per week — 2026 YTD"), unsafe_allow_html=True)
+    st.markdown(chart_wrap("Weekly Breakdown", "Orders, invoiced value and collections per week"), unsafe_allow_html=True)
     weekly_inv = (inv_y.groupby("Week")
                        .agg(Orders=("ID","count"), Invoice_Total=("Total Order Value","sum"))
                        .reset_index())
@@ -861,13 +912,19 @@ elif page == "Weekly Scorecard":
     weekly_tbl["Sales_Collected"] = weekly_tbl["Sales_Collected"].fillna(0)
     weekly_tbl["Collection Rate"] = weekly_tbl.apply(
         lambda r: f"{r['Sales_Collected']/r['Invoice_Total']*100:.1f}%" if r["Invoice_Total"] > 0 else "0.0%", axis=1)
-    weekly_tbl["Invoice Total (GHS)"]   = weekly_tbl["Invoice_Total"].apply(lambda x: f"GHS {x:,.0f}")
+    weekly_tbl["Value GHS"]             = weekly_tbl["Invoice_Total"].apply(lambda x: f"GHS {x:,.0f}")
     weekly_tbl["Sales Collected (GHS)"] = weekly_tbl["Sales_Collected"].apply(lambda x: f"GHS {x:,.0f}")
-    weekly_tbl = weekly_tbl.rename(columns={"Week":"Week","Orders":"Orders"})[
-        ["Week","Orders","Invoice Total (GHS)","Sales Collected (GHS)","Collection Rate"]
-    ].sort_values("Week", ascending=False).reset_index(drop=True)
-    weekly_tbl.index = pd.RangeIndex(1, len(weekly_tbl)+1)
-    st.dataframe(weekly_tbl, use_container_width=True)
+
+    # Week start date (e.g. "5-Jan-2026") and ISO week number (continuous across the year)
+    _wk_starts = weekly_tbl["Week"].apply(lambda w: pd.Period(w, freq="W").start_time)
+    weekly_tbl["Date"]        = _wk_starts.apply(lambda d: f"{d.day}-{d.strftime('%b-%Y')}")
+    weekly_tbl["Week Number"] = _wk_starts.apply(lambda d: int(d.isocalendar()[1]))
+
+    weekly_tbl = (weekly_tbl
+        .sort_values("Week", ascending=False)
+        [["Date", "Week Number", "Orders", "Value GHS", "Sales Collected (GHS)", "Collection Rate"]]
+        .reset_index(drop=True))
+    st.dataframe(weekly_tbl, use_container_width=True, hide_index=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown(chart_wrap("Overdue Invoice Exceptions", "Invoices requiring immediate follow-up"), unsafe_allow_html=True)
@@ -915,7 +972,7 @@ elif page == "Reconciliation":
                   "No repayment record", "#dc2626") + \
          kpi_card("Unreconciled Value", f"GHS {unmatched_val:,.0f}",
                   "Awaiting payment", "#f59e0b")
-    st.markdown(f'<div class="kpi-grid">{r1}</div>', unsafe_allow_html=True)
+    st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
     with col1:
@@ -1027,7 +1084,7 @@ elif page == "Data Quality":
                   "Fields above 90% complete", "#16a34a") + \
          kpi_card("Tables Audited",   "3",
                   "Invoice, Customer, Payment", "#f59e0b")
-    st.markdown(f'<div class="kpi-grid">{r1}</div>', unsafe_allow_html=True)
+    st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
     def completeness_bar(fields_dict, height=320):
         df = pd.DataFrame({"Field": list(fields_dict.keys()),
@@ -1113,7 +1170,7 @@ elif page == "Reliability":
          kpi_card("Request Complete Rate",
                   f"{req_rate:.1f}%",
                   f"{completed_req:,}/{total_req:,} completed", "#14b8a6")
-    st.markdown(f'<div class="kpi-grid">{r1}</div>', unsafe_allow_html=True)
+    st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
     st.markdown(chart_wrap("Fulfillment Request Status"), unsafe_allow_html=True)
     irf_s = irf["Fulfillment Status"].value_counts().reset_index()
@@ -1184,7 +1241,7 @@ elif page == "Segmentation":
                   "Share from top 5 customers", "#f97316") + \
          kpi_card("High-Freq Small Orders",f"{hfso_pct:.1f}%",
                   f"Orders ≤ GHS {low_thresh:,.0f}", "#dc2626")
-    st.markdown(f'<div class="kpi-grid">{r1}</div>', unsafe_allow_html=True)
+    st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
     seg_colors = {"Provider":"#4f46e5","Agrovet":"#14b8a6","Hatchery":"#f59e0b","Unclassified":"#9ca3af"}
 
@@ -1287,7 +1344,7 @@ elif page == "Campaigns":
                   "Finished campaigns", "#14b8a6") + \
          kpi_card("Programme Span",  f"{span_days} days",
                   span_label, "#f59e0b")
-    st.markdown(f'<div class="kpi-grid">{r1}</div>', unsafe_allow_html=True)
+    st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
     st.markdown(chart_wrap("Campaign Timeline", "Pre-order campaign periods and status"), unsafe_allow_html=True)
     camp_colors = {"Active":"#16a34a","Completed":"#4f46e5","Cancelled":"#dc2626","Unknown":"#9ca3af"}

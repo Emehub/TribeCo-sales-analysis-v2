@@ -1,0 +1,61 @@
+2026-05-21 19:54:31  INFO  ============================================================
+2026-05-21 19:54:31  INFO  CowTribe Data Updater — refresh every 5 minutes
+2026-05-21 19:54:31  INFO    Data dir : D:\company-dashboard\data
+2026-05-21 19:54:31  INFO    Log file : D:\company-dashboard\logs\updater.log
+2026-05-21 19:54:31  INFO  ============================================================
+2026-05-21 19:54:31  INFO  --- Starting refresh cycle ---
+2026-05-21 19:56:07  INFO    No new entries detected across all tables.
+2026-05-21 19:56:07  INFO    Timestamp written: 19:56  21 May 2026
+2026-05-21 19:56:07  INFO  --- Done. Sleeping 5 min before next cycle ---
+
+2026-05-21 20:01:07  INFO  --- Starting refresh cycle ---
+2026-05-21 20:02:44  INFO    No new entries detected across all tables.
+2026-05-21 20:02:44  INFO    Timestamp written: 20:02  21 May 2026
+2026-05-21 20:02:44  INFO  --- Done. Sleeping 5 min before next cycle ---
+
+2026-05-21 20:07:44  INFO  --- Starting refresh cycle ---
+2026-05-21 20:09:16  INFO    No new entries detected across all tables.
+2026-05-21 20:09:16  INFO    Timestamp written: 20:09  21 May 2026
+2026-05-21 20:09:16  INFO  --- Done. Sleeping 5 min before next cycle ---
+
+2026-05-21 20:14:16  INFO  --- Starting refresh cycle ---
+2026-05-21 20:15:54  INFO    No new entries detected across all tables.
+2026-05-21 20:15:54  INFO    Timestamp written: 20:15  21 May 2026
+2026-05-21 20:15:54  INFO  --- Done. Sleeping 5 min before next cycle ---
+
+2026-05-21 20:20:54  INFO  --- Starting refresh cycle ---
+2026-05-21 20:22:40  INFO    No new entries detected across all tables.
+2026-05-21 20:22:40  INFO    Timestamp written: 20:22  21 May 2026
+2026-05-21 20:22:40  INFO  --- Done. Sleeping 5 min before next cycle ---
+
+2026-05-21 20:27:40  INFO  --- Starting refresh cycle ---
+2026-05-21 20:29:41  INFO    No new entries detected across all tables.
+2026-05-21 20:29:41  INFO    Timestamp written: 20:29  21 May 2026
+2026-05-21 20:29:41  INFO  --- Done. Sleeping 5 min before next cycle ---
+
+2026-05-21 20:34:41  INFO  --- Starting refresh cycle ---
+2026-05-21 20:36:43  INFO    No new entries detected across all tables.
+2026-05-21 20:36:43  INFO    Timestamp written: 20:36  21 May 2026
+2026-05-21 20:36:43  INFO  --- Done. Sleeping 5 min before next cycle ---
+
+2026-05-21 20:41:43  INFO  --- Starting refresh cycle ---
+2026-05-21 20:43:43  INFO    No new entries detected across all tables.
+2026-05-21 20:43:43  INFO    Timestamp written: 20:43  21 May 2026
+2026-05-21 20:43:43  INFO  --- Done. Sleeping 5 min before next cycle ---
+
+2026-05-21 20:48:43  INFO  --- Starting refresh cycle ---
+2026-05-21 20:50:36  INFO    No new entries detected across all tables.
+2026-05-21 20:50:36  INFO    Timestamp written: 20:50  21 May 2026
+2026-05-21 20:50:36  INFO  --- Done. Sleeping 5 min before next cycle ---
+
+2026-05-21 20:55:36  INFO  --- Starting refresh cycle ---
+2026-05-21 20:57:44  INFO    No new entries detected across all tables.
+2026-05-21 20:57:44  INFO    Timestamp written: 20:57  21 May 2026
+2026-05-21 20:57:44  INFO  --- Done. Sleeping 5 min before next cycle ---
+
+2026-05-21 21:02:44  INFO  --- Starting refresh cycle ---
+2026-05-21 21:03:22  WARNING    Skipped table 'event': [Errno 22] Invalid argument: 'd:/company-dashboard/data/event.csv'
+2026-05-21 21:04:43  INFO    No new entries detected across all tables.
+2026-05-21 21:04:43  INFO    Timestamp written: 21:04  21 May 2026
+2026-05-21 21:04:43  INFO  --- Done. Sleeping 5 min before next cycle ---
+
