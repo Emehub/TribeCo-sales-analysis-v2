@@ -821,6 +821,21 @@ elif page == "Customers":
     st.dataframe(lb, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
+    st.markdown(chart_wrap("Active Customers Directory", f"All {active_customers} active registered customers"), unsafe_allow_html=True)
+    dir_df = rc[rc["Status"] == "Active"][[
+        "Name", "Segment Type", "Customer Address → Region",
+        "Phone Number", "Created At"
+    ]].copy()
+    dir_df["Created At"] = pd.to_datetime(dir_df["Created At"], errors="coerce").dt.strftime("%d %b %Y")
+    dir_df = dir_df.rename(columns={
+        "Customer Address → Region": "Region",
+        "Phone Number":              "Phone",
+        "Created At":                "Date Joined",
+    }).sort_values("Name").reset_index(drop=True)
+    dir_df.index = pd.RangeIndex(1, len(dir_df) + 1)
+    st.dataframe(dir_df, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
 
 # ══════════════════════════════════════════════════════════════════════════════════
 # PAGE — PAYMENTS
