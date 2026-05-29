@@ -500,7 +500,7 @@ if page == "Overview":
            kpi_card("Top-10 Revenue Conc.", f"{rev_top10:.1f}%",
                     f"GHS {rev_top10/100*total_invoiced:,.0f} from top 10","#dc2626") + \
            kpi_card("Active Customers",    f"{active_customers}",
-                    f"of {total_customers} GH registered", "#3b82f6",
+                    f"of {total_customers} registered", "#3b82f6",
                     f"{active_pct:.0f}%","#3b82f6") + \
            kpi_card("High-Freq Small Orders", f"{hfso_rate:.1f}%",
                     f"Orders ≤ GHS {low_thresh:,.0f}", "#9ca3af")
@@ -696,7 +696,7 @@ elif page == "Customers":
                   f"{act_c} active ordering customers", "#f59e0b")
     st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
-    r2 = kpi_card("Total Registered",  f"{total_customers:,}", "All GH customers",  "#4f46e5") + \
+    r2 = kpi_card("Total Registered",  f"{total_customers:,}", "All customers",  "#4f46e5") + \
          kpi_card("Active (Status)",   f"{active_customers}",  f"{active_pct:.1f}% of total", "#16a34a",
                   f"{active_pct:.0f}%","#16a34a") + \
          kpi_card("Inactive",          f"{inactive}",          f"{100-active_pct:.1f}% of total","#dc2626") + \
