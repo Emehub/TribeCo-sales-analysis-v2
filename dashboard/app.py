@@ -826,12 +826,14 @@ elif page == "Customers":
         "Name", "Segment Type", "Customer Address → Region",
         "Phone Number", "Created At"
     ]].copy()
-    dir_df["Created At"] = pd.to_datetime(dir_df["Created At"], errors="coerce").dt.strftime("%d %b %Y")
+    dir_df["Created At"] = pd.to_datetime(dir_df["Created At"], errors="coerce")
+    dir_df = dir_df.sort_values("Created At", ascending=True).reset_index(drop=True)
+    dir_df["Created At"] = dir_df["Created At"].dt.strftime("%d %b %Y")
     dir_df = dir_df.rename(columns={
         "Customer Address → Region": "Region",
         "Phone Number":              "Phone",
         "Created At":                "Date Joined",
-    }).sort_values("Name").reset_index(drop=True)
+    })
     dir_df.index = pd.RangeIndex(1, len(dir_df) + 1)
     st.dataframe(dir_df, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
