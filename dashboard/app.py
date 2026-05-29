@@ -3,7 +3,9 @@ CowTribe Sales Dashboard
 Run: python -m streamlit run d:/company-dashboard/dashboard/app.py
 """
 import os
+import sys
 import time
+import requests
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -20,6 +22,40 @@ st.set_page_config(
 
 DATA      = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 CHART_CFG = {"displayModeBar": False}
+
+# ── Metabase connection ──────────────────────────────────────────────────────────
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import METABASE_CONFIG
+
+_MB_BASE    = METABASE_CONFIG["url"]
+_MB_DB_NAME = METABASE_CONFIG.get("dbname", "tribecodb")
+
+def _mb_login():
+    r = requests.post(
+        f"{_MB_BASE}/api/session",
+        json={"username": METABASE_CONFIG["username"], "password": METABASE_CONFIG["password"]},
+        timeout=15,
+    )
+    r.raise_for_status()
+    return r.json()["id"]
+
+def _mb_fetch(token, db_id, table_id, parse_dates=None):
+    r = requests.post(
+        f"{_MB_BASE}/api/dataset",
+        headers={"X-Metabase-Session": token},
+        json={"database": db_id, "type": "query", "query": {"source-table": table_id}},
+        timeout=120,
+    )
+    if r.status_code != 202:
+        raise RuntimeError(f"Metabase {r.status_code}")
+    data = r.json().get("data", {})
+    cols = [c.get("display_name", c.get("name")) for c in data.get("cols", [])]
+    df   = pd.DataFrame(data.get("rows", []), columns=cols)
+    if parse_dates:
+        for col in parse_dates:
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col], errors="coerce")
+    return df
 
 # ── Global CSS ───────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -161,18 +197,51 @@ footer { display: none !important; }
 
 
 # ── Data loader ─────────────────────────────────────────────────────────────────
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner="Fetching latest data from Metabase...")
 def load_all():
-    pay  = pd.read_csv(f"{DATA}/payment.csv",           parse_dates=["Created At"])
-    inv  = pd.read_csv(f"{DATA}/invoice.csv",           parse_dates=["Created At", "Due Date"])
-    rep  = pd.read_csv(f"{DATA}/repayment.csv",         parse_dates=["Created At"])
-    rc   = pd.read_csv(f"{DATA}/retail_centre.csv")
-    prod = pd.read_csv(f"{DATA}/product.csv")
-    il   = pd.read_csv(f"{DATA}/invoice_line.csv")
-    ir   = pd.read_csv(f"{DATA}/inventory_request.csv", parse_dates=["Created At"])
-    ibv  = pd.read_csv(f"{DATA}/inventory_balances_view.csv")
-    camp = pd.read_csv(f"{DATA}/preorder_campaign.csv")
-    irf  = pd.read_csv(f"{DATA}/inventory_request_fulfillment.csv")
+    def _from_csv():
+        return (
+            pd.read_csv(f"{DATA}/payment.csv",                    parse_dates=["Created At"]),
+            pd.read_csv(f"{DATA}/invoice.csv",                    parse_dates=["Created At", "Due Date"]),
+            pd.read_csv(f"{DATA}/repayment.csv",                  parse_dates=["Created At"]),
+            pd.read_csv(f"{DATA}/retail_centre.csv"),
+            pd.read_csv(f"{DATA}/product.csv"),
+            pd.read_csv(f"{DATA}/invoice_line.csv"),
+            pd.read_csv(f"{DATA}/inventory_request.csv",          parse_dates=["Created At"]),
+            pd.read_csv(f"{DATA}/inventory_balances_view.csv"),
+            pd.read_csv(f"{DATA}/preorder_campaign.csv"),
+            pd.read_csv(f"{DATA}/inventory_request_fulfillment.csv"),
+        )
+
+    try:
+        token = _mb_login()
+        hdrs  = {"X-Metabase-Session": token}
+
+        dbs   = requests.get(f"{_MB_BASE}/api/database", headers=hdrs, timeout=10).json()
+        dbs   = dbs.get("data", dbs)
+        db_id = next(d["id"] for d in dbs if d["name"].lower() == _MB_DB_NAME.lower())
+
+        meta      = requests.get(f"{_MB_BASE}/api/database/{db_id}/metadata", headers=hdrs, timeout=15).json()
+        tmap      = {t["name"]: t["id"] for t in meta.get("tables", [])}
+
+        def fetch(name, parse_dates=None):
+            if name not in tmap:
+                raise KeyError(name)
+            return _mb_fetch(token, db_id, tmap[name], parse_dates)
+
+        pay  = fetch("payment",                       ["Created At"])
+        inv  = fetch("invoice",                       ["Created At", "Due Date"])
+        rep  = fetch("repayment",                     ["Created At"])
+        rc   = fetch("retail_centre")
+        prod = fetch("product")
+        il   = fetch("invoice_line")
+        ir   = fetch("inventory_request",             ["Created At"])
+        ibv  = fetch("inventory_balances_view")
+        camp = fetch("preorder_campaign")
+        irf  = fetch("inventory_request_fulfillment")
+
+    except Exception:
+        pay, inv, rep, rc, prod, il, ir, ibv, camp, irf = _from_csv()
 
     # ── Filter everything to Ghana (GH) ──────────────────────────────────────────
     inv  = inv[inv["Country Code"] == "GH"].copy()
