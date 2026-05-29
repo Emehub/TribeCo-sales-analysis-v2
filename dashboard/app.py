@@ -23,15 +23,14 @@ DATA      = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 CHART_CFG = {"displayModeBar": False}
 
 # ── Metabase connection ──────────────────────────────────────────────────────────
-_MB_BASE    = "http://35.241.44.217"
-_MB_DB_NAME = "tribecodb"
-_MB_USER    = "theophilus.asante@cowtribe.com"
-_MB_PASS    = "***REMOVED***"
+_MB_CFG     = st.secrets["metabase"]
+_MB_BASE    = _MB_CFG["url"]
+_MB_DB_NAME = _MB_CFG.get("dbname", "tribecodb")
 
 def _mb_login():
     r = requests.post(
         f"{_MB_BASE}/api/session",
-        json={"username": _MB_USER, "password": _MB_PASS},
+        json={"username": _MB_CFG["username"], "password": _MB_CFG["password"]},
         timeout=15,
     )
     r.raise_for_status()

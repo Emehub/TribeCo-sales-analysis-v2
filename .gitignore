@@ -1,5 +1,6 @@
 # Credentials — never commit
 config.py
+.streamlit/secrets.toml
 
 # Raw exports
 exports/
