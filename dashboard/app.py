@@ -3,7 +3,6 @@ CowTribe Sales Dashboard
 Run: python -m streamlit run d:/company-dashboard/dashboard/app.py
 """
 import os
-import sys
 import time
 import requests
 import streamlit as st
@@ -24,16 +23,15 @@ DATA      = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 CHART_CFG = {"displayModeBar": False}
 
 # ── Metabase connection ──────────────────────────────────────────────────────────
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import METABASE_CONFIG
-
-_MB_BASE    = METABASE_CONFIG["url"]
-_MB_DB_NAME = METABASE_CONFIG.get("dbname", "tribecodb")
+_MB_BASE    = "http://35.241.44.217"
+_MB_DB_NAME = "tribecodb"
+_MB_USER    = "theophilus.asante@cowtribe.com"
+_MB_PASS    = "***REMOVED***"
 
 def _mb_login():
     r = requests.post(
         f"{_MB_BASE}/api/session",
-        json={"username": METABASE_CONFIG["username"], "password": METABASE_CONFIG["password"]},
+        json={"username": _MB_USER, "password": _MB_PASS},
         timeout=15,
     )
     r.raise_for_status()
