@@ -272,40 +272,105 @@ def load_all():
     irf["Fulfillment Status"] = irf["Status"].map({0:"Pending",1:"Processing",2:"Failed",3:"Fulfilled",4:"Cancelled"}).fillna("Unknown")
 
     rc_names = rc[["ID","Name","Status","Country Code"]].copy()
-    return pay, inv, rep, rc, prod, il, ir, prod_rev, rc_names, ibv, camp, irf
 
-pay, inv, rep, rc, prod, il, ir, prod_rev, rc_names, ibv, camp, irf = load_all()
+    # ── Canonical base filter — FBC stock orders, status 3/5/7, not BufferPesa ────
+    ir_fbc = ir[
+        (ir["Channel"] != "BufferPesa") &
+        (ir["Fulfillment Type"] != 3) &
+        (ir["Request Type"] == 0) &
+        (ir["Status"].isin([3, 5, 7]))
+    ].copy()
+
+    valid_ir_ids = set(ir_fbc["ID"].dropna())
+
+    # Invoice-side FBC filter — primary scope for all revenue/KPI calculations.
+    # invoice.order_type=1 (InventoryOrder) + channel!='BufferPesa' is sufficient
+    # to identify FBC stock orders directly from the invoice table.
+    # The IR status join (status IN 3,5,7) is applied when IR data is current;
+    # fall back to invoice-only when the IR CSV is stale (newest inv > newest ir).
+    inv_fbc_ids = set(inv[
+        (inv["Order Type"] == 1) &
+        (inv["Channel"] != "BufferPesa")
+    ]["ID"].dropna())
+
+    ir_newest   = ir["Created At"].max() if len(ir) else pd.Timestamp("2000-01-01")
+    inv_newest  = inv["Created At"].max()
+    ir_is_current = (inv_newest - ir_newest).days < 30
+
+    if ir_is_current:
+        inv_scoped = inv[
+            inv["Order ID"].isin(valid_ir_ids) &
+            (inv["Order Type"] == 1) &
+            (inv["Channel"] != "BufferPesa")
+        ].copy()
+    else:
+        inv_scoped = inv[
+            (inv["Order Type"] == 1) &
+            (inv["Channel"] != "BufferPesa")
+        ].copy()
+
+    # Revenue: use Discountedvalue when populated, fall back to Total Order Value
+    inv_scoped["Discountedvalue"] = pd.to_numeric(inv_scoped["Discountedvalue"], errors="coerce").fillna(0)
+    _tov = pd.to_numeric(inv_scoped["Total Order Value"], errors="coerce").fillna(0)
+    inv_scoped["Discountedvalue"] = inv_scoped["Discountedvalue"].where(
+        inv_scoped["Discountedvalue"] > 0, _tov
+    )
+    inv_scoped["Totalrepaid"] = pd.to_numeric(inv_scoped["Totalrepaid"], errors="coerce").fillna(0)
+    inv_scoped["Outstanding"] = (inv_scoped["Discountedvalue"] - inv_scoped["Totalrepaid"]).clip(lower=0)
+    inv_scoped["Month"] = inv_scoped["Created At"].dt.to_period("M").astype(str)
+    inv_scoped["Week"]  = inv_scoped["Created At"].dt.to_period("W").astype(str)
+
+    # Repayments: scope to all FBC GH invoice IDs + Confirmed status
+    rep_scoped = rep[
+        rep["Invoice ID"].isin(inv_fbc_ids) &
+        (rep["Status"] == "Confirmed")
+    ].copy()
+
+    # ir_all_fbc: FBC-scoped ir with all non-cancelled statuses (for reliability page)
+    ir_all_fbc = ir[
+        (ir["Channel"] != "BufferPesa") &
+        (ir["Fulfillment Type"] != 3) &
+        (ir["Request Type"] == 0) &
+        (ir["Status"] != 4)
+    ].copy()
+    ir_all_fbc["Fulfillment Label"] = ir_all_fbc["Status"].map({
+        0: "Not Started", 1: "Scheduled", 2: "In Progress",
+        3: "Completed",   5: "Completed", 7: "Completed",
+    }).fillna("Unknown")
+
+    return pay, inv, rep, rc, prod, il, ir, prod_rev, rc_names, ibv, camp, irf, inv_scoped, rep_scoped, ir_all_fbc
+
+pay, inv, rep, rc, prod, il, ir, prod_rev, rc_names, ibv, camp, irf, inv_scoped, rep_scoped, ir_all_fbc = load_all()
 
 # ── Metrics ──────────────────────────────────────────────────────────────────────
-success_pay      = pay[pay["Payment Status"] == "Success"]
-total_revenue    = success_pay["Amount"].sum()
-total_invoiced   = inv["Total Order Value"].sum()
-total_repaid     = rep["Amount"].sum()
+total_invoiced   = inv_scoped["Discountedvalue"].sum()
+total_revenue    = total_invoiced
+total_repaid     = rep_scoped["Amount"].sum()
 collection_pct   = (total_repaid / total_invoiced * 100) if total_invoiced > 0 else 0
 outstanding_pct  = 100 - collection_pct
-outstanding_val  = total_invoiced - total_repaid
-avg_order_value  = inv["Total Order Value"].mean()
-total_orders     = len(inv)
+outstanding_val  = inv_scoped["Outstanding"].sum()
+avg_order_value  = inv_scoped["Discountedvalue"].mean()
+total_orders     = len(inv_scoped)
 active_customers = rc[rc["Status"] == "Active"].shape[0]
 total_customers  = len(rc)
 active_pct       = active_customers / total_customers * 100 if total_customers else 0
-completed_ir     = ir[ir["Request Status"] == "Completed"].shape[0]
-total_ir         = len(ir)
+completed_ir     = ir_all_fbc[ir_all_fbc["Status"].isin([3, 5, 7])].shape[0]
+total_ir         = len(ir_all_fbc)
 fulfillment_rate = completed_ir / total_ir * 100 if total_ir > 0 else 0
 inactive         = total_customers - active_customers
 
 top_cust_row = (inv.merge(rc_names, left_on="Customer ID", right_on="ID", how="left")
-                   .groupby("Name")["Total Order Value"].sum()
+                   .groupby("Name")["Discountedvalue"].sum()
                    .sort_values(ascending=False).reset_index())
 top_cust_name = top_cust_row.iloc[0]["Name"] if len(top_cust_row) else ","
-top_cust_val  = top_cust_row.iloc[0]["Total Order Value"] if len(top_cust_row) else 0
+top_cust_val  = top_cust_row.iloc[0]["Discountedvalue"] if len(top_cust_row) else 0
 
 latest_date   = inv["Created At"].max()
 date_label    = latest_date.strftime("%b %Y") if pd.notna(latest_date) else "N/A"
 oldest_date   = inv["Created At"].min()
 date_range    = f"{oldest_date.strftime('%b %Y')}, {latest_date.strftime('%b %Y')}" if pd.notna(oldest_date) else date_label
 
-all_years     = sorted(inv["Created At"].dt.year.dropna().unique().astype(int).tolist())
+all_years     = sorted(inv_scoped["Created At"].dt.year.dropna().unique().astype(int).tolist())
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
@@ -468,23 +533,23 @@ st.markdown(f"""
 # ══════════════════════════════════════════════════════════════════════════════════
 if page == "Overview":
     yr    = year_filter("yr_overview")
-    inv_y = apply_year(inv, yr)
+    inv_y = apply_year(inv_scoped, yr)
     pay_y = apply_year(pay, yr)
-    rep_y = apply_year(rep, yr)
+    rep_y = apply_year(rep_scoped, yr)
 
-    total_invoiced   = inv_y["Total Order Value"].sum()
+    total_invoiced   = inv_y["Discountedvalue"].sum()
     total_revenue    = total_invoiced
     total_repaid     = rep_y["Amount"].sum()
     collection_pct   = (total_repaid / total_invoiced * 100) if total_invoiced > 0 else 0
     outstanding_pct  = 100 - collection_pct
-    outstanding_val  = total_invoiced - total_repaid
-    avg_order_value  = inv_y["Total Order Value"].mean() if len(inv_y) else 0
+    outstanding_val  = inv_y["Outstanding"].sum()
+    avg_order_value  = inv_y["Discountedvalue"].mean() if len(inv_y) else 0
     total_orders     = len(inv_y)
     top_cust_y       = (inv_y.merge(rc_names, left_on="Customer ID", right_on="ID", how="left")
-                              .groupby("Name")["Total Order Value"].sum()
+                              .groupby("Name")["Discountedvalue"].sum()
                               .sort_values(ascending=False).reset_index())
     top_cust_name    = top_cust_y.iloc[0]["Name"] if len(top_cust_y) else ","
-    top_cust_val     = top_cust_y.iloc[0]["Total Order Value"] if len(top_cust_y) else 0
+    top_cust_val     = top_cust_y.iloc[0]["Discountedvalue"] if len(top_cust_y) else 0
 
     # ── MERL KPIs ────────────────────────────────────────────────────────────────
     rc_all = rc.copy()
@@ -495,7 +560,7 @@ if page == "Overview":
     # Activation Rate (90d): new partners who placed first order within 90 days
     new_ids = set(new_partners_y["ID"].dropna())
     if new_ids and len(new_partners_y):
-        first_ord = (inv[inv["Customer ID"].isin(new_ids)]
+        first_ord = (inv_scoped[inv_scoped["Customer ID"].isin(new_ids)]
                      .sort_values("Created At")
                      .groupby("Customer ID")["Created At"].first().reset_index()
                      .rename(columns={"Created At":"first_order"}))
@@ -522,18 +587,18 @@ if page == "Overview":
         repeat_custs, active_custs, repeat_rate = 0, 0, 0
 
     # Revenue concentration
-    cust_rev   = inv_y.groupby("Customer ID")["Total Order Value"].sum().sort_values(ascending=False)
+    cust_rev   = inv_y.groupby("Customer ID")["Discountedvalue"].sum().sort_values(ascending=False)
     rev_top5   = cust_rev.head(5).sum()  / total_invoiced * 100 if total_invoiced else 0
     rev_top10  = cust_rev.head(10).sum() / total_invoiced * 100 if total_invoiced else 0
 
     # Reconciliation rate
     inv_ids_y  = set(inv_y["ID"].dropna().astype(int))
-    rep_ids    = set(rep["Invoice ID"].dropna().astype(int))
+    rep_ids    = set(rep_scoped["Invoice ID"].dropna().astype(int))
     recon_rate = len(inv_ids_y & rep_ids) / len(inv_ids_y) * 100 if inv_ids_y else 0
 
     # High-frequency small orders (<= 25th percentile AOV)
-    low_thresh = inv_y["Total Order Value"].quantile(0.25) if len(inv_y) else 0
-    hfso_rate  = (inv_y["Total Order Value"] <= low_thresh).mean() * 100 if len(inv_y) else 0
+    low_thresh = inv_y["Discountedvalue"].quantile(0.25) if len(inv_y) else 0
+    hfso_rate  = (inv_y["Discountedvalue"] <= low_thresh).mean() * 100 if len(inv_y) else 0
 
     st.markdown("<div style='color:#6b7280;font-size:13px;margin-bottom:16px'>🇬🇭 Ghana operations &bull; Vaccine distribution &bull; MERL dashboard</div>", unsafe_allow_html=True)
 
@@ -572,25 +637,51 @@ if page == "Overview":
                     f"Orders ≤ GHS {low_thresh:,.0f}", "#9ca3af")
     st.markdown(kpi_grid(row3), unsafe_allow_html=True)
 
+    # ── Monthly revenue scorecard ─────────────────────────────────────────────────
+    _MONTH_NAMES = {"01":"January","02":"February","03":"March","04":"April",
+                    "05":"May","06":"June","07":"July","08":"August",
+                    "09":"September","10":"October","11":"November","12":"December"}
+    _MONTH_COLORS = ["#4f46e5","#6366f1","#8b5cf6","#3b82f6","#0ea5e9","#14b8a6"]
+    _m_rev = inv_y.groupby("Month")["Discountedvalue"].sum().reset_index().sort_values("Month")
+    _m_rev["prev"] = _m_rev["Discountedvalue"].shift(1)
+    _m_rev["pct"]  = ((_m_rev["Discountedvalue"] - _m_rev["prev"]) / _m_rev["prev"] * 100).round(1)
+    _month_html = ""
+    for _i, (_, _r) in enumerate(_m_rev.head(6).iterrows()):
+        _mo   = _r["Month"].split("-")[1] if "-" in str(_r["Month"]) else ""
+        _name = _MONTH_NAMES.get(_mo, _r["Month"])
+        _sub  = (f"+{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) and _r["pct"] >= 0
+                 else (f"{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) else "First month"))
+        _month_html += kpi_card(_name, f"GHS {_r['Discountedvalue']:,.0f}", _sub,
+                                _MONTH_COLORS[_i % 6])
+    if _month_html:
+        st.markdown(
+            "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
+            "letter-spacing:1px;color:#6366f1;margin:16px 0 6px'>Monthly Revenue</div>",
+            unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="kpi-grid" style="grid-template-columns:repeat({min(len(_m_rev),6)},1fr)">'
+            f'{_month_html}</div>',
+            unsafe_allow_html=True)
+
     col1, col2 = st.columns([3, 2])
 
     with col1:
         st.markdown(chart_wrap("Monthly Revenue Trend", f"GHS revenue by month ({date_range})"), unsafe_allow_html=True)
-        monthly = inv_y.groupby("Month")["Total Order Value"].sum().reset_index()
-        monthly["prev"] = monthly["Total Order Value"].shift(1)
-        monthly["pct"]  = (((monthly["Total Order Value"] - monthly["prev"]) / monthly["prev"]).astype(float) * 100).round(1)
+        monthly = inv_y.groupby("Month")["Discountedvalue"].sum().reset_index()
+        monthly["prev"] = monthly["Discountedvalue"].shift(1)
+        monthly["pct"]  = (((monthly["Discountedvalue"] - monthly["prev"]) / monthly["prev"]).astype(float) * 100).round(1)
 
         fig = go.Figure()
-        fig.add_bar(x=monthly["Month"], y=monthly["Total Order Value"],
+        fig.add_bar(x=monthly["Month"], y=monthly["Discountedvalue"],
                     marker_color="#4f46e5", name="Revenue (GHS)",
-                    text=monthly["Total Order Value"].apply(lambda x: f"{x/1000:.0f}k"),
+                    text=monthly["Discountedvalue"].apply(lambda x: f"{x/1000:.0f}k"),
                     textposition="outside", textfont=dict(size=10))
-        fig.add_scatter(x=monthly["Month"], y=monthly["Total Order Value"],
+        fig.add_scatter(x=monthly["Month"], y=monthly["Discountedvalue"],
                         mode="lines+markers", line=dict(color="#f59e0b", width=2.5, dash="dot"),
                         marker=dict(size=6, color="#f59e0b"), name="Trend")
         for _, row in monthly.dropna(subset=["pct"]).iterrows():
             clr = "#16a34a" if row["pct"] >= 0 else "#dc2626"
-            fig.add_annotation(x=row["Month"], y=row["Total Order Value"],
+            fig.add_annotation(x=row["Month"], y=row["Discountedvalue"],
                                text=f"{'+' if row['pct']>=0 else ''}{row['pct']:.0f}%",
                                showarrow=False, yshift=32, font=dict(size=10, color=clr))
         fig.update_layout(**white_layout(300),
@@ -600,9 +691,9 @@ if page == "Overview":
 
     with col2:
         st.markdown(chart_wrap("Sales by City", "Top Ghana cities by order value"), unsafe_allow_html=True)
-        city_sales = (inv_y.groupby("Customer City")["Total Order Value"]
+        city_sales = (inv_y.groupby("Customer City")["Discountedvalue"]
                            .sum().reset_index()
-                           .rename(columns={"Customer City":"City","Total Order Value":"Sales"})
+                           .rename(columns={"Customer City":"City","Discountedvalue":"Sales"})
                            .sort_values("Sales", ascending=False).head(8))
         city_sales = city_sales[city_sales["City"].notna() & (city_sales["City"] != "")]
         fig2 = px.pie(city_sales, names="City", values="Sales", hole=0.5,
@@ -654,30 +745,56 @@ if page == "Overview":
 # ══════════════════════════════════════════════════════════════════════════════════
 elif page == "Sales Performance":
     yr    = year_filter("yr_sales")
-    inv_y = apply_year(inv, yr)
+    inv_y = apply_year(inv_scoped, yr)
     months_available = sorted(inv_y["Month"].dropna().unique())
     selected = st.multiselect("Filter by Month", months_available,
                               default=months_available[-6:] if len(months_available) >= 6 else months_available)
     inv_f = inv_y[inv_y["Month"].isin(selected)] if selected else inv_y
 
-    r1 = kpi_card("Total Sales", f"GHS {inv_f['Total Order Value'].sum():,.0f}", "Sales in period", "#4f46e5") + \
+    r1 = kpi_card("Total Sales", f"GHS {inv_f['Discountedvalue'].sum():,.0f}", "Sales in period", "#4f46e5") + \
          kpi_card("Total Orders", f"{len(inv_f):,}", "In selected period", "#14b8a6") + \
-         kpi_card("Avg Sale Value", f"GHS {inv_f['Total Order Value'].mean():,.0f}", "Per order", "#f59e0b")
+         kpi_card("Avg Sale Value", f"GHS {inv_f['Discountedvalue'].mean():,.0f}", "Per order", "#f59e0b")
     st.markdown(kpi_grid(r1, max_cols=3), unsafe_allow_html=True)
+
+    # ── Monthly revenue scorecard ─────────────────────────────────────────────────
+    _SP_NAMES  = {"01":"January","02":"February","03":"March","04":"April",
+                  "05":"May","06":"June","07":"July","08":"August",
+                  "09":"September","10":"October","11":"November","12":"December"}
+    _SP_COLORS = ["#4f46e5","#6366f1","#8b5cf6","#3b82f6","#0ea5e9","#14b8a6"]
+    _sp_rev = inv_f.groupby("Month")["Discountedvalue"].sum().reset_index().sort_values("Month")
+    _sp_rev["prev"] = _sp_rev["Discountedvalue"].shift(1)
+    _sp_rev["pct"]  = ((_sp_rev["Discountedvalue"] - _sp_rev["prev"]) / _sp_rev["prev"] * 100).round(1)
+    _sp_html = ""
+    for _i, (_, _r) in enumerate(_sp_rev.head(6).iterrows()):
+        _mo   = _r["Month"].split("-")[1] if "-" in str(_r["Month"]) else ""
+        _name = _SP_NAMES.get(_mo, _r["Month"])
+        _sub  = (f"+{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) and _r["pct"] >= 0
+                 else (f"{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) else "First month"))
+        _sp_html += kpi_card(_name, f"GHS {_r['Discountedvalue']:,.0f}", _sub,
+                             _SP_COLORS[_i % 6])
+    if _sp_html:
+        st.markdown(
+            "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
+            "letter-spacing:1px;color:#6366f1;margin:16px 0 6px'>Monthly Revenue</div>",
+            unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="kpi-grid" style="grid-template-columns:repeat({min(len(_sp_rev),6)},1fr)">'
+            f'{_sp_html}</div>',
+            unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
     with col1:
         st.markdown(chart_wrap("Monthly Sales vs Previous Month"), unsafe_allow_html=True)
-        m = inv_f.groupby("Month")["Total Order Value"].sum().reset_index()
-        m["Prev"]     = m["Total Order Value"].shift(1)
-        m["Change %"] = (((m["Total Order Value"] - m["Prev"]) / m["Prev"]).astype(float) * 100).round(1)
+        m = inv_f.groupby("Month")["Discountedvalue"].sum().reset_index()
+        m["Prev"]     = m["Discountedvalue"].shift(1)
+        m["Change %"] = (((m["Discountedvalue"] - m["Prev"]) / m["Prev"]).astype(float) * 100).round(1)
         fig = go.Figure()
-        fig.add_bar(x=m["Month"], y=m["Total Order Value"], marker_color="#4f46e5",
-                    name="Sales (GHS)", text=m["Total Order Value"].apply(lambda x: f"{x/1000:.0f}k"),
+        fig.add_bar(x=m["Month"], y=m["Discountedvalue"], marker_color="#4f46e5",
+                    name="Sales (GHS)", text=m["Discountedvalue"].apply(lambda x: f"{x/1000:.0f}k"),
                     textposition="outside", textfont=dict(size=10))
         for _, row in m.dropna(subset=["Change %"]).iterrows():
             clr = "#16a34a" if row["Change %"] >= 0 else "#dc2626"
-            fig.add_annotation(x=row["Month"], y=row["Total Order Value"],
+            fig.add_annotation(x=row["Month"], y=row["Discountedvalue"],
                                text=f"{'+' if row['Change %']>=0 else ''}{row['Change %']:.0f}%",
                                showarrow=False, yshift=30, font=dict(size=10, color=clr))
         fig.update_layout(**white_layout(300))
@@ -686,10 +803,10 @@ elif page == "Sales Performance":
 
     with col2:
         st.markdown(chart_wrap("Weekly Sales Trend"), unsafe_allow_html=True)
-        w = inv_f.groupby("Week")["Total Order Value"].sum().reset_index().tail(16)
+        w = inv_f.groupby("Week")["Discountedvalue"].sum().reset_index().tail(16)
         fig2 = go.Figure()
-        fig2.add_bar(x=w["Week"], y=w["Total Order Value"], marker_color="#e0e7ff", name="Weekly Sales")
-        fig2.add_scatter(x=w["Week"], y=w["Total Order Value"],
+        fig2.add_bar(x=w["Week"], y=w["Discountedvalue"], marker_color="#e0e7ff", name="Weekly Sales")
+        fig2.add_scatter(x=w["Week"], y=w["Discountedvalue"],
                          mode="lines+markers", line=dict(color="#4f46e5", width=2.5),
                          marker=dict(size=5, color="#4f46e5"), name="Trend")
         fig2.update_layout(**white_layout(300))
@@ -700,7 +817,7 @@ elif page == "Sales Performance":
 
     st.markdown(chart_wrap("Monthly Sales Summary"), unsafe_allow_html=True)
     summary = m.copy()
-    summary["Sales"]      = summary["Total Order Value"].apply(lambda x: f"GHS {x:,.0f}")
+    summary["Sales"]      = summary["Discountedvalue"].apply(lambda x: f"GHS {x:,.0f}")
     summary["MoM Change"] = summary["Change %"].apply(
         lambda x: f"+{x:.1f}%" if pd.notna(x) and x >= 0 else (f"{x:.1f}%" if pd.notna(x) else ","))
     st.dataframe(summary[["Month","Sales","MoM Change"]], use_container_width=True, hide_index=True)
@@ -712,9 +829,9 @@ elif page == "Sales Performance":
 # ══════════════════════════════════════════════════════════════════════════════════
 elif page == "Customers":
     yr     = year_filter("yr_customers")
-    inv_y  = apply_year(inv, yr)
+    inv_y  = apply_year(inv_scoped, yr)
     top_cust_y = (inv_y.merge(rc_names, left_on="Customer ID", right_on="ID", how="left")
-                       .groupby("Name")["Total Order Value"].sum()
+                       .groupby("Name")["Discountedvalue"].sum()
                        .sort_values(ascending=False).reset_index())
 
     # MERL: new partners signed in selected year
@@ -726,7 +843,7 @@ elif page == "Customers":
     # MERL: Activation Rate (90d)
     new_ids_y = set(new_partners_y["ID"].dropna())
     if new_ids_y:
-        fo = (inv[inv["Customer ID"].isin(new_ids_y)]
+        fo = (inv_scoped[inv_scoped["Customer ID"].isin(new_ids_y)]
               .sort_values("Created At")
               .groupby("Customer ID")["Created At"].first().reset_index()
               .rename(columns={"Created At":"first_order"}))
@@ -844,14 +961,14 @@ elif page == "Customers":
 # ══════════════════════════════════════════════════════════════════════════════════
 elif page == "Payments":
     yr    = year_filter("yr_payments")
-    rep_y = apply_year(rep, yr)
-    inv_y = apply_year(inv, yr)
+    rep_y = apply_year(rep_scoped, yr)
+    inv_y = apply_year(inv_scoped, yr)
     pay_y = apply_year(pay, yr)
     total_repaid_y   = rep_y["Amount"].sum()
-    total_invoiced_y = inv_y["Total Order Value"].sum()
+    total_invoiced_y = inv_y["Discountedvalue"].sum()
     collection_pct_y = (total_repaid_y / total_invoiced_y * 100) if total_invoiced_y > 0 else 0
-    outstanding_y    = total_invoiced_y - total_repaid_y
-    outstanding_pct_y= 100 - collection_pct_y
+    outstanding_y    = inv_y["Outstanding"].sum()
+    outstanding_pct_y= outstanding_y / total_invoiced_y * 100 if total_invoiced_y > 0 else 0
     success_pay_y    = pay_y[pay_y["Payment Status"] == "Success"]
     r1 = kpi_card("Total Collected",     f"GHS {total_repaid_y:,.0f}", f"{collection_pct_y:.1f}% rate", "#16a34a",
                   f"{collection_pct_y:.1f}%", "#16a34a") + \
@@ -884,10 +1001,10 @@ elif page == "Payments":
         rep2 = rep_y.copy()
         rep2["Month"] = rep2["Created At"].dt.to_period("M").astype(str)
         monthly_col  = rep2.groupby("Month")["Amount"].sum().reset_index()
-        monthly_inv  = inv_y.groupby("Month")["Total Order Value"].sum().reset_index()
+        monthly_inv  = inv_y.groupby("Month")["Discountedvalue"].sum().reset_index()
         cmp = monthly_inv.merge(monthly_col, on="Month", how="left").fillna(0)
         fig2 = go.Figure()
-        fig2.add_bar(x=cmp["Month"], y=cmp["Total Order Value"], name="Invoiced", marker_color="#e0e7ff")
+        fig2.add_bar(x=cmp["Month"], y=cmp["Discountedvalue"], name="Invoiced", marker_color="#e0e7ff")
         fig2.add_bar(x=cmp["Month"], y=cmp["Amount"],            name="Collected", marker_color="#4f46e5")
         fig2.update_layout(barmode="overlay", **white_layout(300),
                            legend=dict(orientation="h", y=-0.3))
@@ -919,8 +1036,8 @@ elif page == "Payments":
 # ══════════════════════════════════════════════════════════════════════════════════
 elif page == "Weekly Scorecard":
     yr    = year_filter("yr_weekly")
-    inv_y = apply_year(inv, yr)
-    rep_y = apply_year(rep, yr).copy()
+    inv_y = apply_year(inv_scoped, yr)
+    rep_y = apply_year(rep_scoped, yr).copy()
     rep_y["Week"] = rep_y["Created At"].dt.to_period("W").astype(str)
 
     latest_week  = inv_y["Week"].max() if len(inv_y) else None
@@ -928,7 +1045,7 @@ elif page == "Weekly Scorecard":
     rep_w        = rep_y[rep_y["Week"] == latest_week] if latest_week else rep_y.iloc[:0]
 
     weekly_orders    = len(inv_w)
-    weekly_sales     = inv_w["Total Order Value"].sum()
+    weekly_sales     = inv_w["Discountedvalue"].sum()
     weekly_collected = rep_w["Amount"].sum()
     overdue_inv      = inv_y[inv_y["Repayment Status"] == "Overdue"]
 
@@ -947,7 +1064,7 @@ elif page == "Weekly Scorecard":
     with col1:
         st.markdown(chart_wrap("Weekly Orders & Sales Trend", "Last 16 weeks"), unsafe_allow_html=True)
         w_trend = (inv_y.groupby("Week")
-                        .agg(Orders=("ID","count"), Sales=("Total Order Value","sum"))
+                        .agg(Orders=("ID","count"), Sales=("Discountedvalue","sum"))
                         .reset_index().tail(16))
         fig = go.Figure()
         fig.add_bar(x=w_trend["Week"], y=w_trend["Sales"],
@@ -966,9 +1083,9 @@ elif page == "Weekly Scorecard":
 
     with col2:
         st.markdown(chart_wrap("Week-over-Week Sales Change", "Last 8 weeks"), unsafe_allow_html=True)
-        ww = (inv_y.groupby("Week")["Total Order Value"].sum().reset_index().tail(8))
-        ww["Prev"]   = ww["Total Order Value"].shift(1)
-        ww["Change"] = ((ww["Total Order Value"] - ww["Prev"]) / ww["Prev"] * 100).round(1)
+        ww = (inv_y.groupby("Week")["Discountedvalue"].sum().reset_index().tail(8))
+        ww["Prev"]   = ww["Discountedvalue"].shift(1)
+        ww["Change"] = ((ww["Discountedvalue"] - ww["Prev"]) / ww["Prev"] * 100).round(1)
         bar_colors   = ["#16a34a" if x >= 0 else "#dc2626" for x in ww["Change"].fillna(0)]
         fig2 = go.Figure(go.Bar(
             x=ww["Week"], y=ww["Change"].fillna(0),
@@ -986,7 +1103,7 @@ elif page == "Weekly Scorecard":
 
     st.markdown(chart_wrap("Weekly Breakdown", "Orders, invoiced value and collections per week"), unsafe_allow_html=True)
     weekly_inv = (inv_y.groupby("Week")
-                       .agg(Orders=("ID","count"), Invoice_Total=("Total Order Value","sum"))
+                       .agg(Orders=("ID","count"), Invoice_Total=("Discountedvalue","sum"))
                        .reset_index())
     weekly_rep = (rep_y.groupby("Week")
                        .agg(Sales_Collected=("Amount","sum"))
@@ -1013,7 +1130,7 @@ elif page == "Weekly Scorecard":
     st.markdown(chart_wrap("Overdue Invoice Exceptions", "Invoices requiring immediate follow-up"), unsafe_allow_html=True)
     if len(overdue_inv):
         exc = overdue_inv.merge(rc_names[["ID","Name"]], left_on="Customer ID", right_on="ID", how="left")
-        exc = exc[["Created At","Name","Total Order Value","Due Date","Repayment Status"]].copy()
+        exc = exc[["Created At","Name","Discountedvalue","Due Date","Repayment Status"]].copy()
         exc.columns = ["Invoice Date","Customer","Amount (GHS)","Due Date","Status"]
         exc["Amount (GHS)"] = exc["Amount (GHS)"].apply(lambda x: f"GHS {x:,.0f}")
         exc["Invoice Date"] = exc["Invoice Date"].dt.strftime("%Y-%m-%d")
@@ -1031,10 +1148,10 @@ elif page == "Weekly Scorecard":
 # ══════════════════════════════════════════════════════════════════════════════════
 elif page == "Reconciliation":
     yr    = year_filter("yr_recon")
-    inv_y = apply_year(inv, yr)
+    inv_y = apply_year(inv_scoped, yr)
 
     invoiced_ids  = set(inv_y["ID"].dropna().astype(int))
-    repaid_ids    = set(rep["Invoice ID"].dropna().astype(int))
+    repaid_ids    = set(rep_scoped["Invoice ID"].dropna().astype(int))
 
     matched_ids   = invoiced_ids & repaid_ids
     unmatched_ids = invoiced_ids - repaid_ids
@@ -1043,8 +1160,8 @@ elif page == "Reconciliation":
     matched_count   = len(matched_ids)
     unmatched_count = len(unmatched_ids)
     match_rate      = matched_count / total_invoices * 100 if total_invoices else 0
-    matched_val     = inv_y[inv_y["ID"].isin(matched_ids)]["Total Order Value"].sum()
-    unmatched_val   = inv_y[inv_y["ID"].isin(unmatched_ids)]["Total Order Value"].sum()
+    matched_val     = inv_y[inv_y["ID"].isin(matched_ids)]["Discountedvalue"].sum()
+    unmatched_val   = inv_y[inv_y["ID"].isin(unmatched_ids)]["Discountedvalue"].sum()
 
     r1 = kpi_card("Total Invoices",     f"{total_invoices:,}",
                   "In selected period", "#4f46e5") + \
@@ -1107,7 +1224,7 @@ elif page == "Reconciliation":
     unmatched_df = inv_y[inv_y["ID"].isin(unmatched_ids)].copy()
     if len(unmatched_df):
         unmatched_df = unmatched_df.merge(rc_names[["ID","Name"]], left_on="Customer ID", right_on="ID", how="left")
-        show_cols = unmatched_df[["Created At","Name","Total Order Value","Repayment Status"]].copy()
+        show_cols = unmatched_df[["Created At","Name","Discountedvalue","Repayment Status"]].copy()
         show_cols.columns = ["Invoice Date","Customer","Amount (GHS)","Status"]
         show_cols["Amount (GHS)"] = show_cols["Amount (GHS)"].apply(lambda x: f"GHS {x:,.0f}")
         show_cols["Invoice Date"] = show_cols["Invoice Date"].dt.strftime("%Y-%m-%d")
@@ -1126,15 +1243,16 @@ elif page == "Data Quality":
     st.markdown("<div style='color:#6b7280;font-size:13px;margin-bottom:16px'>Field completeness analysis across key operational tables</div>", unsafe_allow_html=True)
 
     inv_fields = {
-        "Order Value":       inv["Total Order Value"].notna().mean() * 100,
+        "Discounted Value":  inv["Discountedvalue"].notna().mean() * 100,
         "Customer ID":       inv["Customer ID"].notna().mean() * 100,
+        "Order ID":          inv["Order ID"].notna().mean() * 100,
+        "Order Type":        inv["Order Type"].notna().mean() * 100,
+        "Channel":           inv["Channel"].notna().mean() * 100,
         "Repayment Status":  inv["Repayment Status"].notna().mean() * 100,
+        "Fulfilment Type":   inv["Fulfilmenttype"].notna().mean() * 100,
         "Customer City":     inv["Customer City"].notna().mean() * 100,
-        "Terms":             inv["Terms"].notna().mean() * 100,
         "Paid At":           inv["Paid At"].notna().mean() * 100,
         "Repayment Route":   inv["Repayment Route"].notna().mean() * 100,
-        "Seller Email":      inv["Shippinginformation → SellerEmail"].notna().mean() * 100,
-        "Shipping Zone":     inv["Shippinginformation → ShippingZone"].notna().mean() * 100,
     }
     rc_fields = {
         "Name":         rc["Name"].notna().mean() * 100,
@@ -1232,13 +1350,9 @@ elif page == "Reliability":
     in_stock_count = total_sku - stockout_count
     stockout_pct   = stockout_count / total_sku * 100 if total_sku else 0
 
-    fulfilled_irf = (irf["Fulfillment Status"] == "Fulfilled").sum()
-    total_irf     = len(irf)
-    irf_rate      = fulfilled_irf / total_irf * 100 if total_irf else 0
-
-    completed_req = (ir["Request Status"] == "Completed").sum()
-    total_req     = len(ir)
-    req_rate      = completed_req / total_req * 100 if total_req else 0
+    completed_fbc = ir_all_fbc[ir_all_fbc["Status"].isin([3, 5, 7])].shape[0]
+    total_fbc     = len(ir_all_fbc)
+    irf_rate      = completed_fbc / total_fbc * 100 if total_fbc else 0
 
     r1 = kpi_card("Stockout Rate",
                   f"{stockout_pct:.1f}%",
@@ -1249,17 +1363,17 @@ elif page == "Reliability":
                   f"{in_stock_count:,} locations with stock", "#16a34a") + \
          kpi_card("Fulfillment Rate",
                   f"{irf_rate:.1f}%",
-                  f"{fulfilled_irf:,}/{total_irf:,} fulfilled", "#4f46e5") + \
-         kpi_card("Request Complete Rate",
-                  f"{req_rate:.1f}%",
-                  f"{completed_req:,}/{total_req:,} completed", "#14b8a6")
+                  f"{completed_fbc:,}/{total_fbc:,} FBC orders fulfilled", "#4f46e5") + \
+         kpi_card("Pending / In-Progress",
+                  f"{ir_all_fbc[ir_all_fbc['Status'].isin([0,1,2])].shape[0]:,}",
+                  "Orders not yet completed", "#f59e0b")
     st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
-    st.markdown(chart_wrap("Fulfillment Request Status"), unsafe_allow_html=True)
-    irf_s = irf["Fulfillment Status"].value_counts().reset_index()
+    st.markdown(chart_wrap("Fulfillment Status Breakdown", "Derived from FBC order status"), unsafe_allow_html=True)
+    irf_s = ir_all_fbc["Fulfillment Label"].value_counts().reset_index()
     irf_s.columns = ["Status","Count"]
-    irf_colors = {"Fulfilled":"#16a34a","Pending":"#f59e0b","Processing":"#4f46e5",
-                  "Cancelled":"#dc2626","Failed":"#7f1d1d","Unknown":"#9ca3af"}
+    irf_colors = {"Completed":"#16a34a","Not Started":"#f59e0b","Scheduled":"#4f46e5",
+                  "In Progress":"#14b8a6","Cancelled":"#dc2626","Unknown":"#9ca3af"}
     fig2 = px.pie(irf_s, names="Status", values="Count", hole=0.5,
                   color="Status", color_discrete_map=irf_colors)
     fig2.update_traces(textinfo="percent", textposition="inside",
@@ -1278,7 +1392,7 @@ elif page == "Reliability":
 # ══════════════════════════════════════════════════════════════════════════════════
 elif page == "Segmentation":
     yr    = year_filter("yr_seg")
-    inv_y = apply_year(inv, yr)
+    inv_y = apply_year(inv_scoped, yr)
 
     rc_seg_info = rc[["ID","Segment Type"]].copy().rename(columns={"ID":"RC_ID"})
     seg_inv     = inv_y.merge(rc_seg_info, left_on="Customer ID", right_on="RC_ID", how="left")
@@ -1286,7 +1400,7 @@ elif page == "Segmentation":
 
     by_segment = (seg_inv.groupby("Segment Type")
                          .agg(Orders=("ID","count"),
-                              Sales=("Total Order Value","sum"),
+                              Sales=("Discountedvalue","sum"),
                               Customers=("Customer ID","nunique"))
                          .reset_index()
                          .sort_values("Sales", ascending=False))
@@ -1307,12 +1421,11 @@ elif page == "Segmentation":
     else:
         sku_breadth = 0
 
-    # MERL: High-frequency small orders (≤ 25th pct AOV)
-    low_thresh = inv_y["Total Order Value"].quantile(0.25) if len(inv_y) else 0
-    hfso_pct   = (inv_y["Total Order Value"] <= low_thresh).mean() * 100 if len(inv_y) else 0
+    low_thresh = inv_y["Discountedvalue"].quantile(0.25) if len(inv_y) else 0
+    hfso_pct   = (inv_y["Discountedvalue"] <= low_thresh).mean() * 100 if len(inv_y) else 0
 
-    total_sales = inv_y["Total Order Value"].sum()
-    crev = inv_y.groupby("Customer ID")["Total Order Value"].sum().sort_values(ascending=False)
+    total_sales = inv_y["Discountedvalue"].sum()
+    crev = inv_y.groupby("Customer ID")["Discountedvalue"].sum().sort_values(ascending=False)
     top5_pct  = crev.head(5).sum()  / total_sales * 100 if total_sales else 0
     top10_pct = crev.head(10).sum() / total_sales * 100 if total_sales else 0
 
@@ -1382,7 +1495,7 @@ elif page == "Segmentation":
     with col4:
         st.markdown(chart_wrap("Order Value Distribution", "High-frequency small orders analysis"), unsafe_allow_html=True)
         fig4 = go.Figure()
-        fig4.add_histogram(x=inv_y["Total Order Value"], nbinsx=30,
+        fig4.add_histogram(x=inv_y["Discountedvalue"], nbinsx=30,
                            marker_color="#4f46e5", opacity=0.8)
         fig4.add_vline(x=low_thresh, line_dash="dash", line_color="#dc2626",
                        annotation_text=f"Low-ticket<br>≤ GHS {low_thresh:,.0f}",
