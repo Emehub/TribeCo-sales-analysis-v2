@@ -2,6 +2,9 @@
 Extract data from Metabase API.
 Connects to the 'tribecodb' database in Metabase and exports all tables + saved questions.
 Run after filling in config.py with your Metabase credentials.
+
+Pagination: Metabase API returns a maximum of 2,000 rows per request.
+This script pages through all results automatically so no rows are missed.
 """
 import sys
 import os
@@ -12,8 +15,9 @@ import pandas as pd
 from io import StringIO
 from config import METABASE_CONFIG
 
-BASE    = METABASE_CONFIG["url"]
-DB_NAME = METABASE_CONFIG.get("dbname", "tribecodb")
+BASE      = METABASE_CONFIG["url"]
+DB_NAME   = METABASE_CONFIG.get("dbname", "tribecodb")
+PAGE_SIZE = 2000  # Metabase API hard limit per request
 
 def login():
     resp = requests.post(
@@ -57,36 +61,61 @@ def list_tables(token, db_id):
     return tables
 
 def export_table(token, db_id, table):
-    """Export a full table via /api/dataset JSON response (avoids CSV endpoint quirks)."""
-    payload = {
-        "database": db_id,
-        "type": "query",
-        "query": {"source-table": table["id"]}
-    }
-    resp = requests.post(
-        f"{BASE}/api/dataset",
-        headers=get_headers(token),
-        json=payload,
-        timeout=120
-    )
-    if resp.status_code != 202:
-        print(f"  ERROR {resp.status_code} on '{table['name']}': {resp.text[:300]}")
-        return None
-
-    result = resp.json()
-    data   = result.get("data", {})
-    cols   = [c.get("display_name", c.get("name")) for c in data.get("cols", [])]
-    rows   = data.get("rows", [])
-
-    if not cols:
-        print(f"  Skipped '{table['name']}': empty or no columns returned")
-        return None
-
-    df = pd.DataFrame(rows, columns=cols)
+    """Export a full table using paginated requests to bypass the 2,000-row API limit."""
     safe_name = table["name"].replace(" ", "_")
     out_path  = f"d:/company-dashboard/data/{safe_name}.csv"
+    headers   = get_headers(token)
+    all_rows  = []
+    cols      = None
+    offset    = 0
+    page      = 1
+
+    while True:
+        payload = {
+            "database": db_id,
+            "type":     "query",
+            "query":    {
+                "source-table": table["id"],
+                "limit":        PAGE_SIZE,
+                "offset":       offset,
+            },
+        }
+        resp = requests.post(
+            f"{BASE}/api/dataset",
+            headers=headers,
+            json=payload,
+            timeout=120,
+        )
+        if resp.status_code != 202:
+            print(f"  ERROR {resp.status_code} on '{table['name']}' page {page}: {resp.text[:200]}")
+            break
+
+        data      = resp.json().get("data", {})
+        page_rows = data.get("rows", [])
+
+        if cols is None:
+            cols = [c.get("display_name", c.get("name")) for c in data.get("cols", [])]
+            if not cols:
+                print(f"  Skipped '{table['name']}': no columns returned")
+                return None
+
+        all_rows.extend(page_rows)
+
+        if len(page_rows) < PAGE_SIZE:
+            # Fewer rows than the page size means we have reached the last page
+            break
+
+        offset += PAGE_SIZE
+        page   += 1
+
+    if not all_rows:
+        print(f"  Skipped '{table['name']}': no data returned")
+        return None
+
+    df = pd.DataFrame(all_rows, columns=cols)
     df.to_csv(out_path, index=False)
-    print(f"  Exported '{table['name']}' — {len(df):,} rows → {out_path}")
+    pages_note = f" ({page} pages)" if page > 1 else ""
+    print(f"  Exported '{table['name']}' — {len(df):,} rows{pages_note} → {out_path}")
     return df
 
 def export_saved_questions(token, db_id):
