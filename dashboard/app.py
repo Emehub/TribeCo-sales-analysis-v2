@@ -36,18 +36,36 @@ def _mb_login():
     r.raise_for_status()
     return r.json()["id"]
 
+_MB_PAGE = 2000  # Metabase API hard limit per request
+
 def _mb_fetch(token, db_id, table_id, parse_dates=None):
-    r = requests.post(
-        f"{_MB_BASE}/api/dataset",
-        headers={"X-Metabase-Session": token},
-        json={"database": db_id, "type": "query", "query": {"source-table": table_id}},
-        timeout=120,
-    )
-    if r.status_code != 202:
-        raise RuntimeError(f"Metabase {r.status_code}")
-    data = r.json().get("data", {})
-    cols = [c.get("display_name", c.get("name")) for c in data.get("cols", [])]
-    df   = pd.DataFrame(data.get("rows", []), columns=cols)
+    """Fetch all rows from a Metabase table using paginated requests."""
+    hdrs     = {"X-Metabase-Session": token}
+    all_rows = []
+    cols     = None
+    offset   = 0
+
+    while True:
+        r = requests.post(
+            f"{_MB_BASE}/api/dataset",
+            headers=hdrs,
+            json={"database": db_id, "type": "query",
+                  "query": {"source-table": table_id,
+                             "limit": _MB_PAGE, "offset": offset}},
+            timeout=120,
+        )
+        if r.status_code != 202:
+            raise RuntimeError(f"Metabase {r.status_code}")
+        data      = r.json().get("data", {})
+        page_rows = data.get("rows", [])
+        if cols is None:
+            cols = [c.get("display_name", c.get("name")) for c in data.get("cols", [])]
+        all_rows.extend(page_rows)
+        if len(page_rows) < _MB_PAGE:
+            break
+        offset += _MB_PAGE
+
+    df = pd.DataFrame(all_rows, columns=cols or [])
     if parse_dates:
         for col in parse_dates:
             if col in df.columns:
@@ -194,51 +212,19 @@ footer { display: none !important; }
 
 
 # ── Data loader ─────────────────────────────────────────────────────────────────
-@st.cache_data(ttl=300, show_spinner="Fetching latest data from Metabase...")
+@st.cache_data(ttl=600, show_spinner="Loading dashboard data...")
 def load_all():
-    def _from_csv():
-        return (
-            pd.read_csv(f"{DATA}/payment.csv",                    parse_dates=["Created At"]),
-            pd.read_csv(f"{DATA}/invoice.csv",                    parse_dates=["Created At", "Due Date"]),
-            pd.read_csv(f"{DATA}/repayment.csv",                  parse_dates=["Created At"]),
-            pd.read_csv(f"{DATA}/retail_centre.csv"),
-            pd.read_csv(f"{DATA}/product.csv"),
-            pd.read_csv(f"{DATA}/invoice_line.csv"),
-            pd.read_csv(f"{DATA}/inventory_request.csv",          parse_dates=["Created At"]),
-            pd.read_csv(f"{DATA}/inventory_balances_view.csv"),
-            pd.read_csv(f"{DATA}/preorder_campaign.csv"),
-            pd.read_csv(f"{DATA}/inventory_request_fulfillment.csv"),
-        )
-
-    try:
-        token = _mb_login()
-        hdrs  = {"X-Metabase-Session": token}
-
-        dbs   = requests.get(f"{_MB_BASE}/api/database", headers=hdrs, timeout=10).json()
-        dbs   = dbs.get("data", dbs)
-        db_id = next(d["id"] for d in dbs if d["name"].lower() == _MB_DB_NAME.lower())
-
-        meta      = requests.get(f"{_MB_BASE}/api/database/{db_id}/metadata", headers=hdrs, timeout=15).json()
-        tmap      = {t["name"]: t["id"] for t in meta.get("tables", [])}
-
-        def fetch(name, parse_dates=None):
-            if name not in tmap:
-                raise KeyError(name)
-            return _mb_fetch(token, db_id, tmap[name], parse_dates)
-
-        pay  = fetch("payment",                       ["Created At"])
-        inv  = fetch("invoice",                       ["Created At", "Due Date"])
-        rep  = fetch("repayment",                     ["Created At"])
-        rc   = fetch("retail_centre")
-        prod = fetch("product")
-        il   = fetch("invoice_line")
-        ir   = fetch("inventory_request",             ["Created At"])
-        ibv  = fetch("inventory_balances_view")
-        camp = fetch("preorder_campaign")
-        irf  = fetch("inventory_request_fulfillment")
-
-    except Exception:
-        pay, inv, rep, rc, prod, il, ir, ibv, camp, irf = _from_csv()
+    # Load directly from pre-extracted CSVs (run scripts/extract_core_tables.py to refresh)
+    pay  = pd.read_csv(f"{DATA}/payment.csv",                    parse_dates=["Created At"])
+    inv  = pd.read_csv(f"{DATA}/invoice.csv",                    parse_dates=["Created At", "Due Date"])
+    rep  = pd.read_csv(f"{DATA}/repayment.csv",                  parse_dates=["Created At"])
+    rc   = pd.read_csv(f"{DATA}/retail_centre.csv")
+    prod = pd.read_csv(f"{DATA}/product.csv")
+    il   = pd.read_csv(f"{DATA}/invoice_line.csv")
+    ir   = pd.read_csv(f"{DATA}/inventory_request.csv",          parse_dates=["Created At"])
+    ibv  = pd.read_csv(f"{DATA}/inventory_balances_view.csv")
+    camp = pd.read_csv(f"{DATA}/preorder_campaign.csv")
+    irf  = pd.read_csv(f"{DATA}/inventory_request_fulfillment.csv")
 
     # ── Filter everything to Ghana (GH) ──────────────────────────────────────────
     inv  = inv[inv["Country Code"] == "GH"].copy()
@@ -283,31 +269,19 @@ def load_all():
 
     valid_ir_ids = set(ir_fbc["ID"].dropna())
 
-    # Invoice-side FBC filter — primary scope for all revenue/KPI calculations.
-    # invoice.order_type=1 (InventoryOrder) + channel!='BufferPesa' is sufficient
-    # to identify FBC stock orders directly from the invoice table.
-    # The IR status join (status IN 3,5,7) is applied when IR data is current;
-    # fall back to invoice-only when the IR CSV is stale (newest inv > newest ir).
+    # Revenue scope: invoice.order_type=1 (InventoryOrder) + channel!='BufferPesa'
+    # is sufficient to identify all FBC stock orders. Do NOT join to IR status —
+    # an invoice can be valid and paid even if its IR is still in progress.
     inv_fbc_ids = set(inv[
         (inv["Order Type"] == 1) &
         (inv["Channel"] != "BufferPesa")
     ]["ID"].dropna())
 
-    ir_newest   = ir["Created At"].max() if len(ir) else pd.Timestamp("2000-01-01")
-    inv_newest  = inv["Created At"].max()
-    ir_is_current = (inv_newest - ir_newest).days < 30
-
-    if ir_is_current:
-        inv_scoped = inv[
-            inv["Order ID"].isin(valid_ir_ids) &
-            (inv["Order Type"] == 1) &
-            (inv["Channel"] != "BufferPesa")
-        ].copy()
-    else:
-        inv_scoped = inv[
-            (inv["Order Type"] == 1) &
-            (inv["Channel"] != "BufferPesa")
-        ].copy()
+    inv_scoped = inv[
+        (inv["Order Type"] == 1) &
+        (inv["Channel"] != "BufferPesa") &
+        (inv["Status"] != 5)   # exclude cancelled invoices
+    ].copy()
 
     # Revenue: use Discountedvalue when populated, fall back to Total Order Value
     inv_scoped["Discountedvalue"] = pd.to_numeric(inv_scoped["Discountedvalue"], errors="coerce").fillna(0)
@@ -738,6 +712,32 @@ if page == "Overview":
                            legend=dict(orientation="v", x=1.02, y=0.5, font=dict(size=11)))
         st.plotly_chart(fig4, use_container_width=True, config=CHART_CFG)
         st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Monthly Revenue Breakdown table ──────────────────────────────────────────
+    st.markdown(chart_wrap("Monthly Revenue Breakdown",
+                           "Sales, collected and outstanding by month"), unsafe_allow_html=True)
+    _rep_y_m  = rep_y.copy()
+    _rep_y_m["Month"] = _rep_y_m["Created At"].dt.to_period("M").astype(str)
+    _mb_coll  = _rep_y_m.groupby("Month")["Amount"].sum().reset_index().rename(columns={"Amount":"Collected"})
+    _mb_inv   = inv_y.groupby("Month").agg(
+        Revenue  = ("Discountedvalue", "sum"),
+        Invoices = ("Discountedvalue", "count"),
+    ).reset_index()
+    _mb_tbl   = _mb_inv.merge(_mb_coll, on="Month", how="left").fillna(0)
+    _mb_tbl["Outstanding"]  = inv_y.groupby("Month")["Outstanding"].sum().reindex(_mb_tbl["Month"]).values
+    _mb_tbl["Collection %"] = (_mb_tbl["Collected"] / _mb_tbl["Revenue"] * 100).round(1)
+    _mb_tbl["prev"]         = _mb_tbl["Revenue"].shift(1)
+    _mb_tbl["MoM Change"]   = ((_mb_tbl["Revenue"] - _mb_tbl["prev"]) / _mb_tbl["prev"] * 100).round(1)
+    _disp = _mb_tbl.copy()
+    _disp["Revenue"]      = _disp["Revenue"].apply(lambda v: f"GHS {v:,.0f}")
+    _disp["Collected"]    = _disp["Collected"].apply(lambda v: f"GHS {v:,.0f}")
+    _disp["Outstanding"]  = _disp["Outstanding"].apply(lambda v: f"GHS {v:,.0f}")
+    _disp["Collection %"] = _disp["Collection %"].apply(lambda v: f"{v:.1f}%")
+    _disp["MoM Change"]   = _disp["MoM Change"].apply(
+        lambda v: f"+{v:.1f}%" if pd.notna(v) and v >= 0 else (f"{v:.1f}%" if pd.notna(v) else "-"))
+    st.dataframe(_disp[["Month","Invoices","Revenue","Collected","Outstanding","Collection %","MoM Change"]],
+                 use_container_width=True, hide_index=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════════

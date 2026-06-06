@@ -15,6 +15,9 @@ import pandas as pd
 from io import StringIO
 from config import METABASE_CONFIG
 
+# Force UTF-8 output so Unicode column names (e.g. arrows) don't crash on Windows
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 BASE      = METABASE_CONFIG["url"]
 DB_NAME   = METABASE_CONFIG.get("dbname", "tribecodb")
 PAGE_SIZE = 2000  # Metabase API hard limit per request
@@ -41,7 +44,7 @@ def find_database(token):
     print("\nDatabases found in Metabase:")
     target_id = None
     for db in databases:
-        marker = " ◀ target" if db["name"].lower() == DB_NAME.lower() else ""
+        marker = " <-- target" if db["name"].lower() == DB_NAME.lower() else ""
         print(f"  ID {db['id']:>3} — {db['name']}{marker}")
         if db["name"].lower() == DB_NAME.lower():
             target_id = db["id"]
@@ -57,7 +60,7 @@ def list_tables(token, db_id):
     tables = resp.json().get("tables", [])
     print(f"\nTables in '{DB_NAME}':")
     for t in tables:
-        print(f"  ID {t['id']:>4} — {t['name']}")
+        print(f"  ID {t['id']:>4} - {t['name']}")
     return tables
 
 def export_table(token, db_id, table):
@@ -113,9 +116,9 @@ def export_table(token, db_id, table):
         return None
 
     df = pd.DataFrame(all_rows, columns=cols)
-    df.to_csv(out_path, index=False)
+    df.to_csv(out_path, index=False, encoding="utf-8-sig")
     pages_note = f" ({page} pages)" if page > 1 else ""
-    print(f"  Exported '{table['name']}' — {len(df):,} rows{pages_note} → {out_path}")
+    print(f"  Exported '{table['name']}' -- {len(df):,} rows{pages_note} -> {out_path}")
     return df
 
 def export_saved_questions(token, db_id):
@@ -141,8 +144,8 @@ def export_saved_questions(token, db_id):
             df = pd.read_csv(StringIO(r.text))
             safe_name = "".join(c if c.isalnum() or c in " _-" else "_" for c in q["name"])
             out_path = f"d:/company-dashboard/data/question_{safe_name}.csv"
-            df.to_csv(out_path, index=False)
-            print(f"  Exported '{q['name']}' — {len(df):,} rows → {out_path}")
+            df.to_csv(out_path, index=False, encoding="utf-8-sig")
+            print(f"  Exported '{q['name']}' -- {len(df):,} rows -> {out_path}")
         except Exception as e:
             print(f"  Skipped '{q['name']}': {e}")
 
