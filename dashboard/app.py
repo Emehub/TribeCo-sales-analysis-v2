@@ -574,7 +574,6 @@ if page == "Overview":
     low_thresh = inv_y["Discountedvalue"].quantile(0.25) if len(inv_y) else 0
     hfso_rate  = (inv_y["Discountedvalue"] <= low_thresh).mean() * 100 if len(inv_y) else 0
 
-    st.markdown("<div style='color:#6b7280;font-size:13px;margin-bottom:16px'>🇬🇭 Ghana operations &bull; Vaccine distribution &bull; MERL dashboard</div>", unsafe_allow_html=True)
 
     # Row 1 — Core financials
     row1 = kpi_card("Total Sales",    f"GHS {total_revenue:,.0f}",   f"{total_orders:,} orders",            "#4f46e5") + \
