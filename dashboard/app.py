@@ -291,6 +291,9 @@ def load_all():
     )
     inv_scoped["Totalrepaid"] = pd.to_numeric(inv_scoped["Totalrepaid"], errors="coerce").fillna(0)
     inv_scoped["Outstanding"] = (inv_scoped["Discountedvalue"] - inv_scoped["Totalrepaid"]).clip(lower=0)
+    # Hide incomplete 2025 data — only show 2026 onwards
+    inv_scoped = inv_scoped[inv_scoped["Created At"].dt.year >= 2026].copy()
+
     inv_scoped["Month"] = inv_scoped["Created At"].dt.to_period("M").astype(str)
     inv_scoped["Week"]  = inv_scoped["Created At"].dt.to_period("W").astype(str)
 
