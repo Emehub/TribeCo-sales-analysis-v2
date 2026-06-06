@@ -611,20 +611,21 @@ if page == "Overview":
     st.markdown(kpi_grid(row3), unsafe_allow_html=True)
 
     # ── Monthly revenue scorecard ─────────────────────────────────────────────────
-    _MONTH_NAMES = {"01":"January","02":"February","03":"March","04":"April",
-                    "05":"May","06":"June","07":"July","08":"August",
-                    "09":"September","10":"October","11":"November","12":"December"}
+    _MO_ABBR   = {"01":"Jan","02":"Feb","03":"Mar","04":"Apr","05":"May","06":"Jun",
+                  "07":"Jul","08":"Aug","09":"Sep","10":"Oct","11":"Nov","12":"Dec"}
     _MONTH_COLORS = ["#4f46e5","#6366f1","#8b5cf6","#3b82f6","#0ea5e9","#14b8a6"]
     _m_rev = inv_y.groupby("Month")["Discountedvalue"].sum().reset_index().sort_values("Month")
     _m_rev["prev"] = _m_rev["Discountedvalue"].shift(1)
     _m_rev["pct"]  = ((_m_rev["Discountedvalue"] - _m_rev["prev"]) / _m_rev["prev"] * 100).round(1)
     _month_html = ""
-    for _i, (_, _r) in enumerate(_m_rev.head(6).iterrows()):
-        _mo   = _r["Month"].split("-")[1] if "-" in str(_r["Month"]) else ""
-        _name = _MONTH_NAMES.get(_mo, _r["Month"])
-        _sub  = (f"+{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) and _r["pct"] >= 0
-                 else (f"{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) else "First month"))
-        _month_html += kpi_card(_name, f"GHS {_r['Discountedvalue']:,.0f}", _sub,
+    for _i, (_, _r) in enumerate(_m_rev.iterrows()):
+        _parts = str(_r["Month"]).split("-")
+        _yr_lbl = _parts[0] if len(_parts) == 2 else ""
+        _mo_lbl = _MO_ABBR.get(_parts[1], _parts[1]) if len(_parts) == 2 else _r["Month"]
+        _label  = f"{_mo_lbl} {_yr_lbl}"
+        _sub    = (f"+{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) and _r["pct"] >= 0
+                   else (f"{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) else "First month"))
+        _month_html += kpi_card(_label, f"GHS {_r['Discountedvalue']:,.0f}", _sub,
                                 _MONTH_COLORS[_i % 6])
     if _month_html:
         st.markdown(
@@ -632,7 +633,7 @@ if page == "Overview":
             "letter-spacing:1px;color:#6366f1;margin:16px 0 6px'>Monthly Revenue</div>",
             unsafe_allow_html=True)
         st.markdown(
-            f'<div class="kpi-grid" style="grid-template-columns:repeat({min(len(_m_rev),6)},1fr)">'
+            f'<div class="kpi-grid" style="grid-template-columns:repeat(6,1fr)">'
             f'{_month_html}</div>',
             unsafe_allow_html=True)
 
@@ -756,20 +757,21 @@ elif page == "Sales Performance":
     st.markdown(kpi_grid(r1, max_cols=3), unsafe_allow_html=True)
 
     # ── Monthly revenue scorecard ─────────────────────────────────────────────────
-    _SP_NAMES  = {"01":"January","02":"February","03":"March","04":"April",
-                  "05":"May","06":"June","07":"July","08":"August",
-                  "09":"September","10":"October","11":"November","12":"December"}
+    _SP_ABBR   = {"01":"Jan","02":"Feb","03":"Mar","04":"Apr","05":"May","06":"Jun",
+                  "07":"Jul","08":"Aug","09":"Sep","10":"Oct","11":"Nov","12":"Dec"}
     _SP_COLORS = ["#4f46e5","#6366f1","#8b5cf6","#3b82f6","#0ea5e9","#14b8a6"]
     _sp_rev = inv_f.groupby("Month")["Discountedvalue"].sum().reset_index().sort_values("Month")
     _sp_rev["prev"] = _sp_rev["Discountedvalue"].shift(1)
     _sp_rev["pct"]  = ((_sp_rev["Discountedvalue"] - _sp_rev["prev"]) / _sp_rev["prev"] * 100).round(1)
     _sp_html = ""
-    for _i, (_, _r) in enumerate(_sp_rev.head(6).iterrows()):
-        _mo   = _r["Month"].split("-")[1] if "-" in str(_r["Month"]) else ""
-        _name = _SP_NAMES.get(_mo, _r["Month"])
-        _sub  = (f"+{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) and _r["pct"] >= 0
-                 else (f"{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) else "First month"))
-        _sp_html += kpi_card(_name, f"GHS {_r['Discountedvalue']:,.0f}", _sub,
+    for _i, (_, _r) in enumerate(_sp_rev.iterrows()):
+        _parts  = str(_r["Month"]).split("-")
+        _yr_lbl = _parts[0] if len(_parts) == 2 else ""
+        _mo_lbl = _SP_ABBR.get(_parts[1], _parts[1]) if len(_parts) == 2 else _r["Month"]
+        _label  = f"{_mo_lbl} {_yr_lbl}"
+        _sub    = (f"+{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) and _r["pct"] >= 0
+                   else (f"{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) else "First month"))
+        _sp_html += kpi_card(_label, f"GHS {_r['Discountedvalue']:,.0f}", _sub,
                              _SP_COLORS[_i % 6])
     if _sp_html:
         st.markdown(
@@ -777,7 +779,7 @@ elif page == "Sales Performance":
             "letter-spacing:1px;color:#6366f1;margin:16px 0 6px'>Monthly Revenue</div>",
             unsafe_allow_html=True)
         st.markdown(
-            f'<div class="kpi-grid" style="grid-template-columns:repeat({min(len(_sp_rev),6)},1fr)">'
+            f'<div class="kpi-grid" style="grid-template-columns:repeat(6,1fr)">'
             f'{_sp_html}</div>',
             unsafe_allow_html=True)
 
