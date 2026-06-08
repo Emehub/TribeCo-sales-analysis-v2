@@ -1374,7 +1374,7 @@ elif page == "Customers":
     # ── Download ──────────────────────────────────────────────────────────────────
     _cust_revenue = (inv_y.merge(rc_names, left_on="Customer ID", right_on="ID", how="left")
                           .groupby("Name")
-                          .agg(Orders=("ID","count"), Revenue=("Discountedvalue","sum"), Outstanding=("Outstanding","sum"))
+                          .agg(Orders=("Customer ID","count"), Revenue=("Discountedvalue","sum"), Outstanding=("Outstanding","sum"))
                           .reset_index().sort_values("Revenue", ascending=False))
     _cust_sheets = {
         "Customer Revenue":    _cust_revenue,
