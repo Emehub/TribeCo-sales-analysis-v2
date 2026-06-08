@@ -744,7 +744,7 @@ if page == "Overview":
 
     # ── Vaccines Delivered by Disease ─────────────────────────────────────────────
     st.markdown(chart_wrap("Vaccines Delivered by Disease",
-                           "Monthly doses distributed by disease — Poultry · Goats & Sheep · Cattle"),
+                           "Monthly doses distributed by disease  Poultry · Goats & Sheep · Cattle"),
                 unsafe_allow_html=True)
 
     # Disease mapping (product generic name → disease label)
