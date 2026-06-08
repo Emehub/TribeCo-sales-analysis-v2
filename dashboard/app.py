@@ -45,41 +45,79 @@ def _mb_login():
     r.raise_for_status()
     return r.json()["id"]
 
-_MB_PAGE = 2000  # Metabase API hard limit per request
+# ── SQL queries — same filters as extract_core_tables.py ────────────────────────
+_MB_QUERIES = {
+    "payment": "SELECT * FROM payment WHERE created_at >= '2025-01-01'",
+    "invoice": "SELECT * FROM invoice WHERE country_code = 'GH' AND created_at >= '2025-01-01'",
+    "repayment": "SELECT * FROM repayment WHERE country_code = 'GH' AND created_at >= '2025-01-01'",
+    "retail_centre": "SELECT * FROM retail_centre WHERE country_code = 'GH'",
+    "product": "SELECT * FROM product",
+    "invoice_line": """SELECT il.* FROM invoice_line il
+        INNER JOIN invoice i ON i.id = il.invoice_id
+        WHERE i.country_code = 'GH' AND i.created_at >= '2025-01-01'""",
+    "inventory_request": "SELECT * FROM inventory_request WHERE country_code = 'GH' AND created_at >= '2025-01-01'",
+    "inventory_balances_view": """SELECT ibv.* FROM inventory_balances_view ibv
+        INNER JOIN retail_centre rc ON rc.id = ibv.retail_centre_id
+        WHERE rc.country_code = 'GH'""",
+    "preorder_campaign": "SELECT * FROM preorder_campaign",
+    "inventory_request_fulfillment": """SELECT irf.* FROM inventory_request_fulfillment irf
+        INNER JOIN inventory_request ir ON ir.id = irf.request_id
+        WHERE ir.country_code = 'GH' AND ir.created_at >= '2025-01-01'""",
+}
 
-def _mb_fetch(token, db_id, table_id, parse_dates=None):
-    """Fetch all rows from a Metabase table using paginated requests."""
-    hdrs     = {"X-Metabase-Session": token}
-    all_rows = []
-    cols     = None
-    offset   = 0
+def _mb_get_db_id(token):
+    r = requests.get(f"{_MB_BASE}/api/database",
+                     headers={"X-Metabase-Session": token}, timeout=15)
+    r.raise_for_status()
+    dbs = r.json().get("data", r.json())
+    return next(d["id"] for d in dbs if d["name"].lower() == _MB_DB_NAME.lower())
 
-    while True:
+def _mb_rename(df):
+    """Convert snake_case DB column names to Title Case display names."""
+    def _dn(col):
+        parts = str(col).split("_")
+        return " ".join("ID" if p.lower() == "id" else p.capitalize() for p in parts)
+    return df.rename(columns={c: _dn(c) for c in df.columns})
+
+def _mb_sql(token, db_id, sql):
+    """Run a native SQL query via Metabase, return a renamed DataFrame."""
+    from io import StringIO as _SIO
+    hdrs = {"X-Metabase-Session": token}
+
+    # Fast path: CSV export (no row limit, streams directly)
+    try:
         r = requests.post(
-            f"{_MB_BASE}/api/dataset",
-            headers=hdrs,
-            json={"database": db_id, "type": "query",
-                  "query": {"source-table": table_id,
-                             "limit": _MB_PAGE, "offset": offset}},
-            timeout=120,
+            f"{_MB_BASE}/api/dataset/csv",
+            headers={**hdrs, "Content-Type": "application/x-www-form-urlencoded"},
+            data={"query": str({"database": db_id, "type": "native",
+                                "native": {"query": sql.strip()}}).replace("'", '"')},
+            timeout=180,
         )
-        if r.status_code != 202:
-            raise RuntimeError(f"Metabase {r.status_code}")
-        data      = r.json().get("data", {})
-        page_rows = data.get("rows", [])
+        if r.status_code == 200 and r.text.strip():
+            df = pd.read_csv(_SIO(r.text))
+            if not df.empty:
+                return _mb_rename(df)
+    except Exception:
+        pass
+
+    # Fallback: paginated JSON (2 000 rows per page)
+    PAGE = 2000; all_rows = []; cols = None; offset = 0
+    while True:
+        paged = f"SELECT * FROM ({sql.strip()}) AS _q LIMIT {PAGE} OFFSET {offset}"
+        r = requests.post(f"{_MB_BASE}/api/dataset", headers=hdrs,
+                          json={"database": db_id, "type": "native",
+                                "native": {"query": paged}}, timeout=120)
+        if r.status_code not in (200, 202):
+            raise RuntimeError(f"Metabase {r.status_code}: {r.text[:200]}")
+        data = r.json().get("data", {})
+        rows = data.get("rows", [])
         if cols is None:
             cols = [c.get("display_name", c.get("name")) for c in data.get("cols", [])]
-        all_rows.extend(page_rows)
-        if len(page_rows) < _MB_PAGE:
+        all_rows.extend(rows)
+        if len(rows) < PAGE:
             break
-        offset += _MB_PAGE
-
-    df = pd.DataFrame(all_rows, columns=cols or [])
-    if parse_dates:
-        for col in parse_dates:
-            if col in df.columns:
-                df[col] = pd.to_datetime(df[col], errors="coerce")
-    return df
+        offset += PAGE
+    return _mb_rename(pd.DataFrame(all_rows, columns=cols or []))
 
 # ── Global CSS ───────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -243,19 +281,56 @@ footer { display: none !important; }
 
 
 # ── Data loader ─────────────────────────────────────────────────────────────────
-@st.cache_data(ttl=600, show_spinner="Loading dashboard data...")
+@st.cache_data(ttl=300, show_spinner="Fetching live data from Metabase...")
 def load_all():
-    # Load directly from pre-extracted CSVs (run scripts/extract_core_tables.py to refresh)
-    pay  = pd.read_csv(f"{DATA}/payment.csv",                    parse_dates=["Created At"])
-    inv  = pd.read_csv(f"{DATA}/invoice.csv",                    parse_dates=["Created At", "Due Date"])
-    rep  = pd.read_csv(f"{DATA}/repayment.csv",                  parse_dates=["Created At"])
-    rc   = pd.read_csv(f"{DATA}/retail_centre.csv")
-    prod = pd.read_csv(f"{DATA}/product.csv")
-    il   = pd.read_csv(f"{DATA}/invoice_line.csv")
-    ir   = pd.read_csv(f"{DATA}/inventory_request.csv",          parse_dates=["Created At"])
-    ibv  = pd.read_csv(f"{DATA}/inventory_balances_view.csv")
-    camp = pd.read_csv(f"{DATA}/preorder_campaign.csv")
-    irf  = pd.read_csv(f"{DATA}/inventory_request_fulfillment.csv")
+    # ── Try live Metabase fetch; fall back to cached CSVs if unavailable ─────────
+    _raw = {}
+    try:
+        _tok   = _mb_login()
+        _db_id = _mb_get_db_id(_tok)
+        for _name, _sql in _MB_QUERIES.items():
+            _raw[_name] = _mb_sql(_tok, _db_id, _sql)
+        # Persist fresh CSVs so the offline fallback is always current
+        os.makedirs(DATA, exist_ok=True)
+        for _name, _df in _raw.items():
+            _df.to_csv(f"{DATA}/{_name}.csv", index=False, encoding="utf-8-sig")
+        with open(os.path.join(DATA, "last_updated.txt"), "w", encoding="utf-8") as _f:
+            _f.write(pd.Timestamp.now().strftime("%d %b %Y %H:%M"))
+    except Exception as _err:
+        # Metabase unreachable — load from last-saved CSV files
+        _raw = {
+            "payment":                       pd.read_csv(f"{DATA}/payment.csv"),
+            "invoice":                       pd.read_csv(f"{DATA}/invoice.csv"),
+            "repayment":                     pd.read_csv(f"{DATA}/repayment.csv"),
+            "retail_centre":                 pd.read_csv(f"{DATA}/retail_centre.csv"),
+            "product":                       pd.read_csv(f"{DATA}/product.csv"),
+            "invoice_line":                  pd.read_csv(f"{DATA}/invoice_line.csv"),
+            "inventory_request":             pd.read_csv(f"{DATA}/inventory_request.csv"),
+            "inventory_balances_view":       pd.read_csv(f"{DATA}/inventory_balances_view.csv"),
+            "preorder_campaign":             pd.read_csv(f"{DATA}/preorder_campaign.csv"),
+            "inventory_request_fulfillment": pd.read_csv(f"{DATA}/inventory_request_fulfillment.csv"),
+        }
+
+    pay  = _raw["payment"].copy()
+    inv  = _raw["invoice"].copy()
+    rep  = _raw["repayment"].copy()
+    rc   = _raw["retail_centre"].copy()
+    prod = _raw["product"].copy()
+    il   = _raw["invoice_line"].copy()
+    ir   = _raw["inventory_request"].copy()
+    ibv  = _raw["inventory_balances_view"].copy()
+    camp = _raw["preorder_campaign"].copy()
+    irf  = _raw["inventory_request_fulfillment"].copy()
+
+    # ── Parse date columns (works for both Metabase strings and CSV strings) ──────
+    for _col in ["Created At"]:
+        if _col in pay.columns:  pay[_col]  = pd.to_datetime(pay[_col],  errors="coerce")
+    for _col in ["Created At", "Due Date"]:
+        if _col in inv.columns:  inv[_col]  = pd.to_datetime(inv[_col],  errors="coerce")
+    for _col in ["Created At"]:
+        if _col in rep.columns:  rep[_col]  = pd.to_datetime(rep[_col],  errors="coerce")
+    for _col in ["Created At"]:
+        if _col in ir.columns:   ir[_col]   = pd.to_datetime(ir[_col],   errors="coerce")
 
     # ── Filter everything to Ghana (GH) ──────────────────────────────────────────
     inv  = inv[inv["Country Code"] == "GH"].copy()
