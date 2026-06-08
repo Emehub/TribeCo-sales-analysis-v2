@@ -3,6 +3,7 @@ CowTribe Sales Dashboard
 Run: python -m streamlit run d:/company-dashboard/dashboard/app.py
 """
 import os
+import io
 import time
 import requests
 import streamlit as st
@@ -401,6 +402,24 @@ def white_layout(height=300):
                 font=dict(family="Inter, sans-serif", size=12),
                 yaxis=dict(gridcolor="#f3f4f6", gridwidth=1),
                 xaxis=dict(tickangle=-35))
+
+def make_excel(sheets: dict) -> bytes:
+    """Build a multi-sheet Excel file in memory and return bytes for download."""
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        for sheet_name, df in sheets.items():
+            df.to_excel(writer, sheet_name=sheet_name[:31], index=False)
+    return buf.getvalue()
+
+def dl_button(sheets: dict, filename: str, label: str = "Download Report"):
+    data = make_excel(sheets)
+    st.download_button(
+        label=f"⬇ {label}",
+        data=data,
+        file_name=filename,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True,
+    )
 
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────────
@@ -828,6 +847,14 @@ if page == "Overview":
         st.info("No vaccine delivery data found for the selected period.")
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # ── Download ──────────────────────────────────────────────────────────────────
+    _ov_sheets = {
+        "Monthly Revenue": _mb_tbl[["Month","Invoices","Revenue","Collected","Outstanding","Collection %","MoM Change"]].copy(),
+        "Invoice Detail":  inv_y[["ID","Created At","Month","Customer ID","Channel","Discountedvalue","Outstanding"]].copy(),
+        "Vaccine Doses":   _vax.copy() if len(_vax) else pd.DataFrame(columns=["Month","Disease","Quantity"]),
+    }
+    dl_button(_ov_sheets, f"Overview_{yr}.xlsx", "Download Overview Report")
+
 
 # ══════════════════════════════════════════════════════════════════════════════════
 # PAGE — SALES PERFORMANCE
@@ -912,6 +939,14 @@ elif page == "Sales Performance":
         lambda x: f"+{x:.1f}%" if pd.notna(x) and x >= 0 else (f"{x:.1f}%" if pd.notna(x) else ","))
     st.dataframe(summary[["Month","Sales","MoM Change"]], use_container_width=True, hide_index=True)
     st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Download ──────────────────────────────────────────────────────────────────
+    _sp_monthly = inv_f.groupby("Month")["Discountedvalue"].agg(Invoices="count", Revenue="sum").reset_index()
+    _sp_sheets  = {
+        "Monthly Summary":  _sp_monthly,
+        "Invoice Detail":   inv_f[["ID","Created At","Month","Customer ID","Channel","Discountedvalue","Outstanding"]].copy(),
+    }
+    dl_button(_sp_sheets, f"Sales_Performance_{yr}.xlsx", "Download Sales Performance Report")
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
@@ -1045,6 +1080,18 @@ elif page == "Customers":
     st.dataframe(dir_df, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # ── Download ──────────────────────────────────────────────────────────────────
+    _cust_revenue = (inv_y.merge(rc_names, left_on="Customer ID", right_on="ID", how="left")
+                          .groupby("Name")
+                          .agg(Orders=("ID","count"), Revenue=("Discountedvalue","sum"), Outstanding=("Outstanding","sum"))
+                          .reset_index().sort_values("Revenue", ascending=False))
+    _cust_sheets = {
+        "Customer Revenue":    _cust_revenue,
+        "Active Directory":    dir_df.reset_index(drop=True),
+        "Registrations":       rc_month_grp,
+    }
+    dl_button(_cust_sheets, f"Customers_{yr}.xlsx", "Download Customers Report")
+
 
 # ══════════════════════════════════════════════════════════════════════════════════
 # PAGE — PAYMENTS
@@ -1119,6 +1166,19 @@ elif page == "Payments":
                  use_container_width=True, hide_index=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # ── Download ──────────────────────────────────────────────────────────────────
+    _pay_monthly = (rep_y.assign(Month=rep_y["Created At"].dt.to_period("M").astype(str))
+                         .groupby("Month")["Amount"].sum().reset_index().rename(columns={"Amount":"Collected"}))
+    _pay_monthly = _pay_monthly.merge(
+        inv_y.groupby("Month")["Discountedvalue"].sum().reset_index().rename(columns={"Discountedvalue":"Invoiced"}),
+        on="Month", how="outer").fillna(0)
+    _pay_monthly["Collection %"] = (_pay_monthly["Collected"] / _pay_monthly["Invoiced"] * 100).round(1)
+    _pay_sheets = {
+        "Monthly Collections": _pay_monthly,
+        "Repayment Detail":    rep_y[["ID","Created At","Invoice ID","Amount","Payment Method","Status"]].copy(),
+        "Invoice Outstanding": inv_y[["ID","Created At","Month","Discountedvalue","Outstanding"]].copy(),
+    }
+    dl_button(_pay_sheets, f"Payments_{yr}.xlsx", "Download Payments Report")
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
@@ -1232,6 +1292,13 @@ elif page == "Weekly Scorecard":
         st.success("No overdue invoices in the selected period.")
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # ── Download ──────────────────────────────────────────────────────────────────
+    _wk_sheets = {
+        "Weekly Summary": weekly_tbl,
+        "Overdue Invoices": exc if len(overdue_inv) else pd.DataFrame(columns=["Invoice Date","Customer","Amount (GHS)","Due Date","Status"]),
+    }
+    dl_button(_wk_sheets, f"Weekly_Scorecard_{yr}.xlsx", "Download Weekly Scorecard")
+
 
 # ══════════════════════════════════════════════════════════════════════════════════
 # PAGE — RECONCILIATION
@@ -1324,6 +1391,17 @@ elif page == "Reconciliation":
     else:
         st.success("All invoices in this period are reconciled.")
     st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Download ──────────────────────────────────────────────────────────────────
+    _recon_matched = inv_y[inv_y["ID"].isin(matched_ids)].merge(rc_names[["ID","Name"]], left_on="Customer ID", right_on="ID", how="left")[["Created At","Name","Discountedvalue","Repayment Status"]].copy()
+    _recon_matched.columns = ["Invoice Date","Customer","Amount","Status"]
+    _recon_unmatched = inv_y[inv_y["ID"].isin(unmatched_ids)].merge(rc_names[["ID","Name"]], left_on="Customer ID", right_on="ID", how="left")[["Created At","Name","Discountedvalue","Repayment Status"]].copy()
+    _recon_unmatched.columns = ["Invoice Date","Customer","Amount","Status"]
+    _recon_sheets = {
+        "Matched (Paid)":   _recon_matched,
+        "Unmatched (Unpaid)": _recon_unmatched,
+    }
+    dl_button(_recon_sheets, f"Reconciliation_{yr}.xlsx", "Download Reconciliation Report")
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
@@ -1427,6 +1505,9 @@ elif page == "Data Quality":
     st.dataframe(dq_df, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # ── Download ──────────────────────────────────────────────────────────────────
+    dl_button({"Data Quality": dq_df.reset_index(drop=True)}, "Data_Quality.xlsx", "Download Data Quality Report")
+
 
 # ══════════════════════════════════════════════════════════════════════════════════
 # PAGE — RELIABILITY
@@ -1475,6 +1556,10 @@ elif page == "Reliability":
     st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # ── Download ──────────────────────────────────────────────────────────────────
+    _ir_dl = ir_all_fbc[["ID","Created At","Status","Fulfillment Label","Channel","Fulfillment Type"]].copy()
+    _ibv_dl = ibv[["Retail Centre ID","Product ID","Balance"]].copy() if len(ibv) else pd.DataFrame()
+    dl_button({"Fulfillment Status": _ir_dl, "Inventory Balances": _ibv_dl}, "Reliability.xlsx", "Download Reliability Report")
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
@@ -1608,6 +1693,10 @@ elif page == "Segmentation":
     st.dataframe(seg_tbl, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # ── Download ──────────────────────────────────────────────────────────────────
+    _seg_detail = seg_inv[["ID","Created At","Month","Customer ID","Segment Type","Discountedvalue"]].copy()
+    dl_button({"Segment Summary": by_segment, "Segment Detail": _seg_detail}, f"Segmentation_{yr}.xlsx", "Download Segmentation Report")
+
 
 # ══════════════════════════════════════════════════════════════════════════════════
 # PAGE — CAMPAIGNS
@@ -1666,3 +1755,7 @@ elif page == "Campaigns":
     fig2.update_layout(showlegend=False, xaxis=dict(tickangle=0))
     st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
     st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Download ──────────────────────────────────────────────────────────────────
+    _camp_dl = camp[["ID","Status Label","Start Date","End Date","Created At"]].copy() if len(camp) else pd.DataFrame()
+    dl_button({"Campaigns": _camp_dl}, "Campaigns.xlsx", "Download Campaigns Report")
