@@ -408,6 +408,10 @@ def make_excel(sheets: dict) -> bytes:
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         for sheet_name, df in sheets.items():
+            df = df.copy()
+            for col in df.columns:
+                if pd.api.types.is_datetime64_any_dtype(df[col]):
+                    df[col] = df[col].dt.tz_localize(None) if df[col].dt.tz is None else df[col].dt.tz_convert(None)
             df.to_excel(writer, sheet_name=sheet_name[:31], index=False)
     return buf.getvalue()
 
