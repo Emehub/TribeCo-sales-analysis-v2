@@ -587,7 +587,7 @@ if _PDF_AVAIL:
             self.set_xy(10, 25)
             self.set_font('Helvetica', 'B', 18)
             self.set_text_color(*self._BRAND)
-            yr_sfx = f'  —  {year}' if year and str(year) != 'All' else ''
+            yr_sfx = f' - {year}' if year and str(year) != 'All' else ''
             self.cell(0, 10, f'{title}{yr_sfx}', ln=True)
             if subtitle:
                 self.set_font('Helvetica', '', 9)
