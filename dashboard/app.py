@@ -193,6 +193,28 @@ footer { display: none !important; }
     overflow: visible !important;
 }
 .stDeployButton { display: none; }
+
+/* ── Download button ── */
+[data-testid="stDownloadButton"] button {
+    background: #f8fafc !important;
+    border: 1px solid #d1d5db !important;
+    color: #374151 !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    padding: 5px 14px !important;
+    border-radius: 8px !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 220px !important;
+    box-shadow: none !important;
+    transition: background 0.15s ease, color 0.15s ease !important;
+}
+[data-testid="stDownloadButton"] button:hover {
+    background: #16a34a !important;
+    border-color: #16a34a !important;
+    color: #ffffff !important;
+}
+
 /* Push the app body up to reclaim the space */
 [data-testid="stAppViewContainer"] {
     padding-top: 0 !important;
@@ -422,7 +444,6 @@ def dl_button(sheets: dict, filename: str, label: str = "Download Report"):
         data=data,
         file_name=filename,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True,
     )
 
 
