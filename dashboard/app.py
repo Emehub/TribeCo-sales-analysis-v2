@@ -12,6 +12,14 @@ import plotly.express as px
 import plotly.graph_objects as go
 import warnings
 warnings.filterwarnings("ignore")
+try:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    from fpdf import FPDF as _FPDF
+    _PDF_AVAIL = True
+except ImportError:
+    _PDF_AVAIL = False
 
 st.set_page_config(
     page_title="CowTribe Sales Dashboard",
@@ -446,6 +454,215 @@ def dl_button(sheets: dict, filename: str, label: str = "Download Report"):
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
+def dl_row(excel_sheets, excel_file, pdf_bytes, pdf_file, label="Report"):
+    """Renders Excel + PDF download buttons side by side."""
+    c1, c2, _ = st.columns([1, 1, 5])
+    with c1:
+        st.download_button(
+            f"⬇ Excel",
+            data=make_excel(excel_sheets),
+            file_name=excel_file,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    with c2:
+        if pdf_bytes:
+            st.download_button(
+                f"⬇ PDF",
+                data=pdf_bytes,
+                file_name=pdf_file,
+                mime="application/pdf",
+            )
+
+
+# ── PDF chart helpers (matplotlib → PNG bytes) ───────────────────────────────────
+if _PDF_AVAIL:
+    def _bar_png(x, y, title="", color="#4f46e5", ylabel="", figw=8.5, figh=3.0):
+        fig, ax = plt.subplots(figsize=(figw, figh))
+        ax.bar(list(x), list(y), color=color, alpha=0.88, zorder=3)
+        if title:
+            ax.set_title(title, fontsize=11, fontweight='bold', color='#14532d', pad=6)
+        if ylabel:
+            ax.set_ylabel(ylabel, fontsize=8, color='#6b7280')
+        ax.tick_params(axis='x', rotation=30, labelsize=7)
+        ax.tick_params(axis='y', labelsize=7)
+        ax.yaxis.grid(True, alpha=0.3, zorder=0)
+        ax.set_axisbelow(True)
+        for sp in ['top','right']:
+            ax.spines[sp].set_visible(False)
+        plt.tight_layout(pad=0.4)
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=130, bbox_inches='tight', facecolor='white')
+        plt.close(fig)
+        return buf.getvalue()
+
+    def _hbar_png(x, y, title="", color="#4f46e5", figw=8.5, figh=3.2):
+        fig, ax = plt.subplots(figsize=(figw, figh))
+        ax.barh(list(y), list(x), color=color, alpha=0.88, zorder=3)
+        if title:
+            ax.set_title(title, fontsize=11, fontweight='bold', color='#14532d', pad=6)
+        ax.tick_params(axis='y', labelsize=7)
+        ax.tick_params(axis='x', labelsize=7)
+        ax.xaxis.grid(True, alpha=0.3, zorder=0)
+        ax.set_axisbelow(True)
+        for sp in ['top','right']:
+            ax.spines[sp].set_visible(False)
+        plt.tight_layout(pad=0.4)
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=130, bbox_inches='tight', facecolor='white')
+        plt.close(fig)
+        return buf.getvalue()
+
+    def _grouped_bar_png(df, x_col, bars, title="", colors=None, figw=8.5, figh=3.0):
+        _dc = ['#4f46e5','#16a34a','#f59e0b','#dc2626']
+        x   = range(len(df))
+        w   = 0.8 / len(bars)
+        fig, ax = plt.subplots(figsize=(figw, figh))
+        for i, (col, lbl) in enumerate(bars):
+            offset = (i - len(bars)/2 + 0.5) * w
+            ax.bar([xi + offset for xi in x], df[col], w, label=lbl,
+                   color=(colors[i] if colors else _dc[i % 4]), alpha=0.88, zorder=3)
+        ax.set_xticks(list(x))
+        ax.set_xticklabels(df[x_col].tolist(), rotation=30, ha='right', fontsize=7)
+        if title:
+            ax.set_title(title, fontsize=11, fontweight='bold', color='#14532d', pad=6)
+        ax.tick_params(axis='y', labelsize=7)
+        ax.yaxis.grid(True, alpha=0.3, zorder=0)
+        ax.set_axisbelow(True)
+        ax.legend(fontsize=7, framealpha=0.7)
+        for sp in ['top','right']:
+            ax.spines[sp].set_visible(False)
+        plt.tight_layout(pad=0.4)
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=130, bbox_inches='tight', facecolor='white')
+        plt.close(fig)
+        return buf.getvalue()
+
+    def _stacked_bar_png(df, x_col, stack_col, val_col, title="", color_map=None, figw=8.5, figh=3.0):
+        pivot = df.pivot_table(index=x_col, columns=stack_col, values=val_col, aggfunc='sum').fillna(0)
+        fig, ax = plt.subplots(figsize=(figw, figh))
+        _cols = [color_map.get(c, '#9ca3af') for c in pivot.columns] if color_map else None
+        pivot.plot(kind='bar', stacked=True, ax=ax, color=_cols, alpha=0.88, zorder=3)
+        if title:
+            ax.set_title(title, fontsize=11, fontweight='bold', color='#14532d', pad=6)
+        ax.tick_params(axis='x', rotation=30, labelsize=7)
+        ax.tick_params(axis='y', labelsize=7)
+        ax.yaxis.grid(True, alpha=0.3, zorder=0)
+        ax.set_axisbelow(True)
+        ax.legend(loc='upper right', fontsize=7, framealpha=0.7)
+        for sp in ['top','right']:
+            ax.spines[sp].set_visible(False)
+        plt.tight_layout(pad=0.4)
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=130, bbox_inches='tight', facecolor='white')
+        plt.close(fig)
+        return buf.getvalue()
+
+    class TribePDF(_FPDF):
+        _BRAND = (20, 83, 45)
+        _WHITE = (255, 255, 255)
+        _DARK  = (17, 24, 39)
+        _GRAY  = (107, 114, 128)
+        _LGRAY = (243, 244, 246)
+        _PALETTE = [
+            (79,70,229),(22,163,74),(220,38,38),(245,158,11),
+            (139,92,246),(20,184,166),(249,115,22),(59,130,246),
+        ]
+
+        def __init__(self):
+            super().__init__(orientation='P', unit='mm', format='A4')
+            self.set_auto_page_break(auto=True, margin=15)
+            self.set_margins(10, 10, 10)
+
+        def add_header(self, title, subtitle="", year=""):
+            self.set_fill_color(*self._BRAND)
+            self.rect(0, 0, 210, 20, 'F')
+            self.set_font('Helvetica', 'B', 13)
+            self.set_text_color(*self._WHITE)
+            self.set_xy(10, 6)
+            self.cell(130, 8, 'TribeCo Ghana Dashboard', ln=False)
+            self.set_font('Helvetica', '', 8)
+            self.set_xy(10, 14)
+            self.cell(190, 5, f'Generated: {pd.Timestamp.today().strftime("%d %b %Y")}',
+                      align='R', ln=False)
+            self.set_xy(10, 25)
+            self.set_font('Helvetica', 'B', 18)
+            self.set_text_color(*self._BRAND)
+            yr_sfx = f'  —  {year}' if year and str(year) != 'All' else ''
+            self.cell(0, 10, f'{title}{yr_sfx}', ln=True)
+            if subtitle:
+                self.set_font('Helvetica', '', 9)
+                self.set_text_color(*self._GRAY)
+                self.cell(0, 5, subtitle, ln=True)
+            self.ln(2)
+            self.set_text_color(0, 0, 0)
+
+        def add_kpi_row(self, kpis):
+            if not kpis:
+                return
+            n    = min(len(kpis), 4)
+            box_w = (190 - (n - 1) * 4) / n
+            x0   = 10
+            y0   = self.get_y()
+            for i, (lbl, val) in enumerate(kpis[:n]):
+                x = x0 + i * (box_w + 4)
+                self.set_fill_color(*self._PALETTE[i % len(self._PALETTE)])
+                self.rect(x, y0, box_w, 18, 'F')
+                self.set_text_color(*self._WHITE)
+                self.set_font('Helvetica', '', 7)
+                self.set_xy(x + 2, y0 + 3)
+                self.cell(box_w - 4, 4, str(lbl)[:28], ln=True)
+                self.set_font('Helvetica', 'B', 10)
+                self.set_xy(x + 2, y0 + 8)
+                self.cell(box_w - 4, 7, str(val)[:20])
+            self.set_y(y0 + 22)
+            self.set_text_color(0, 0, 0)
+
+        def add_chart(self, img_bytes, title="", w=190):
+            if title:
+                self.set_font('Helvetica', 'B', 10)
+                self.set_text_color(*self._BRAND)
+                self.cell(0, 6, title, ln=True)
+                self.ln(1)
+            if self.get_y() > 240:
+                self.add_page()
+            self.image(io.BytesIO(img_bytes), x=10, w=w)
+            self.ln(3)
+            self.set_text_color(0, 0, 0)
+
+        def add_table(self, df, title="", max_rows=50):
+            if title:
+                self.set_font('Helvetica', 'B', 10)
+                self.set_text_color(*self._BRAND)
+                self.cell(0, 6, title, ln=True)
+                self.ln(1)
+            df   = df.head(max_rows).reset_index(drop=True)
+            cols = list(df.columns)
+            cw   = 190 / len(cols)
+
+            def _draw_header():
+                self.set_fill_color(*self._BRAND)
+                self.set_text_color(*self._WHITE)
+                self.set_font('Helvetica', 'B', 7)
+                for c in cols:
+                    self.cell(cw, 6, str(c)[:22], border=0, fill=True)
+                self.ln()
+
+            _draw_header()
+            self.set_font('Helvetica', '', 7)
+            for ri, (_, row) in enumerate(df.iterrows()):
+                if self.get_y() > 275:
+                    self.add_page()
+                    _draw_header()
+                    self.set_font('Helvetica', '', 7)
+                fc = self._LGRAY if ri % 2 == 0 else self._WHITE
+                self.set_fill_color(*fc)
+                self.set_text_color(*self._DARK)
+                for c in cols:
+                    self.cell(cw, 5, str(row[c])[:22], border=0, fill=True)
+                self.ln()
+            self.set_text_color(0, 0, 0)
+            self.ln(4)
+
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────────
 # ── Sidebar nav state ────────────────────────────────────────────────────────────
@@ -878,7 +1095,38 @@ if page == "Overview":
         "Invoice Detail":  inv_y[["ID","Created At","Month","Customer ID","Channel","Discountedvalue","Outstanding"]].copy(),
         "Vaccine Doses":   _vax.copy() if len(_vax) else pd.DataFrame(columns=["Month","Disease","Quantity"]),
     }
-    dl_button(_ov_sheets, f"Overview_{yr}.xlsx", "Download Overview Report")
+    _ov_pdf = None
+    if _PDF_AVAIL:
+        _p = TribePDF(); _p.add_page()
+        _p.add_header("Overview Report", "Ghana Operations  ·  FBC Sales", str(yr))
+        _p.add_kpi_row([
+            ("Total Sales",    f"GHS {total_revenue:,.0f}"),
+            ("Collected",      f"GHS {total_repaid:,.0f}"),
+            ("Outstanding",    f"GHS {outstanding_val:,.0f}"),
+            ("Avg Order Value",f"GHS {avg_order_value:,.0f}"),
+        ])
+        _p.add_kpi_row([
+            ("New Partners",    f"{new_signed:,}"),
+            ("Activation Rate", f"{activation_rate:.1f}%"),
+            ("Repeat Rate",     f"{repeat_rate:.1f}%"),
+            ("Recon Rate",      f"{recon_rate:.1f}%"),
+        ])
+        if len(monthly):
+            _p.add_chart(_bar_png(monthly["Month"], monthly["Discountedvalue"],
+                                  "Monthly Revenue (GHS)", color="#4f46e5", ylabel="GHS"),
+                         "Monthly Revenue Trend")
+        _t = _mb_tbl.copy()
+        for _c in ["Revenue","Collected","Outstanding"]:
+            _t[_c] = _t[_c].apply(lambda v: f"GHS {v:,.0f}")
+        _t["Collection %"] = _t["Collection %"].apply(lambda v: f"{v:.1f}%")
+        _p.add_table(_t[["Month","Invoices","Revenue","Collected","Outstanding","Collection %"]],
+                     "Monthly Revenue Breakdown")
+        if len(_vax):
+            _p.add_chart(_stacked_bar_png(_vax,"Month","Disease","Quantity",
+                                          "Vaccine Doses by Disease",color_map=_DISEASE_COLORS),
+                         "Vaccines Delivered")
+        _ov_pdf = bytes(_p.output())
+    dl_row(_ov_sheets, f"Overview_{yr}.xlsx", _ov_pdf, f"Overview_{yr}.pdf", "Overview")
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
@@ -971,7 +1219,25 @@ elif page == "Sales Performance":
         "Monthly Summary":  _sp_monthly,
         "Invoice Detail":   inv_f[["ID","Created At","Month","Customer ID","Channel","Discountedvalue","Outstanding"]].copy(),
     }
-    dl_button(_sp_sheets, f"Sales_Performance_{yr}.xlsx", "Download Sales Performance Report")
+    _sp_pdf = None
+    if _PDF_AVAIL:
+        _p = TribePDF(); _p.add_page()
+        _p.add_header("Sales Performance", "Monthly revenue  ·  weekly trends", str(yr))
+        _p.add_kpi_row([
+            ("Total Sales",   f"GHS {inv_f['Discountedvalue'].sum():,.0f}"),
+            ("Total Orders",  f"{len(inv_f):,}"),
+            ("Avg Sale Value",f"GHS {inv_f['Discountedvalue'].mean():,.0f}" if len(inv_f) else "—"),
+        ])
+        if len(m):
+            _p.add_chart(_bar_png(m["Month"], m["Discountedvalue"],
+                                  "Monthly Sales (GHS)", color="#4f46e5", ylabel="GHS"),
+                         "Monthly Sales Trend")
+        _t = _sp_monthly.copy()
+        _t["Revenue"] = _t["Revenue"].apply(lambda v: f"GHS {v:,.0f}")
+        _p.add_table(_t[["Month","Invoices","Revenue"]], "Monthly Summary")
+        _sp_pdf = bytes(_p.output())
+    dl_row(_sp_sheets, f"Sales_Performance_{yr}.xlsx", _sp_pdf,
+           f"Sales_Performance_{yr}.pdf", "Sales Performance")
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
@@ -1115,7 +1381,28 @@ elif page == "Customers":
         "Active Directory":    dir_df.reset_index(drop=True),
         "Registrations":       rc_month_grp,
     }
-    dl_button(_cust_sheets, f"Customers_{yr}.xlsx", "Download Customers Report")
+    _cust_pdf = None
+    if _PDF_AVAIL:
+        _p = TribePDF(); _p.add_page()
+        _p.add_header("Customers", "Partner registrations  ·  revenue leaderboard", str(yr))
+        _p.add_kpi_row([
+            ("New Partners",     f"{new_signed_y:,}"),
+            ("Activation Rate",  f"{act_rate:.1f}%"),
+            ("Repeat Rate",      f"{rep_rate:.1f}%"),
+            ("Active Customers", f"{act_c:,}"),
+        ])
+        _tc = top_cust.head(10)
+        if len(_tc):
+            _p.add_chart(_hbar_png(_tc["Total Value"], _tc["Customer"],
+                                   "Top 10 Customers by Order Value (GHS)", color="#4f46e5"),
+                         "Top Customers")
+        _t = _cust_revenue.head(20).copy()
+        _t["Revenue"]     = _t["Revenue"].apply(lambda v: f"GHS {v:,.0f}")
+        _t["Outstanding"] = _t["Outstanding"].apply(lambda v: f"GHS {v:,.0f}")
+        _p.add_table(_t[["Name","Orders","Revenue","Outstanding"]], "Customer Revenue Leaderboard")
+        _cust_pdf = bytes(_p.output())
+    dl_row(_cust_sheets, f"Customers_{yr}.xlsx", _cust_pdf,
+           f"Customers_{yr}.pdf", "Customers")
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
@@ -1203,7 +1490,30 @@ elif page == "Payments":
         "Repayment Detail":    rep_y[["ID","Created At","Invoice ID","Amount","Payment Method","Status"]].copy(),
         "Invoice Outstanding": inv_y[["ID","Created At","Month","Discountedvalue","Outstanding"]].copy(),
     }
-    dl_button(_pay_sheets, f"Payments_{yr}.xlsx", "Download Payments Report")
+    _pay_pdf = None
+    if _PDF_AVAIL:
+        _p = TribePDF(); _p.add_page()
+        _p.add_header("Payments", "Collections vs invoiced  ·  payment methods", str(yr))
+        _p.add_kpi_row([
+            ("Total Collected", f"GHS {total_repaid_y:,.0f}"),
+            ("Outstanding",     f"GHS {outstanding_y:,.0f}"),
+            ("Collection Rate", f"{collection_pct_y:.1f}%"),
+            ("Avg Payment",     f"GHS {rep_y['Amount'].mean():,.0f}" if len(rep_y) else "—"),
+        ])
+        if len(cmp):
+            _p.add_chart(_grouped_bar_png(cmp, "Month",
+                                          [("Discountedvalue","Invoiced"),("Amount","Collected")],
+                                          "Monthly: Invoiced vs Collected",
+                                          colors=["#a5b4fc","#4f46e5"]),
+                         "Monthly Collections vs Invoiced")
+        _t = _pay_monthly.copy()
+        _t["Collected"] = _t["Collected"].apply(lambda v: f"GHS {v:,.0f}")
+        _t["Invoiced"]  = _t["Invoiced"].apply(lambda v: f"GHS {v:,.0f}")
+        _t["Collection %"] = _t["Collection %"].apply(lambda v: f"{v:.1f}%")
+        _p.add_table(_t[["Month","Invoiced","Collected","Collection %"]], "Monthly Collections")
+        _pay_pdf = bytes(_p.output())
+    dl_row(_pay_sheets, f"Payments_{yr}.xlsx", _pay_pdf,
+           f"Payments_{yr}.pdf", "Payments")
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
@@ -1322,7 +1632,26 @@ elif page == "Weekly Scorecard":
         "Weekly Summary": weekly_tbl,
         "Overdue Invoices": exc if len(overdue_inv) else pd.DataFrame(columns=["Invoice Date","Customer","Amount (GHS)","Due Date","Status"]),
     }
-    dl_button(_wk_sheets, f"Weekly_Scorecard_{yr}.xlsx", "Download Weekly Scorecard")
+    _wk_pdf = None
+    if _PDF_AVAIL:
+        _p = TribePDF(); _p.add_page()
+        _p.add_header("Weekly Scorecard", "Weekly orders  ·  collections  ·  overdue alerts", str(yr))
+        _p.add_kpi_row([
+            ("Orders This Week",    f"{weekly_orders:,}"),
+            ("Sales This Week",     f"GHS {weekly_sales:,.0f}"),
+            ("Collected This Week", f"GHS {weekly_collected:,.0f}"),
+            ("Overdue Invoices",    f"{len(overdue_inv):,}"),
+        ])
+        if len(w_trend):
+            _p.add_chart(_bar_png(w_trend["Week"], w_trend["Sales"],
+                                  "Weekly Sales (GHS)", color="#4f46e5", ylabel="GHS"),
+                         "Weekly Sales Trend")
+        _p.add_table(weekly_tbl.head(20), "Weekly Breakdown")
+        if len(overdue_inv):
+            _p.add_table(exc.head(20), "Overdue Invoice Exceptions")
+        _wk_pdf = bytes(_p.output())
+    dl_row(_wk_sheets, f"Weekly_Scorecard_{yr}.xlsx", _wk_pdf,
+           f"Weekly_Scorecard_{yr}.pdf", "Weekly Scorecard")
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
@@ -1426,7 +1755,29 @@ elif page == "Reconciliation":
         "Matched (Paid)":   _recon_matched,
         "Unmatched (Unpaid)": _recon_unmatched,
     }
-    dl_button(_recon_sheets, f"Reconciliation_{yr}.xlsx", "Download Reconciliation Report")
+    _recon_pdf = None
+    if _PDF_AVAIL:
+        _p = TribePDF(); _p.add_page()
+        _p.add_header("Reconciliation", "Invoice match rates  ·  unreconciled analysis", str(yr))
+        _p.add_kpi_row([
+            ("Total Invoices",     f"{total_invoices:,}"),
+            ("Reconciled",         f"{matched_count:,}  ({match_rate:.1f}%)"),
+            ("Unreconciled",       f"{unmatched_count:,}"),
+            ("Unreconciled Value", f"GHS {unmatched_val:,.0f}"),
+        ])
+        _rs_df = inv_y["Repayment Status"].value_counts().reset_index()
+        _rs_df.columns = ["Status","Count"]
+        if len(_rs_df):
+            _p.add_chart(_bar_png(_rs_df["Status"], _rs_df["Count"],
+                                  "Repayment Status Distribution", color="#4f46e5"),
+                         "Status Breakdown")
+        if len(_recon_unmatched):
+            _t = _recon_unmatched.copy()
+            _t["Amount"] = pd.to_numeric(_t["Amount"], errors="coerce").apply(lambda v: f"GHS {v:,.0f}")
+            _p.add_table(_t.head(30), "Unreconciled Invoices (Top 30)")
+        _recon_pdf = bytes(_p.output())
+    dl_row(_recon_sheets, f"Reconciliation_{yr}.xlsx", _recon_pdf,
+           f"Reconciliation_{yr}.pdf", "Reconciliation")
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
@@ -1531,7 +1882,22 @@ elif page == "Data Quality":
     st.markdown("</div>", unsafe_allow_html=True)
 
     # ── Download ──────────────────────────────────────────────────────────────────
-    dl_button({"Data Quality": dq_df.reset_index(drop=True)}, "Data_Quality.xlsx", "Download Data Quality Report")
+    _dq_pdf = None
+    if _PDF_AVAIL:
+        _p = TribePDF(); _p.add_page()
+        _p.add_header("Data Quality", "Field completeness across Invoice  ·  Customer  ·  Repayment")
+        _p.add_kpi_row([
+            ("Avg Completeness", f"{avg_completeness:.1f}%"),
+            ("Critical Gaps",    f"{critical_fields}"),
+            ("High Quality",     f"{good_fields}"),
+            ("Tables Audited",   "3"),
+        ])
+        for _tname, _fdict in [("Invoice", inv_fields), ("Customer", rc_fields), ("Repayment", rep_fields)]:
+            _df_f = pd.DataFrame({"Field": list(_fdict.keys()), "Completeness %": [f"{v:.1f}%" for v in _fdict.values()]})
+            _p.add_table(_df_f, f"{_tname} Table — Field Completeness")
+        _dq_pdf = bytes(_p.output())
+    dl_row({"Data Quality": dq_df.reset_index(drop=True)}, "Data_Quality.xlsx",
+           _dq_pdf, "Data_Quality.pdf", "Data Quality")
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
@@ -1584,7 +1950,28 @@ elif page == "Reliability":
     # ── Download ──────────────────────────────────────────────────────────────────
     _ir_dl = ir_all_fbc[["ID","Created At","Status","Fulfillment Label","Channel","Fulfillment Type"]].copy()
     _ibv_dl = ibv[["Retail Centre ID","Product ID","Balance"]].copy() if len(ibv) else pd.DataFrame()
-    dl_button({"Fulfillment Status": _ir_dl, "Inventory Balances": _ibv_dl}, "Reliability.xlsx", "Download Reliability Report")
+    _rel_pdf = None
+    if _PDF_AVAIL:
+        _p = TribePDF(); _p.add_page()
+        _p.add_header("Reliability", "Stockout rates  ·  FBC fulfillment tracking")
+        _p.add_kpi_row([
+            ("Stockout Rate",       f"{stockout_pct:.1f}%"),
+            ("In-Stock Rate",       f"{100-stockout_pct:.1f}%"),
+            ("Fulfillment Rate",    f"{irf_rate:.1f}%"),
+            ("Pending/In-Progress", f"{ir_all_fbc[ir_all_fbc['Status'].isin([0,1,2])].shape[0]:,}"),
+        ])
+        _fs = ir_all_fbc["Fulfillment Label"].value_counts().reset_index()
+        _fs.columns = ["Status","Count"]
+        if len(_fs):
+            _p.add_chart(_bar_png(_fs["Status"], _fs["Count"],
+                                  "Fulfillment Status Distribution", color="#4f46e5"),
+                         "FBC Order Fulfillment Status")
+        _t = _ir_dl.copy()
+        _t["Created At"] = pd.to_datetime(_t["Created At"], errors="coerce").dt.strftime("%Y-%m-%d").fillna("")
+        _p.add_table(_t[["ID","Created At","Fulfillment Label","Channel"]].head(30), "Fulfillment Orders (Top 30)")
+        _rel_pdf = bytes(_p.output())
+    dl_row({"Fulfillment Status": _ir_dl, "Inventory Balances": _ibv_dl}, "Reliability.xlsx",
+           _rel_pdf, "Reliability.pdf", "Reliability")
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
@@ -1720,7 +2107,28 @@ elif page == "Segmentation":
 
     # ── Download ──────────────────────────────────────────────────────────────────
     _seg_detail = seg_inv[["ID","Created At","Month","Customer ID","Segment Type","Discountedvalue"]].copy()
-    dl_button({"Segment Summary": by_segment, "Segment Detail": _seg_detail}, f"Segmentation_{yr}.xlsx", "Download Segmentation Report")
+    _seg_pdf = None
+    if _PDF_AVAIL:
+        _p = TribePDF(); _p.add_page()
+        _p.add_header("Segmentation", "Portfolio segments  ·  revenue concentration  ·  MERL", str(yr))
+        _p.add_kpi_row([
+            ("Classified Customers", f"{total_cls:,}"),
+            ("SKU Breadth/Agrovet",  f"{sku_breadth:.1f}"),
+            ("Top-5 Revenue Conc.",  f"{top5_pct:.1f}%"),
+            ("HFSO Rate",            f"{hfso_pct:.1f}%"),
+        ])
+        if len(by_segment):
+            _p.add_chart(_bar_png(by_segment["Segment Type"], by_segment["Sales"],
+                                  "Sales by Customer Segment (GHS)", color="#4f46e5", ylabel="GHS"),
+                         "Revenue by Segment")
+        _t = by_segment.copy()
+        _t["Sales"]        = _t["Sales"].apply(lambda v: f"GHS {v:,.0f}")
+        _t["Rev/Purchase"] = _t["Rev/Purchase"].apply(lambda v: f"GHS {v:,.0f}")
+        _t.columns = ["Segment","Orders","Total Sales","Customers","Rev/Purchase (AOV)"]
+        _p.add_table(_t, "Segment Summary")
+        _seg_pdf = bytes(_p.output())
+    dl_row({"Segment Summary": by_segment, "Segment Detail": _seg_detail},
+           f"Segmentation_{yr}.xlsx", _seg_pdf, f"Segmentation_{yr}.pdf", "Segmentation")
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
@@ -1783,4 +2191,24 @@ elif page == "Campaigns":
 
     # ── Download ──────────────────────────────────────────────────────────────────
     _camp_dl = camp[["ID","Status Label","Start Date","End Date","Created At"]].copy() if len(camp) else pd.DataFrame()
-    dl_button({"Campaigns": _camp_dl}, "Campaigns.xlsx", "Download Campaigns Report")
+    _camp_pdf = None
+    if _PDF_AVAIL:
+        _p = TribePDF(); _p.add_page()
+        _p.add_header("Campaigns", "Pre-order campaign timeline and status")
+        _p.add_kpi_row([
+            ("Total Campaigns", f"{total_campaigns:,}"),
+            ("Active",          f"{active_campaigns:,}"),
+            ("Completed",       f"{completed_campaigns:,}"),
+            ("Programme Span",  f"{span_days} days"),
+        ])
+        _sd = camp["Status Label"].value_counts().reset_index()
+        _sd.columns = ["Status","Count"]
+        if len(_sd):
+            _p.add_chart(_bar_png(_sd["Status"], _sd["Count"],
+                                  "Campaigns by Status", color="#4f46e5"),
+                         "Campaign Status Distribution")
+        _p.add_table(camp_show.reset_index(drop=True)[["Campaign Name","Start Date","End Date","Status","Duration (days)"]],
+                     "Campaign Details")
+        _camp_pdf = bytes(_p.output())
+    dl_row({"Campaigns": _camp_dl}, "Campaigns.xlsx",
+           _camp_pdf, "Campaigns.pdf", "Campaigns")
