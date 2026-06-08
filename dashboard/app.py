@@ -742,6 +742,92 @@ if page == "Overview":
                  use_container_width=True, hide_index=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # ── Vaccines Delivered by Disease ─────────────────────────────────────────────
+    st.markdown(chart_wrap("Vaccines Delivered by Disease",
+                           "Monthly doses distributed by disease — Poultry · Goats & Sheep · Cattle"),
+                unsafe_allow_html=True)
+
+    # Disease mapping (product generic name → disease label)
+    _DISEASE_MAP = {
+        "LASOTA":            "Newcastle",
+        "NewCavac":          "Newcastle",
+        "HB1":               "Newcastle",
+        "I-2 Vaccine":       "Newcastle",
+        "Lasota + IB":       "Newcastle",
+        "ND+IB+EDS":         "Newcastle",
+        "GUMBORO INTER":     "Gumboro",
+        "FOWL POX":          "Fowlpox",
+        "Infectious Coryza": "Other Poultry",
+    }
+    _DISEASE_COLORS = {
+        "Newcastle":     "#4f46e5",
+        "Gumboro":       "#06b6d4",
+        "Fowlpox":       "#f59e0b",
+        "AI":            "#ef4444",
+        "PPR":           "#16a34a",
+        "CBPP":          "#8b5cf6",
+        "Other Poultry": "#9ca3af",
+    }
+
+    # Join invoice lines → products → disease, filtered to current year
+    _il_v = il[il["Invoice ID"].isin(set(inv_y["ID"].dropna().astype(int)))].copy()
+    _il_v = _il_v.merge(prod[["ID", "Generic Name", "Brand Name"]],
+                        left_on="Product ID", right_on="ID", how="left")
+    _il_v["Product"]  = _il_v["Generic Name"].fillna(_il_v["Brand Name"])
+    _il_v["Disease"]  = _il_v["Product"].map(_DISEASE_MAP).fillna("Other")
+    _il_v["Quantity"] = pd.to_numeric(_il_v["Quantity"], errors="coerce").fillna(0)
+
+    # Attach month from inv_y
+    _inv_mo = inv_y[["ID", "Month"]].rename(columns={"ID": "Invoice ID"})
+    _il_v   = _il_v.merge(_inv_mo, on="Invoice ID", how="left")
+
+    _vax = (_il_v[_il_v["Disease"] != "Other"]
+            .groupby(["Month", "Disease"])["Quantity"]
+            .sum().reset_index())
+
+    if len(_vax):
+        _disease_order = ["Newcastle", "Gumboro", "Fowlpox", "AI", "PPR", "CBPP", "Other Poultry"]
+        _diseases_present = [d for d in _disease_order if d in _vax["Disease"].unique()]
+
+        col_vax1, col_vax2 = st.columns([3, 2])
+        with col_vax1:
+            fig_vax = px.bar(
+                _vax, x="Month", y="Quantity", color="Disease",
+                barmode="stack",
+                color_discrete_map=_DISEASE_COLORS,
+                category_orders={"Disease": _diseases_present},
+                labels={"Quantity": "Doses", "Month": ""},
+                text_auto=False,
+            )
+            fig_vax.update_layout(
+                **white_layout(320),
+                legend=dict(orientation="h", y=-0.25, font=dict(size=11)),
+                yaxis_title="Doses Delivered",
+            )
+            st.plotly_chart(fig_vax, use_container_width=True, config=CHART_CFG)
+
+        with col_vax2:
+            # Summary table: disease totals + % share
+            _vax_sum = (_il_v[_il_v["Disease"] != "Other"]
+                        .groupby("Disease")["Quantity"].sum()
+                        .reset_index().sort_values("Quantity", ascending=False))
+            _total_doses = _vax_sum["Quantity"].sum()
+            _vax_sum["Share"] = (_vax_sum["Quantity"] / _total_doses * 100).round(1)
+            _vax_sum["Doses"] = _vax_sum["Quantity"].apply(lambda v: f"{v:,.0f}")
+            _vax_sum["Share"] = _vax_sum["Share"].apply(lambda v: f"{v:.1f}%")
+            st.dataframe(
+                _vax_sum[["Disease", "Doses", "Share"]],
+                use_container_width=True, hide_index=True
+            )
+            st.markdown(
+                f"<div style='font-size:12px;color:#6b7280;margin-top:8px'>"
+                f"Total doses: <b>{_total_doses:,.0f}</b></div>",
+                unsafe_allow_html=True
+            )
+    else:
+        st.info("No vaccine delivery data found for the selected period.")
+    st.markdown("</div>", unsafe_allow_html=True)
+
 
 # ══════════════════════════════════════════════════════════════════════════════════
 # PAGE — SALES PERFORMANCE
