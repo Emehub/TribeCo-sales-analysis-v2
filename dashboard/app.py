@@ -1301,7 +1301,7 @@ elif page == "Sales Performance":
         _p.add_kpi_row([
             ("Total Sales",   f"GHS {inv_f['Discountedvalue'].sum():,.0f}"),
             ("Total Orders",  f"{len(inv_f):,}"),
-            ("Avg Sale Value",f"GHS {inv_f['Discountedvalue'].mean():,.0f}" if len(inv_f) else "—"),
+            ("Avg Sale Value",f"GHS {inv_f['Discountedvalue'].mean():,.0f}" if len(inv_f) else "N/A"),
         ])
         if len(m):
             _p.add_chart(_bar_png(m["Month"], m["Discountedvalue"],
@@ -1573,7 +1573,7 @@ elif page == "Payments":
             ("Total Collected", f"GHS {total_repaid_y:,.0f}"),
             ("Outstanding",     f"GHS {outstanding_y:,.0f}"),
             ("Collection Rate", f"{collection_pct_y:.1f}%"),
-            ("Avg Payment",     f"GHS {rep_y['Amount'].mean():,.0f}" if len(rep_y) else "—"),
+            ("Avg Payment",     f"GHS {rep_y['Amount'].mean():,.0f}" if len(rep_y) else "N/A"),
         ])
         if len(cmp):
             _p.add_chart(_grouped_bar_png(cmp, "Month",
@@ -1969,7 +1969,7 @@ elif page == "Data Quality":
         ])
         for _tname, _fdict in [("Invoice", inv_fields), ("Customer", rc_fields), ("Repayment", rep_fields)]:
             _df_f = pd.DataFrame({"Field": list(_fdict.keys()), "Completeness %": [f"{v:.1f}%" for v in _fdict.values()]})
-            _p.add_table(_df_f, f"{_tname} Table — Field Completeness")
+            _p.add_table(_df_f, f"{_tname} Table - Field Completeness")
         _dq_pdf = bytes(_p.output())
     dl_row({"Data Quality": dq_df.reset_index(drop=True)}, "Data_Quality.xlsx",
            _dq_pdf, "Data_Quality.pdf", "Data Quality")
