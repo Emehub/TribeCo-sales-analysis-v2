@@ -1878,7 +1878,7 @@ elif page == "Data Quality":
     rc_fields = {
         "Name":         rc["Name"].notna().mean() * 100,
         "Status":       rc["Status"].notna().mean() * 100,
-        "Address Region":   rc["Customer Address → Region"].notna().mean() * 100,
+        "Address Region":   rc["Customer Address"].notna().mean() * 100,
         "Segment Type": rc["Segment Type"].notna().mean() * 100,
         "Sales Zone":   rc["Sales Zone"].notna().mean() * 100,
         "Email":        rc["Email"].notna().mean() * 100,
