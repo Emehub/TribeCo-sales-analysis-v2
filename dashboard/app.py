@@ -268,13 +268,15 @@ def load_all():
     # ── Try live Metabase fetch; fall back to cached CSVs if unavailable ─────────
     _raw = {}
     _from_metabase = False
+    _fetch_error   = ""
     try:
         _tok   = _mb_login()
         _db_id = _mb_get_db_id(_tok)
         for _name, _sql in _MB_QUERIES.items():
             _raw[_name] = _mb_sql(_tok, _db_id, _sql)
         _from_metabase = True
-    except Exception:
+    except Exception as _err:
+        _fetch_error = f"{type(_err).__name__}: {_err}"
         # Metabase unreachable — load from last-saved CSV files
         _raw = {
             "payment":                       pd.read_csv(f"{DATA}/payment.csv"),
@@ -412,14 +414,15 @@ def load_all():
 
     _fetch_ts   = pd.Timestamp.now().strftime("%d %b %Y %H:%M")
     _fetch_live = _from_metabase
-    return pay, inv, rep, rc, prod, il, ir, prod_rev, rc_names, ibv, camp, irf, inv_scoped, rep_scoped, ir_all_fbc, _fetch_ts, _fetch_live
+    return pay, inv, rep, rc, prod, il, ir, prod_rev, rc_names, ibv, camp, irf, inv_scoped, rep_scoped, ir_all_fbc, _fetch_ts, _fetch_live, _fetch_error
 
 (pay, inv, rep, rc, prod, il, ir, prod_rev, rc_names, ibv, camp, irf,
- inv_scoped, rep_scoped, ir_all_fbc, _fetch_ts, _fetch_live) = load_all()
+ inv_scoped, rep_scoped, ir_all_fbc, _fetch_ts, _fetch_live, _fetch_error) = load_all()
 
 # Store fetch metadata in session_state so sidebar fragment can read it
-st.session_state["_fetch_ts"]   = _fetch_ts
-st.session_state["_fetch_live"] = _fetch_live
+st.session_state["_fetch_ts"]    = _fetch_ts
+st.session_state["_fetch_live"]  = _fetch_live
+st.session_state["_fetch_error"] = _fetch_error
 
 # ── Metrics ──────────────────────────────────────────────────────────────────────
 total_invoiced   = inv_scoped["Discountedvalue"].sum()
@@ -779,8 +782,9 @@ with st.sidebar:
     # ── Auto-refresh: re-fetches data from Metabase every 5 minutes ─────────────
     @st.fragment(run_every=300)
     def _auto_refresh():
-        ts   = st.session_state.get("_fetch_ts", "")
-        live = st.session_state.get("_fetch_live", False)
+        ts    = st.session_state.get("_fetch_ts", "")
+        live  = st.session_state.get("_fetch_live", False)
+        err   = st.session_state.get("_fetch_error", "")
         dot_color = "#4ade80" if live else "#f59e0b"
         source    = "Metabase" if live else "cached CSV"
         label     = f"Live · {source} · {ts}" if ts else "Live · auto-refresh on"
@@ -792,6 +796,12 @@ with st.sidebar:
             f'{label}</div>',
             unsafe_allow_html=True,
         )
+        if err:
+            st.markdown(
+                f'<div style="color:#fca5a5;font-size:10px;padding:2px 16px 8px;'
+                f'word-break:break-all">{err}</div>',
+                unsafe_allow_html=True,
+            )
         # On the initial page render, just record the baseline — don't trigger a rerun.
         if not st.session_state.get("_refresh_initialized"):
             st.session_state["_refresh_initialized"] = True
