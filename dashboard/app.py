@@ -410,9 +410,16 @@ def load_all():
         3: "Completed",   5: "Completed", 7: "Completed",
     }).fillna("Unknown")
 
-    return pay, inv, rep, rc, prod, il, ir, prod_rev, rc_names, ibv, camp, irf, inv_scoped, rep_scoped, ir_all_fbc
+    _fetch_ts   = pd.Timestamp.now().strftime("%d %b %Y %H:%M")
+    _fetch_live = _from_metabase
+    return pay, inv, rep, rc, prod, il, ir, prod_rev, rc_names, ibv, camp, irf, inv_scoped, rep_scoped, ir_all_fbc, _fetch_ts, _fetch_live
 
-pay, inv, rep, rc, prod, il, ir, prod_rev, rc_names, ibv, camp, irf, inv_scoped, rep_scoped, ir_all_fbc = load_all()
+(pay, inv, rep, rc, prod, il, ir, prod_rev, rc_names, ibv, camp, irf,
+ inv_scoped, rep_scoped, ir_all_fbc, _fetch_ts, _fetch_live) = load_all()
+
+# Store fetch metadata in session_state so sidebar fragment can read it
+st.session_state["_fetch_ts"]   = _fetch_ts
+st.session_state["_fetch_live"] = _fetch_live
 
 # ── Metrics ──────────────────────────────────────────────────────────────────────
 total_invoiced   = inv_scoped["Discountedvalue"].sum()
@@ -769,23 +776,19 @@ with st.sidebar:
             st.session_state["active_page"] = item
             st.rerun()
 
-    # ── Auto-refresh: re-fetches data from disk every 5 minutes ─────────────────
+    # ── Auto-refresh: re-fetches data from Metabase every 5 minutes ─────────────
     @st.fragment(run_every=300)
     def _auto_refresh():
-        ts_file = os.path.join(DATA, "last_updated.txt")
-        ts_text = ""
-        if os.path.exists(ts_file):
-            try:
-                with open(ts_file, encoding="utf-8") as f:
-                    ts_text = f.read().strip()
-            except Exception:
-                pass
-        label = f"Live · updated {ts_text}" if ts_text else "Live · auto-refresh on"
+        ts   = st.session_state.get("_fetch_ts", "")
+        live = st.session_state.get("_fetch_live", False)
+        dot_color = "#4ade80" if live else "#f59e0b"
+        source    = "Metabase" if live else "cached CSV"
+        label     = f"Live · {source} · {ts}" if ts else "Live · auto-refresh on"
         st.markdown(
             f'<div style="color:rgba(255,255,255,0.55);font-size:11px;'
             f'padding:10px 16px 6px;border-top:1px solid rgba(255,255,255,0.1);margin-top:6px">'
             f'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;'
-            f'background:#4ade80;margin-right:5px;vertical-align:middle"></span>'
+            f'background:{dot_color};margin-right:5px;vertical-align:middle"></span>'
             f'{label}</div>',
             unsafe_allow_html=True,
         )
