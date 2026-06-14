@@ -81,26 +81,8 @@ def _mb_rename(df):
 
 def _mb_sql(token, db_id, sql):
     """Run a native SQL query via Metabase, return a renamed DataFrame."""
-    from io import StringIO as _SIO
     hdrs = {"X-Metabase-Session": token}
-
-    # Fast path: CSV export (no row limit, streams directly)
-    try:
-        r = requests.post(
-            f"{_MB_BASE}/api/dataset/csv",
-            headers={**hdrs, "Content-Type": "application/x-www-form-urlencoded"},
-            data={"query": str({"database": db_id, "type": "native",
-                                "native": {"query": sql.strip()}}).replace("'", '"')},
-            timeout=180,
-        )
-        if r.status_code == 200 and r.text.strip():
-            df = pd.read_csv(_SIO(r.text))
-            if not df.empty:
-                return _mb_rename(df)
-    except Exception:
-        pass
-
-    # Fallback: paginated JSON (2 000 rows per page)
+    # Paginated JSON — reliable across all Metabase versions
     PAGE = 2000; all_rows = []; cols = None; offset = 0
     while True:
         paged = f"SELECT * FROM ({sql.strip()}) AS _q LIMIT {PAGE} OFFSET {offset}"
@@ -285,18 +267,14 @@ footer { display: none !important; }
 def load_all():
     # ── Try live Metabase fetch; fall back to cached CSVs if unavailable ─────────
     _raw = {}
+    _from_metabase = False
     try:
         _tok   = _mb_login()
         _db_id = _mb_get_db_id(_tok)
         for _name, _sql in _MB_QUERIES.items():
             _raw[_name] = _mb_sql(_tok, _db_id, _sql)
-        # Persist fresh CSVs so the offline fallback is always current
-        os.makedirs(DATA, exist_ok=True)
-        for _name, _df in _raw.items():
-            _df.to_csv(f"{DATA}/{_name}.csv", index=False, encoding="utf-8-sig")
-        with open(os.path.join(DATA, "last_updated.txt"), "w", encoding="utf-8") as _f:
-            _f.write(pd.Timestamp.now().strftime("%d %b %Y %H:%M"))
-    except Exception as _err:
+        _from_metabase = True
+    except Exception:
         # Metabase unreachable — load from last-saved CSV files
         _raw = {
             "payment":                       pd.read_csv(f"{DATA}/payment.csv"),
@@ -310,6 +288,17 @@ def load_all():
             "preorder_campaign":             pd.read_csv(f"{DATA}/preorder_campaign.csv"),
             "inventory_request_fulfillment": pd.read_csv(f"{DATA}/inventory_request_fulfillment.csv"),
         }
+    # Persist fresh CSVs as local backup (separate try so write failure
+    # never causes the Metabase data itself to be discarded)
+    if _from_metabase:
+        try:
+            os.makedirs(DATA, exist_ok=True)
+            for _name, _df in _raw.items():
+                _df.to_csv(f"{DATA}/{_name}.csv", index=False, encoding="utf-8-sig")
+            with open(os.path.join(DATA, "last_updated.txt"), "w", encoding="utf-8") as _f:
+                _f.write(pd.Timestamp.now().strftime("%d %b %Y %H:%M"))
+        except Exception:
+            pass  # Read-only filesystem (e.g. Streamlit Cloud) — skip silently
 
     pay  = _raw["payment"].copy()
     inv  = _raw["invoice"].copy()
