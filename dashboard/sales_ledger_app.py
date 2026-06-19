@@ -301,17 +301,34 @@ if page == "Overview":
                    "09":"September","10":"October","11":"November","12":"December"}
     MONTH_COLORS = ["#14532d","#16a34a","#059669","#0d9488","#065f46","#22c55e"]
     m_rev = inv_y.groupby("Month")["Total"].sum().reset_index().sort_values("Month")
+    # Pad to current month so all months Jan-Jun always appear even without data yet
+    _cur_mo = TODAY.to_period("M").strftime("%Y-%m")
+    if len(m_rev) and m_rev["Month"].max() < _cur_mo:
+        _gap = pd.period_range(m_rev["Month"].max(), _cur_mo, freq="M")[1:]
+        _pad = pd.DataFrame({"Month": _gap.strftime("%Y-%m"), "Total": 0.0})
+        m_rev = pd.concat([m_rev, _pad], ignore_index=True)
     m_rev["prev"] = m_rev["Total"].shift(1)
     m_rev["pct"]  = ((m_rev["Total"] - m_rev["prev"]) / m_rev["prev"] * 100).round(1)
     month_cards = ""
     for i, (_, row) in enumerate(m_rev.head(6).iterrows()):
         mo_key  = row["Month"].split("-")[1] if "-" in str(row["Month"]) else ""
         mo_name = MONTH_NAMES.get(mo_key, row["Month"])
-        pct_txt = (f"+{row['pct']:.0f}% vs prev month" if pd.notna(row["pct"]) and row["pct"] >= 0
-                   else (f"{row['pct']:.0f}% vs prev month" if pd.notna(row["pct"]) else "First month"))
-        month_cards += kpi_card(mo_name, f"GHS {row['Total']:,.0f}", pct_txt, MONTH_COLORS[i % 6])
+        has_data = row["Total"] > 0
+        pct_txt = (f"+{row['pct']:.0f}% vs prev month" if has_data and pd.notna(row["pct"]) and row["pct"] >= 0
+                   else (f"{row['pct']:.0f}% vs prev month" if has_data and pd.notna(row["pct"])
+                   else ("First month" if has_data else "In progress")))
+        _color   = MONTH_COLORS[i % 6]
+        _val     = f"GHS {row['Total']:,.0f}" if has_data else "In progress"
+        _opacity = "" if has_data else "opacity:0.45;"
+        month_cards += (
+            f'<div class="kpi-card" style="border-top-color:{_color};{_opacity}">'
+            f'<div class="kpi-label">{mo_name}</div>'
+            f'<div class="kpi-value">{_val}</div>'
+            f'<div class="kpi-sub">{pct_txt}</div>'
+            f'</div>'
+        )
     if month_cards:
-        n_months = min(len(m_rev), 6)
+        n_months = min(len(m_rev.head(6)), 6)
         st.markdown(
             f'<div style="font-size:11px;font-weight:700;text-transform:uppercase;'
             f'letter-spacing:1px;color:#16a34a;margin:16px 0 6px">Monthly Revenue</div>',
