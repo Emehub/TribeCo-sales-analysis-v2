@@ -958,25 +958,37 @@ if page == "Overview":
     _m_rev = inv_y.groupby("Month")["Discountedvalue"].sum().reset_index().sort_values("Month")
     _m_rev["prev"] = _m_rev["Discountedvalue"].shift(1)
     _m_rev["pct"]  = ((_m_rev["Discountedvalue"] - _m_rev["prev"]) / _m_rev["prev"] * 100).round(1)
-    _month_html = ""
-    for _i, (_, _r) in enumerate(_m_rev.iterrows()):
+    _older_html = ""
+    _recent_html = ""
+    _m_rev_list = list(_m_rev.iterrows())
+    for _i, (_, _r) in enumerate(_m_rev_list):
         _parts = str(_r["Month"]).split("-")
         _yr_lbl = _parts[0] if len(_parts) == 2 else ""
         _mo_lbl = _MO_ABBR.get(_parts[1], _parts[1]) if len(_parts) == 2 else _r["Month"]
         _label  = f"{_mo_lbl} {_yr_lbl}"
         _sub    = (f"+{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) and _r["pct"] >= 0
                    else (f"{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) else "First month"))
-        _month_html += kpi_card(_label, f"GHS {_r['Discountedvalue']:,.0f}", _sub,
-                                _MONTH_COLORS[_i % 6])
-    if _month_html:
+        _card = kpi_card(_label, f"GHS {_r['Discountedvalue']:,.0f}", _sub, _MONTH_COLORS[_i % 6])
+        if _i >= len(_m_rev_list) - 2:
+            _recent_html += _card
+        else:
+            _older_html += _card
+    if _recent_html or _older_html:
         st.markdown(
             "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
             "letter-spacing:1px;color:#6366f1;margin:16px 0 6px'>Monthly Revenue</div>",
             unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="kpi-grid" style="grid-template-columns:repeat(6,1fr)">'
-            f'{_month_html}</div>',
-            unsafe_allow_html=True)
+        if _recent_html:
+            st.markdown(
+                f'<div class="kpi-grid" style="grid-template-columns:repeat(2,1fr)">'
+                f'{_recent_html}</div>',
+                unsafe_allow_html=True)
+        if _older_html:
+            with st.expander("Show previous months"):
+                st.markdown(
+                    f'<div class="kpi-grid" style="grid-template-columns:repeat(6,1fr)">'
+                    f'{_older_html}</div>',
+                    unsafe_allow_html=True)
 
     col1, col2 = st.columns([3, 2])
 
@@ -1229,25 +1241,37 @@ elif page == "Sales Performance":
     _sp_rev = inv_f.groupby("Month")["Discountedvalue"].sum().reset_index().sort_values("Month")
     _sp_rev["prev"] = _sp_rev["Discountedvalue"].shift(1)
     _sp_rev["pct"]  = ((_sp_rev["Discountedvalue"] - _sp_rev["prev"]) / _sp_rev["prev"] * 100).round(1)
-    _sp_html = ""
-    for _i, (_, _r) in enumerate(_sp_rev.iterrows()):
+    _sp_older_html = ""
+    _sp_recent_html = ""
+    _sp_rev_list = list(_sp_rev.iterrows())
+    for _i, (_, _r) in enumerate(_sp_rev_list):
         _parts  = str(_r["Month"]).split("-")
         _yr_lbl = _parts[0] if len(_parts) == 2 else ""
         _mo_lbl = _SP_ABBR.get(_parts[1], _parts[1]) if len(_parts) == 2 else _r["Month"]
         _label  = f"{_mo_lbl} {_yr_lbl}"
         _sub    = (f"+{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) and _r["pct"] >= 0
                    else (f"{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) else "First month"))
-        _sp_html += kpi_card(_label, f"GHS {_r['Discountedvalue']:,.0f}", _sub,
-                             _SP_COLORS[_i % 6])
-    if _sp_html:
+        _card = kpi_card(_label, f"GHS {_r['Discountedvalue']:,.0f}", _sub, _SP_COLORS[_i % 6])
+        if _i >= len(_sp_rev_list) - 2:
+            _sp_recent_html += _card
+        else:
+            _sp_older_html += _card
+    if _sp_recent_html or _sp_older_html:
         st.markdown(
             "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
             "letter-spacing:1px;color:#6366f1;margin:16px 0 6px'>Monthly Revenue</div>",
             unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="kpi-grid" style="grid-template-columns:repeat(6,1fr)">'
-            f'{_sp_html}</div>',
-            unsafe_allow_html=True)
+        if _sp_recent_html:
+            st.markdown(
+                f'<div class="kpi-grid" style="grid-template-columns:repeat(2,1fr)">'
+                f'{_sp_recent_html}</div>',
+                unsafe_allow_html=True)
+        if _sp_older_html:
+            with st.expander("Show previous months"):
+                st.markdown(
+                    f'<div class="kpi-grid" style="grid-template-columns:repeat(6,1fr)">'
+                    f'{_sp_older_html}</div>',
+                    unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
     with col1:
