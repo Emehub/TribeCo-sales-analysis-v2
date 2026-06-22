@@ -1433,14 +1433,14 @@ elif page == "Customers":
 
     st.markdown(chart_wrap("Active Customers Directory", f"All {active_customers} active registered customers"), unsafe_allow_html=True)
     dir_df = rc[rc["Status"] == "Active"][[
-        "Name", "Segment Type", "Customer Address → Region",
+        "Name", "Segment Type", "Customer Address",
         "Phone Number", "Created At"
     ]].copy()
     dir_df["Created At"] = pd.to_datetime(dir_df["Created At"], errors="coerce")
     dir_df = dir_df.sort_values("Created At", ascending=True).reset_index(drop=True)
     dir_df["Created At"] = dir_df["Created At"].dt.strftime("%d %b %Y")
     dir_df = dir_df.rename(columns={
-        "Customer Address → Region": "Region",
+        "Customer Address": "Region",
         "Phone Number":              "Phone",
         "Created At":                "Date Joined",
     })

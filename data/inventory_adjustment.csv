@@ -1,4 +1,4 @@
-ID,User ID,Location ID,Type,Product ID,Quantity,Status,Approved By,Approved At,Notes,Created At
+﻿ID,User ID,Location ID,Type,Product ID,Quantity,Status,Approved By,Approved At,Notes,Created At
 45716,18698,1138,2,19088,25,1,18698.0,2021-06-16T13:13:23.805539Z,Transferred to Tamale on 9/04/2021,2021-06-16T12:17:16.673704Z
 45756,18698,1138,2,12468,45,1,18698.0,2021-06-16T13:12:05.237183Z,Transfer to Techiman,2021-06-16T12:57:20.237254Z
 45754,18698,1138,2,12464,90,1,18698.0,2021-06-16T13:12:11.650454Z,Transfer to Techiman,2021-06-16T12:56:08.237532Z

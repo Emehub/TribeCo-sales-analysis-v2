@@ -1,4 +1,4 @@
-ID,Name,Description,Is System Role,Created At
+﻿ID,Name,Description,Is System Role,Created At
 dbf36ff3e3827639223983ee8ac47b42,Super Admin,First User Full Rights to Everything,True,2020-08-10T00:11:17.444285Z
 21232F297A57A5A743894A0E4A801FC3,Admin,Admin,True,2020-07-01T03:47:08.947749Z
 303415A369B3527610CED0C66B544AD0,Retail Sales Agent,Retail Sales Agent,True,2020-07-01T03:45:37.126595Z

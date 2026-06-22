@@ -1,1 +1,12 @@
-ID,Inventory Adjustment Log ID,Batch Order ID,Batch Number,Location Name,Quantity Before,Quantity Change,Quantity After
+﻿ID,Inventory Adjustment Log ID,Batch Order ID,Batch Number,Location Name,Quantity Before,Quantity Change,Quantity After
+201130,201128,38cc1390caa94e5aaa50ccfa0e397821,750319,Accra Distribution Centre,39,200,239
+201296,201294,908d60f64dd24a2e921a4512f8c91343,747019,Zipline DC-Anum,50,-50,0
+205400,205398,908d60f64dd24a2e921a4512f8c91343,747019,Zipline DC-Omenako,33,-33,0
+205590,205588,410b7cacbacb4c57ae27ccb35efa4078,003N1UKA,Zipline DC-Anum,5,-5,0
+210450,210448,117d8b2bca0e4083bad2e97494269ff5,751631,Zipline DC-Omenako,100,-32,68
+210656,210654,cd884ada798242df946852a0dad2760c,752224,Zipline DC-Omenako,200,-85,115
+210862,210860,b1db9208ac96448d97ec771a56c8d961,750327,Zipline DC-Omenako,300,-209,91
+211068,211066,9ed4a84c97ca4667950e6ec49d1b9f4a,750334,Zipline DC-Omenako,275,-220,55
+211274,211272,b1b9488cad26417789b257a1790d8359,749380,Zipline DC-Omenako,579,-529,50
+211276,211272,127e7f2c0b8c45079eeeded2d7d74225,750326,Zipline DC-Omenako,250,-35,215
+211584,211582,b1b9488cad26417789b257a1790d8359,749380,Zipline DC-Omenako,50,-50,0

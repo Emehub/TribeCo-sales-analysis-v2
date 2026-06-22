@@ -1,4 +1,4 @@
-ID,Name,Address,Created At,Type,Status,Coverage Area,Stock Capacity,Country Code,City,Region ID,District ID,Manager Name,Manager Phone,Manager Email
+﻿ID,Name,Address,Created At,Type,Status,Coverage Area,Stock Capacity,Country Code,City,Region ID,District ID,Manager Name,Manager Phone,Manager Email
 1109,Accra Distribution Centre,Accra,2020-10-26T10:01:32.911265Z,0,Active,,,GH,,,,,,
 1110,BackOrder Processing Centre,Domaa,2021-09-24T19:23:57.407453Z,1,Active,,,GH,,,,,,
 1107,Tamale Distribution Center,Tamale,2020-08-10T00:11:17.713896Z,0,Active,,,GH,,,,,,

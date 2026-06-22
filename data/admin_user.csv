@@ -1,4 +1,4 @@
-ID,Email Address,Password Hash,Role,Assigned Country Code,First Name,Last Name,Is Active,Created At,Updated At,Created By,Updated By
+﻿ID,Email Address,Password Hash,Role,Assigned Country Code,First Name,Last Name,Is Active,Created At,Updated At,Created By,Updated By
 81338b8d247c458cb23eff82ee8ae127,superadmin@zhulia.com,$2a$12$LkUPLhecQ/K0yx1Hw6t2zuSJZOhElv12.i3Uz4VLod00s3GyTR3Q.,SuperAdmin,,Super,Admin,True,2026-03-16T23:39:35.363932Z,,,
 eaf64742ba8b419ea8459d1a023efb08,wacera.maina@cowtribe.com,$2a$12$FrRA/ljWjbNihNhor.ZSvO9N/CnQnsXBcGXIaK/qJEYnoRDTYcw.K,CountryAdmin,KE,Wacera,Maina,True,2026-03-24T16:40:14.065142Z,,Super Admin,
 a721d157e4be49b7b46a315d78ee6694,emelia.awin@cowtribe.com,$2a$12$E/5ujcr14tiOmxolwgO5YOixOitbDnxB1RG/bVnbhsvi5WjVHmzAa,ProductSupport,GH,Emelia,Awin,True,2026-03-24T16:41:34.565564Z,,Super Admin,
