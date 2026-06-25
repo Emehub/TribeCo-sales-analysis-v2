@@ -5,6 +5,9 @@ config.py
 # Raw exports
 exports/
 
+# Logs
+logs/
+
 # Python
 __pycache__/
 *.pyc

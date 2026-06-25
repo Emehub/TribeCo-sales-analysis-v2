@@ -262,6 +262,157 @@ footer { display: none !important; }
 """, unsafe_allow_html=True)
 
 
+# ── Shared data-processing pipeline ─────────────────────────────────────────────
+def _process_raw(_raw, target_year=None, from_metabase=True, fetch_error=""):
+    """
+    Convert a dict of raw DataFrames into the full set of processed variables.
+    target_year=None → live mode (filter inv_scoped to year >= 2026)
+    target_year=<int> → historical mode (filter inv_scoped to that exact year)
+    """
+    pay  = _raw.get("payment",                       pd.DataFrame()).copy()
+    inv  = _raw.get("invoice",                       pd.DataFrame()).copy()
+    rep  = _raw.get("repayment",                     pd.DataFrame()).copy()
+    rc   = _raw.get("retail_centre",                 pd.DataFrame()).copy()
+    prod = _raw.get("product",                       pd.DataFrame()).copy()
+    il   = _raw.get("invoice_line",                  pd.DataFrame()).copy()
+    ir   = _raw.get("inventory_request",             pd.DataFrame()).copy()
+    ibv  = _raw.get("inventory_balances_view",       pd.DataFrame()).copy()
+    camp = _raw.get("preorder_campaign",             pd.DataFrame()).copy()
+    irf  = _raw.get("inventory_request_fulfillment", pd.DataFrame()).copy()
+
+    # ── Parse date columns ──────────────────────────────────────────────────────
+    for _col in ["Created At"]:
+        if _col in pay.columns:  pay[_col]  = pd.to_datetime(pay[_col],  errors="coerce")
+    for _col in ["Created At", "Due Date"]:
+        if _col in inv.columns:  inv[_col]  = pd.to_datetime(inv[_col],  errors="coerce")
+    for _col in ["Created At"]:
+        if _col in rep.columns:  rep[_col]  = pd.to_datetime(rep[_col],  errors="coerce")
+    for _col in ["Created At"]:
+        if _col in ir.columns:   ir[_col]   = pd.to_datetime(ir[_col],   errors="coerce")
+
+    # ── Filter to Ghana (GH) ────────────────────────────────────────────────────
+    if "Country Code" in inv.columns: inv = inv[inv["Country Code"] == "GH"].copy()
+    if "Country Code" in rep.columns: rep = rep[rep["Country Code"] == "GH"].copy()
+    if "Country Code" in rc.columns:  rc  = rc[rc["Country Code"]   == "GH"].copy()
+    gh_inv_ids = set(inv["ID"].dropna().astype(int)) if "ID" in inv.columns else set()
+    if "Invoice ID" in il.columns:
+        il = il[il["Invoice ID"].isin(gh_inv_ids)].copy()
+    gh_rc_ids = set(rc["ID"].dropna()) if "ID" in rc.columns else set()
+    if "Retail Centre ID" in ibv.columns:
+        ibv = ibv[ibv["Retail Centre ID"].isin(gh_rc_ids)].copy()
+
+    # ── Derived columns ─────────────────────────────────────────────────────────
+    if "Status" in pay.columns:
+        pay["Payment Status"] = pay["Status"].map({0: "Failed", 1: "Success"})
+    if "Created At" in inv.columns:
+        inv["Month"] = inv["Created At"].dt.to_period("M").astype(str)
+        inv["Week"]  = inv["Created At"].dt.to_period("W").astype(str)
+    if "Status" in ir.columns:
+        ir["Request Status"] = ir["Status"].map({0:"Draft",1:"Pending",2:"Processing",3:"Completed",4:"Cancelled",5:"Failed"})
+    if "Delivery Type" in ir.columns:
+        ir["Delivery Label"] = ir["Delivery Type"].map({0.0:"Direct",1.0:"Via Hub"})
+
+    if "Quantity" in il.columns and "Price" in il.columns:
+        il["Line Revenue"] = pd.to_numeric(il["Quantity"], errors="coerce") * pd.to_numeric(il["Price"], errors="coerce")
+    if not prod.empty and "Product ID" in il.columns and "ID" in prod.columns:
+        _pcols = [c for c in ["ID","Generic Name","Brand Name"] if c in prod.columns]
+        prod_rev = il.merge(prod[_pcols], left_on="Product ID", right_on="ID", how="left")
+        _gn = prod_rev["Generic Name"] if "Generic Name" in prod_rev.columns else pd.Series(dtype=str)
+        _bn = prod_rev["Brand Name"]   if "Brand Name"   in prod_rev.columns else pd.Series(dtype=str)
+        prod_rev["Product Name"] = _gn.fillna(_bn).str.strip()
+    else:
+        prod_rev = il.copy()
+        prod_rev["Product Name"] = ""
+
+    if not camp.empty:
+        for _col in ["Start Date","End Date","Created At"]:
+            if _col in camp.columns:
+                try:
+                    camp[_col] = pd.to_datetime(camp[_col], format="ISO8601", utc=True).dt.tz_convert(None)
+                except Exception:
+                    camp[_col] = pd.to_datetime(camp[_col], errors="coerce")
+        if "Status" in camp.columns:
+            camp["Status Label"] = camp["Status"].map({1:"Active",2:"Completed",3:"Cancelled"}).fillna("Unknown")
+
+    if not irf.empty:
+        for _col in ["Expected At","Created At"]:
+            if _col in irf.columns:
+                try:
+                    irf[_col] = pd.to_datetime(irf[_col], format="ISO8601", utc=True).dt.tz_convert(None)
+                except Exception:
+                    irf[_col] = pd.to_datetime(irf[_col], errors="coerce")
+        if "Status" in irf.columns:
+            irf["Fulfillment Status"] = irf["Status"].map({0:"Pending",1:"Processing",2:"Failed",3:"Fulfilled",4:"Cancelled"}).fillna("Unknown")
+
+    _rc_cols = [c for c in ["ID","Name","Status","Country Code"] if c in rc.columns]
+    rc_names = rc[_rc_cols].copy() if _rc_cols else rc.copy()
+
+    # ── Inventory request filters ───────────────────────────────────────────────
+    _ir_cols = ["Channel","Fulfillment Type","Request Type","Status"]
+    if not ir.empty and all(c in ir.columns for c in _ir_cols):
+        ir_fbc = ir[
+            (ir["Channel"] != "BufferPesa") &
+            (ir["Fulfillment Type"] != 3) &
+            (ir["Request Type"] == 0) &
+            (ir["Status"].isin([3, 5, 7]))
+        ].copy()
+        ir_all_fbc = ir[
+            (ir["Channel"] != "BufferPesa") &
+            (ir["Fulfillment Type"] != 3) &
+            (ir["Request Type"] == 0) &
+            (ir["Status"] != 4)
+        ].copy()
+    else:
+        ir_fbc = ir.copy()
+        ir_all_fbc = ir.copy()
+
+    if not ir_all_fbc.empty and "Status" in ir_all_fbc.columns:
+        ir_all_fbc["Fulfillment Label"] = ir_all_fbc["Status"].map({
+            0: "Not Started", 1: "Scheduled", 2: "In Progress",
+            3: "Completed",   5: "Completed", 7: "Completed",
+        }).fillna("Unknown")
+
+    # ── Invoice scope (FBC orders, not cancelled) ───────────────────────────────
+    _inv_fbc_filter = pd.Series([True] * len(inv), index=inv.index)
+    if "Order Type" in inv.columns: _inv_fbc_filter &= (inv["Order Type"] == 1)
+    if "Channel"    in inv.columns: _inv_fbc_filter &= (inv["Channel"] != "BufferPesa")
+    inv_fbc_ids = set(inv[_inv_fbc_filter]["ID"].dropna()) if "ID" in inv.columns else set()
+
+    _scoped_filter = _inv_fbc_filter.copy()
+    if "Status" in inv.columns: _scoped_filter &= (inv["Status"] != 5)
+    inv_scoped = inv[_scoped_filter].copy()
+
+    if "Discountedvalue" in inv_scoped.columns:
+        inv_scoped["Discountedvalue"] = pd.to_numeric(inv_scoped["Discountedvalue"], errors="coerce").fillna(0)
+        if "Total Order Value" in inv_scoped.columns:
+            _tov = pd.to_numeric(inv_scoped["Total Order Value"], errors="coerce").fillna(0)
+            inv_scoped["Discountedvalue"] = inv_scoped["Discountedvalue"].where(inv_scoped["Discountedvalue"] > 0, _tov)
+    if "Totalrepaid" in inv_scoped.columns:
+        inv_scoped["Totalrepaid"] = pd.to_numeric(inv_scoped["Totalrepaid"], errors="coerce").fillna(0)
+    if "Discountedvalue" in inv_scoped.columns and "Totalrepaid" in inv_scoped.columns:
+        inv_scoped["Outstanding"] = (inv_scoped["Discountedvalue"] - inv_scoped["Totalrepaid"]).clip(lower=0)
+
+    # ── Year scope ──────────────────────────────────────────────────────────────
+    if "Created At" in inv_scoped.columns:
+        if target_year is not None:
+            inv_scoped = inv_scoped[inv_scoped["Created At"].dt.year == target_year].copy()
+        else:
+            inv_scoped = inv_scoped[inv_scoped["Created At"].dt.year >= 2026].copy()
+
+    if "Created At" in inv_scoped.columns:
+        inv_scoped["Month"] = inv_scoped["Created At"].dt.to_period("M").astype(str)
+        inv_scoped["Week"]  = inv_scoped["Created At"].dt.to_period("W").astype(str)
+
+    _rep_filter = pd.Series([True] * len(rep), index=rep.index)
+    if "Invoice ID" in rep.columns: _rep_filter &= rep["Invoice ID"].isin(inv_fbc_ids)
+    if "Status"     in rep.columns: _rep_filter &= (rep["Status"] == "Confirmed")
+    rep_scoped = rep[_rep_filter].copy()
+
+    _fetch_ts = pd.Timestamp.now().strftime("%d %b %Y %H:%M")
+    return (pay, inv, rep, rc, prod, il, ir, prod_rev, rc_names, ibv, camp, irf,
+            inv_scoped, rep_scoped, ir_all_fbc, _fetch_ts, from_metabase, fetch_error)
+
+
 # ── Data loader ─────────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300, show_spinner="Fetching live data from Metabase...")
 def load_all():
@@ -302,119 +453,71 @@ def load_all():
         except Exception:
             pass  # Read-only filesystem (e.g. Streamlit Cloud) — skip silently
 
-    pay  = _raw["payment"].copy()
-    inv  = _raw["invoice"].copy()
-    rep  = _raw["repayment"].copy()
-    rc   = _raw["retail_centre"].copy()
-    prod = _raw["product"].copy()
-    il   = _raw["invoice_line"].copy()
-    ir   = _raw["inventory_request"].copy()
-    ibv  = _raw["inventory_balances_view"].copy()
-    camp = _raw["preorder_campaign"].copy()
-    irf  = _raw["inventory_request_fulfillment"].copy()
+    return _process_raw(_raw, target_year=None, from_metabase=_from_metabase, fetch_error=_fetch_error)
 
-    # ── Parse date columns (works for both Metabase strings and CSV strings) ──────
-    for _col in ["Created At"]:
-        if _col in pay.columns:  pay[_col]  = pd.to_datetime(pay[_col],  errors="coerce")
-    for _col in ["Created At", "Due Date"]:
-        if _col in inv.columns:  inv[_col]  = pd.to_datetime(inv[_col],  errors="coerce")
-    for _col in ["Created At"]:
-        if _col in rep.columns:  rep[_col]  = pd.to_datetime(rep[_col],  errors="coerce")
-    for _col in ["Created At"]:
-        if _col in ir.columns:   ir[_col]   = pd.to_datetime(ir[_col],   errors="coerce")
 
-    # ── Filter everything to Ghana (GH) ──────────────────────────────────────────
-    inv  = inv[inv["Country Code"] == "GH"].copy()
-    rep  = rep[rep["Country Code"] == "GH"].copy()
-    rc   = rc[rc["Country Code"]   == "GH"].copy()
-    # inventory_request is already all GH
-    # invoice_line: keep only lines for GH invoices
-    gh_inv_ids = set(inv["ID"].dropna().astype(int))
-    il   = il[il["Invoice ID"].isin(gh_inv_ids)].copy()
-    # inventory_balances_view: keep only GH retail centre locations
-    gh_rc_ids  = set(rc["ID"].dropna())
-    ibv  = ibv[ibv["Retail Centre ID"].isin(gh_rc_ids)].copy()
-    # payment has no Country Code — left unfiltered
+# ── Historical Sales Ledger loader (2023-2025 Excel files) ───────────────────────
+_HIST_BASE  = os.path.join(os.path.dirname(DATA), "3 years data")
+_HIST_FILES = {
+    2023: "Sales Ledger 2023.xlsx",
+    2024: "Sales Ledger 2024.xlsx",
+    2025: "Sales Ledger 2025 (1).xlsx",
+}
 
-    pay["Payment Status"] = pay["Status"].map({0: "Failed", 1: "Success"})
-    inv["Month"]          = inv["Created At"].dt.to_period("M").astype(str)
-    inv["Week"]           = inv["Created At"].dt.to_period("W").astype(str)
-    ir["Request Status"]  = ir["Status"].map({0:"Draft",1:"Pending",2:"Processing",3:"Completed",4:"Cancelled",5:"Failed"})
-    ir["Delivery Label"]  = ir["Delivery Type"].map({0.0:"Direct",1.0:"Via Hub"})
+@st.cache_data(ttl=3600, show_spinner="Loading historical sales ledger...")
+def load_hist_data():
+    so_list, inv_list, pay_list = [], [], []
+    for yr, fname in _HIST_FILES.items():
+        path = os.path.join(_HIST_BASE, fname)
+        if not os.path.exists(path):
+            continue
+        xl = pd.ExcelFile(path)
 
-    il["Line Revenue"] = pd.to_numeric(il["Quantity"], errors="coerce") * pd.to_numeric(il["Price"], errors="coerce")
-    prod_rev = il.merge(prod[["ID","Generic Name","Brand Name"]], left_on="Product ID", right_on="ID", how="left")
-    prod_rev["Product Name"] = prod_rev["Generic Name"].fillna(prod_rev["Brand Name"]).str.strip()
+        # ── Sales Orders ──────────────────────────────────────────────────────────
+        so = xl.parse("A-Sales Orders")
+        so = so.dropna(subset=["Sales Order ID"])
+        so["Year"]          = yr
+        so["Order Date"]    = pd.to_datetime(so["Order Date"], errors="coerce")
+        so["Invoice Total"] = pd.to_numeric(so["Invoice Total"], errors="coerce").fillna(0)
+        so["SubTotal"]      = pd.to_numeric(so["SubTotal"],      errors="coerce").fillna(0)
+        # Normalise region column (column name differs by year)
+        if "Region" not in so.columns and "Sales Location" in so.columns:
+            so["Region"] = so["Sales Location"]
+        if "Region" not in so.columns and "Sales Location " in so.columns:
+            so["Region"] = so["Sales Location "]
+        if "Region" not in so.columns and "Region / Location" in so.columns:
+            so["Region"] = so["Region / Location"]
+        so["Month"]         = so["Order Date"].dt.to_period("M").astype(str)
+        so_list.append(so)
 
-    for col in ["Start Date","End Date","Created At"]:
-        camp[col] = pd.to_datetime(camp[col], format="ISO8601", utc=True).dt.tz_convert(None)
-    camp["Status Label"] = camp["Status"].map({1:"Active",2:"Completed",3:"Cancelled"}).fillna("Unknown")
+        # ── Invoices ──────────────────────────────────────────────────────────────
+        inv = xl.parse("B-Invoices")
+        inv = inv.dropna(subset=["Invoice Number"])
+        inv["Year"]         = yr
+        inv["Invoice Date"] = pd.to_datetime(inv.get("Invoice Date"), errors="coerce")
+        inv["Total"]        = pd.to_numeric(inv["Total"],   errors="coerce").fillna(0)
+        inv["Payment"]      = pd.to_numeric(inv["Payment"], errors="coerce").fillna(0)
+        inv["Balance"]      = pd.to_numeric(inv["Balance"], errors="coerce").fillna(0)
+        inv_list.append(inv)
 
-    for col in ["Expected At","Created At"]:
-        irf[col] = pd.to_datetime(irf[col], format="ISO8601", utc=True).dt.tz_convert(None)
-    irf["Fulfillment Status"] = irf["Status"].map({0:"Pending",1:"Processing",2:"Failed",3:"Fulfilled",4:"Cancelled"}).fillna("Unknown")
+        # ── Payments ─────────────────────────────────────────────────────────────
+        pay = xl.parse("C-Payment Receipts")
+        date_col = "Date" if "Date" in pay.columns else "Payment Date"
+        pay = pay.rename(columns={date_col: "Payment Date",
+                                  "Mode": "Mode of Payment"})
+        pay = pay.dropna(subset=["Payment Date"])
+        pay["Year"]            = yr
+        pay["Payment Date"]    = pd.to_datetime(pay["Payment Date"], errors="coerce")
+        pay["Amount Received"] = pd.to_numeric(pay["Amount Received"], errors="coerce").fillna(0)
+        if "Mode of Payment " in pay.columns:
+            pay = pay.rename(columns={"Mode of Payment ": "Mode of Payment"})
+        pay_list.append(pay)
 
-    rc_names = rc[["ID","Name","Status","Country Code"]].copy()
+    so_all  = pd.concat(so_list,  ignore_index=True) if so_list  else pd.DataFrame()
+    inv_all = pd.concat(inv_list, ignore_index=True) if inv_list else pd.DataFrame()
+    pay_all = pd.concat(pay_list, ignore_index=True) if pay_list else pd.DataFrame()
+    return so_all, inv_all, pay_all
 
-    # ── Canonical base filter — FBC stock orders, status 3/5/7, not BufferPesa ────
-    ir_fbc = ir[
-        (ir["Channel"] != "BufferPesa") &
-        (ir["Fulfillment Type"] != 3) &
-        (ir["Request Type"] == 0) &
-        (ir["Status"].isin([3, 5, 7]))
-    ].copy()
-
-    valid_ir_ids = set(ir_fbc["ID"].dropna())
-
-    # Revenue scope: invoice.order_type=1 (InventoryOrder) + channel!='BufferPesa'
-    # is sufficient to identify all FBC stock orders. Do NOT join to IR status —
-    # an invoice can be valid and paid even if its IR is still in progress.
-    inv_fbc_ids = set(inv[
-        (inv["Order Type"] == 1) &
-        (inv["Channel"] != "BufferPesa")
-    ]["ID"].dropna())
-
-    inv_scoped = inv[
-        (inv["Order Type"] == 1) &
-        (inv["Channel"] != "BufferPesa") &
-        (inv["Status"] != 5)   # exclude cancelled invoices
-    ].copy()
-
-    # Revenue: use Discountedvalue when populated, fall back to Total Order Value
-    inv_scoped["Discountedvalue"] = pd.to_numeric(inv_scoped["Discountedvalue"], errors="coerce").fillna(0)
-    _tov = pd.to_numeric(inv_scoped["Total Order Value"], errors="coerce").fillna(0)
-    inv_scoped["Discountedvalue"] = inv_scoped["Discountedvalue"].where(
-        inv_scoped["Discountedvalue"] > 0, _tov
-    )
-    inv_scoped["Totalrepaid"] = pd.to_numeric(inv_scoped["Totalrepaid"], errors="coerce").fillna(0)
-    inv_scoped["Outstanding"] = (inv_scoped["Discountedvalue"] - inv_scoped["Totalrepaid"]).clip(lower=0)
-    # Hide incomplete 2025 data — only show 2026 onwards
-    inv_scoped = inv_scoped[inv_scoped["Created At"].dt.year >= 2026].copy()
-
-    inv_scoped["Month"] = inv_scoped["Created At"].dt.to_period("M").astype(str)
-    inv_scoped["Week"]  = inv_scoped["Created At"].dt.to_period("W").astype(str)
-
-    # Repayments: scope to all FBC GH invoice IDs + Confirmed status
-    rep_scoped = rep[
-        rep["Invoice ID"].isin(inv_fbc_ids) &
-        (rep["Status"] == "Confirmed")
-    ].copy()
-
-    # ir_all_fbc: FBC-scoped ir with all non-cancelled statuses (for reliability page)
-    ir_all_fbc = ir[
-        (ir["Channel"] != "BufferPesa") &
-        (ir["Fulfillment Type"] != 3) &
-        (ir["Request Type"] == 0) &
-        (ir["Status"] != 4)
-    ].copy()
-    ir_all_fbc["Fulfillment Label"] = ir_all_fbc["Status"].map({
-        0: "Not Started", 1: "Scheduled", 2: "In Progress",
-        3: "Completed",   5: "Completed", 7: "Completed",
-    }).fillna("Unknown")
-
-    _fetch_ts   = pd.Timestamp.now().strftime("%d %b %Y %H:%M")
-    _fetch_live = _from_metabase
-    return pay, inv, rep, rc, prod, il, ir, prod_rev, rc_names, ibv, camp, irf, inv_scoped, rep_scoped, ir_all_fbc, _fetch_ts, _fetch_live, _fetch_error
 
 (pay, inv, rep, rc, prod, il, ir, prod_rev, rc_names, ibv, camp, irf,
  inv_scoped, rep_scoped, ir_all_fbc, _fetch_ts, _fetch_live, _fetch_error) = load_all()
@@ -748,20 +851,22 @@ NAV_GROUPS = {
     "Business":       ["Customers", "Payments"],
     "Phase 1":        ["Weekly Scorecard", "Reconciliation", "Data Quality"],
     "Phase 2":        ["Reliability", "Segmentation", "Campaigns"],
+    "History":        ["Historical Analysis"],
 }
 
 NAV_ICONS = {
-    "Overview":          "🏠",
-    "Sales Performance": "📈",
-    "Products":          "📦",
-    "Customers":         "👥",
-    "Payments":          "💳",
-    "Weekly Scorecard":  "📋",
-    "Reconciliation":    "⚖️",
-    "Data Quality":      "🔍",
-    "Reliability":       "🛡️",
-    "Segmentation":      "🎯",
-    "Campaigns":         "📣",
+    "Overview":            "🏠",
+    "Sales Performance":   "📈",
+    "Products":            "📦",
+    "Customers":           "👥",
+    "Payments":            "💳",
+    "Weekly Scorecard":    "📋",
+    "Reconciliation":      "⚖️",
+    "Data Quality":        "🔍",
+    "Reliability":         "🛡️",
+    "Segmentation":        "🎯",
+    "Campaigns":           "📣",
+    "Historical Analysis": "📂",
 }
 
 with st.sidebar:
@@ -2321,3 +2426,199 @@ elif page == "Campaigns":
         _camp_pdf = bytes(_p.output())
     dl_row({"Campaigns": _camp_dl}, "Campaigns.xlsx",
            _camp_pdf, "Campaigns.pdf", "Campaigns")
+
+
+# ══════════════════════════════════════════════════════════════════════════════════
+# PAGE — HISTORICAL ANALYSIS (2023 · 2024 · 2025 Sales Ledger)
+# ══════════════════════════════════════════════════════════════════════════════════
+elif page == "Historical Analysis":
+    # ── Load data ────────────────────────────────────────────────────────────────
+    _h_so, _h_inv, _h_pay = load_hist_data()
+
+    if _h_so.empty:
+        st.warning("Historical data files not found. Make sure the '3 years data' folder is in the project directory.")
+        st.stop()
+
+    # ── Year filter ───────────────────────────────────────────────────────────────
+    _h_col1, _ = st.columns([1, 5])
+    with _h_col1:
+        _h_yr = st.selectbox("Year", ["All Years", "2023", "2024", "2025"], key="hist_yr")
+
+    if _h_yr != "All Years":
+        _hy = int(_h_yr)
+        h_so  = _h_so[_h_so["Year"]  == _hy].copy()
+        h_inv = _h_inv[_h_inv["Year"] == _hy].copy()
+        h_pay = _h_pay[_h_pay["Year"] == _hy].copy()
+    else:
+        h_so, h_inv, h_pay = _h_so.copy(), _h_inv.copy(), _h_pay.copy()
+
+    # ── Metrics ───────────────────────────────────────────────────────────────────
+    h_total_rev    = h_so["Invoice Total"].sum()
+    h_total_inv    = h_inv["Total"].sum()
+    h_collected    = h_inv["Payment"].sum()
+    h_outstanding  = h_inv["Balance"].sum()
+    h_coll_rate    = (h_collected / h_total_inv * 100) if h_total_inv > 0 else 0
+    h_total_orders = h_so["Sales Order ID"].nunique()
+    h_customers    = h_so["Customer Name"].nunique()
+    h_products     = h_so["Item Name"].nunique()
+    h_top_prod_row = (h_so.groupby("Item Name")["Invoice Total"].sum()
+                        .sort_values(ascending=False).reset_index())
+    h_top_prod     = h_top_prod_row.iloc[0]["Item Name"] if len(h_top_prod_row) else "—"
+
+    r1 = (
+        kpi_card("Total Revenue (GHS)", f"GHS {h_total_rev:,.0f}",
+                 f"{h_so['Year'].nunique()} year(s) of sales", "#4f46e5")
+        + kpi_card("Total Collected (GHS)", f"GHS {h_collected:,.0f}",
+                   f"of GHS {h_total_inv:,.0f} invoiced", "#16a34a")
+        + kpi_card("Outstanding Balance (GHS)", f"GHS {h_outstanding:,.0f}",
+                   "unpaid invoices", "#dc2626")
+        + kpi_card("Collection Rate", f"{h_coll_rate:.1f}%",
+                   "payments vs invoiced", "#f59e0b")
+    )
+    r2 = (
+        kpi_card("Total Sales Orders", f"{h_total_orders:,}",
+                 "unique orders", "#0891b2")
+        + kpi_card("Active Customers", f"{h_customers:,}",
+                   "unique buyers", "#7c3aed")
+        + kpi_card("Products Sold", f"{h_products:,}",
+                   "unique products", "#0f766e")
+        + kpi_card("Top Product", h_top_prod,
+                   "by revenue", "#be185d")
+    )
+    _g = kpi_grid(r1)
+    if _g: st.markdown(_g, unsafe_allow_html=True)
+    _g = kpi_grid(r2)
+    if _g: st.markdown(_g, unsafe_allow_html=True)
+
+    st.markdown("<hr>", unsafe_allow_html=True)
+
+    # ── Revenue by Year (when All Years selected) ─────────────────────────────────
+    if _h_yr == "All Years":
+        st.markdown(chart_wrap("Annual Revenue Comparison",
+                               "Total sales revenue by year — GHS"), unsafe_allow_html=True)
+        _yr_rev = (_h_so.groupby("Year")["Invoice Total"].sum().reset_index()
+                        .rename(columns={"Year": "Year", "Invoice Total": "Revenue GHS"}))
+        _yr_rev["Year"] = _yr_rev["Year"].astype(str)
+        fig_yr = px.bar(_yr_rev, x="Year", y="Revenue GHS", text="Revenue GHS",
+                        color="Year",
+                        color_discrete_sequence=["#4f46e5","#16a34a","#f59e0b"],
+                        labels={"Revenue GHS": "Revenue (GHS)"})
+        fig_yr.update_traces(texttemplate="GHS %{y:,.0f}", textposition="outside")
+        fig_yr.update_layout(**white_layout(320))
+        st.plotly_chart(fig_yr, use_container_width=True, config=CHART_CFG)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Monthly Revenue ───────────────────────────────────────────────────────────
+    st.markdown(chart_wrap("Monthly Revenue (GHS)",
+                           "Revenue trend by month"), unsafe_allow_html=True)
+    _mo_rev = (h_so.groupby("Month")["Invoice Total"].sum().reset_index()
+                   .rename(columns={"Invoice Total": "Revenue GHS"})
+                   .sort_values("Month"))
+    _mo_rev["Month Label"] = _mo_rev["Month"].apply(
+        lambda m: pd.Period(m, freq="M").strftime("%b %Y") if m and m != "NaT" else m)
+    fig_mo = px.bar(_mo_rev, x="Month Label", y="Revenue GHS",
+                    color_discrete_sequence=["#4f46e5"],
+                    labels={"Month Label": "", "Revenue GHS": "Revenue (GHS)"})
+    fig_mo.update_traces(marker_opacity=0.85)
+    fig_mo.update_layout(**white_layout(300))
+    st.plotly_chart(fig_mo, use_container_width=True, config=CHART_CFG)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Side-by-side: Top Products & Top Customers ───────────────────────────────
+    _c1, _c2 = st.columns(2)
+    with _c1:
+        st.markdown(chart_wrap("Top 10 Products", "by revenue GHS"), unsafe_allow_html=True)
+        _tp = (h_so.groupby("Item Name")["Invoice Total"].sum()
+                   .sort_values(ascending=False).head(10).reset_index()
+                   .rename(columns={"Invoice Total": "Revenue GHS"}))
+        fig_tp = px.bar(_tp, y="Item Name", x="Revenue GHS", orientation="h",
+                        color_discrete_sequence=["#4f46e5"],
+                        labels={"Item Name": "", "Revenue GHS": "Revenue (GHS)"})
+        fig_tp.update_layout(**white_layout(360))
+        fig_tp.update_layout(yaxis=dict(autorange="reversed"))
+        st.plotly_chart(fig_tp, use_container_width=True, config=CHART_CFG)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with _c2:
+        st.markdown(chart_wrap("Top 10 Customers", "by revenue GHS"), unsafe_allow_html=True)
+        _tc = (h_so.groupby("Customer Name")["Invoice Total"].sum()
+                   .sort_values(ascending=False).head(10).reset_index()
+                   .rename(columns={"Invoice Total": "Revenue GHS"}))
+        fig_tc = px.bar(_tc, y="Customer Name", x="Revenue GHS", orientation="h",
+                        color_discrete_sequence=["#16a34a"],
+                        labels={"Customer Name": "", "Revenue GHS": "Revenue (GHS)"})
+        fig_tc.update_layout(**white_layout(360))
+        fig_tc.update_layout(yaxis=dict(autorange="reversed"))
+        st.plotly_chart(fig_tc, use_container_width=True, config=CHART_CFG)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Sales by Region & Delivery Method ────────────────────────────────────────
+    _c3, _c4 = st.columns(2)
+    with _c3:
+        st.markdown(chart_wrap("Revenue by Region", ""), unsafe_allow_html=True)
+        if "Region" in h_so.columns:
+            _reg = (h_so.groupby("Region")["Invoice Total"].sum()
+                        .sort_values(ascending=False).head(10).reset_index()
+                        .rename(columns={"Invoice Total": "Revenue GHS"}))
+            fig_reg = px.pie(_reg, names="Region", values="Revenue GHS",
+                             color_discrete_sequence=px.colors.qualitative.Set2)
+            fig_reg.update_traces(textposition="inside", textinfo="percent+label")
+            fig_reg.update_layout(**white_layout(300))
+            st.plotly_chart(fig_reg, use_container_width=True, config=CHART_CFG)
+        else:
+            st.info("Region data not available for this selection.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with _c4:
+        st.markdown(chart_wrap("Revenue by Product Category", ""), unsafe_allow_html=True)
+        if "Product Category" in h_so.columns:
+            _cat = (h_so.groupby("Product Category")["Invoice Total"].sum()
+                        .sort_values(ascending=False).reset_index()
+                        .rename(columns={"Invoice Total": "Revenue GHS"}))
+            fig_cat = px.pie(_cat, names="Product Category", values="Revenue GHS",
+                             color_discrete_sequence=px.colors.qualitative.Pastel)
+            fig_cat.update_traces(textposition="inside", textinfo="percent+label")
+            fig_cat.update_layout(**white_layout(300))
+            st.plotly_chart(fig_cat, use_container_width=True, config=CHART_CFG)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Payment Mode Breakdown ────────────────────────────────────────────────────
+    if "Mode of Payment" in h_pay.columns:
+        st.markdown(chart_wrap("Payment Mode Breakdown", "How customers paid"), unsafe_allow_html=True)
+        _pm = (h_pay.groupby("Mode of Payment")["Amount Received"].sum()
+                   .sort_values(ascending=False).reset_index()
+                   .rename(columns={"Amount Received": "Amount GHS"}))
+        fig_pm = px.bar(_pm, x="Mode of Payment", y="Amount GHS", text="Amount GHS",
+                        color_discrete_sequence=["#0891b2"])
+        fig_pm.update_traces(texttemplate="GHS %{y:,.0f}", textposition="outside")
+        fig_pm.update_layout(**white_layout(280))
+        st.plotly_chart(fig_pm, use_container_width=True, config=CHART_CFG)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Monthly Breakdown Table ───────────────────────────────────────────────────
+    st.markdown("#### Monthly Sales Breakdown")
+    _mo_tbl = (h_so.groupby("Month").agg(
+        Orders=("Sales Order ID", "nunique"),
+        Revenue_GHS=("Invoice Total", "sum"),
+    ).reset_index().sort_values("Month"))
+    _mo_inv = (h_inv.groupby(
+        h_inv["Invoice Date"].dt.to_period("M").astype(str)
+    ).agg(Collected_GHS=("Payment", "sum"), Total_GHS=("Total", "sum"))
+    .reset_index().rename(columns={"Invoice Date": "Month"}))
+    _mo_tbl = _mo_tbl.merge(_mo_inv, on="Month", how="left")
+    _mo_tbl["Collection Rate"] = (_mo_tbl["Collected_GHS"] / _mo_tbl["Total_GHS"] * 100).fillna(0)
+    _mo_tbl["Month Label"] = _mo_tbl["Month"].apply(
+        lambda m: pd.Period(m, freq="M").strftime("%b %Y") if m and m != "NaT" else m)
+    _mo_tbl["Revenue GHS"]    = _mo_tbl["Revenue_GHS"].map(lambda x: f"GHS {x:,.0f}")
+    _mo_tbl["Collected GHS"]  = _mo_tbl["Collected_GHS"].fillna(0).map(lambda x: f"GHS {x:,.0f}")
+    _mo_tbl["Collection Rate"] = _mo_tbl["Collection Rate"].map(lambda x: f"{x:.1f}%")
+    _mo_show = _mo_tbl[["Month Label","Orders","Revenue GHS","Collected GHS","Collection Rate"]].rename(
+        columns={"Month Label": "Month"})
+    st.dataframe(_mo_show, use_container_width=True, hide_index=True)
+
+    # ── Download ──────────────────────────────────────────────────────────────────
+    dl_button(
+        {"Sales Orders": h_so, "Invoices": h_inv, "Payments": h_pay},
+        f"Historical_Analysis_{_h_yr.replace(' ','_')}.xlsx",
+        "Download Historical Data"
+    )
