@@ -25,7 +25,6 @@ Indications: Endo and Ectoparasitic infections in horses, sheep, goats, and poul
 23212,0,Amin/Vit-23212,For prevention and treatment stress and loss of appetite.,True,{},2021-03-26T13:34:00.565288Z,2152,production/product-images/product-23212-202103261335463124.jpg,1345.0,12156,Aminovite (1kg),Aminovite,,95.5,85.0,2.0,1.0,True,0.0,False,1111,False,0,GH,For prevention and treatment stress and loss of appetite.,1.0,,True,,,,,,,,0,,
 19302,0,Sulf/Ant-19302,"Administered Subcutaneous, intramuscular or intravenous.",True,{},2021-03-11T16:03:44.107017Z,2138,production/product-images/product-19302-202103111605018281.jpg,19290.0,292,Sulfavet (250ml),Sulfavet,,71.78,66.6,3.0,250.0,True,0.0,False,1111,False,0,NL," Treats Septicemias, pneumonias, tracheitis, rhinitis, coccidia, gastrointestinal or mixed urogenital infections, bacterial complications of viral conditions.",0.0,,True,,,,,,,,0,,
 187636,1,IC-187636,,False,,2026-03-16T23:43:05.510205Z,187626,,,292,Teeth clipping (piglets),,,,,,,False,,False,1111,False,1,,,,,False,,,,,,,,1,100.0,"[""0ed95f93c992420bb8fb3fda1c9821af""]"
-187648,1,IC-187648,,False,,2026-03-16T23:43:09.969762Z,187644,,,292,Deworming,,,,,,,False,,False,1111,False,1,,,,,False,,,,,,,,1,500.0,"[""65574e6c5bd7461fac43c29afb0eb708""]"
 187634,1,IC-187634,,False,,2026-03-16T23:43:05.215395Z,187626,,,292,Tail docking,,,,,,,False,,False,1111,False,1,,,,,False,,,,,,,,0,,
 187638,1,IC-187638,,False,,2026-03-16T23:43:08.223673Z,187626,,,292,Beak trimming (poultry),,,,,,,False,,False,1111,False,1,,,,,False,,,,,,,,0,,
 187640,1,IC-187640,,False,,2026-03-16T23:43:08.527956Z,187626,,,292,Branding / ear tagging,,,,,,,False,,False,1111,False,1,,,,,False,,,,,,,,0,,
@@ -120,6 +119,7 @@ Business Type: Diagnostic Center",False,"{""EnabledCountries"": ""[\""GH\"",\""K
 Business Type: Last-mile Logistics Provider",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:57:49.163841Z,194394,,,292,Hub Sorting Fee,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for last-mile logistics provider under warehouse support,,,False,,,,,,,,0,,
 194638,1,IC-194638,"Starter catalog item for medical clinic under diagnostics
 Business Type: Medical Clinic",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:55:46.674791Z,194354,,,292,Lab Test Fee,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for medical clinic under diagnostics,,,False,,,,,,,,1,200.0,"[""c330f2d53d0a41f581c2b0304be6a1a4""]"
+215778,1,IC-215778,,False,,2026-06-26T08:02:10.284589Z,215756,,,292,Fence Wall Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
 194634,1,IC-194634,"Starter catalog item for medical clinic under procedures
 Business Type: Medical Clinic",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:55:43.827522Z,194356,,,292,Injection Service,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for medical clinic under procedures,,,False,,,,,,,,0,,
 194636,1,IC-194636,"Starter catalog item for medical clinic under procedures
@@ -158,6 +158,7 @@ Business Type: Managed IT Provider",False,"{""EnabledCountries"": ""[\""GH\"",\"
 Business Type: Managed IT Provider",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:59:05.617763Z,194434,,,292,Monthly IT Support,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for managed it provider under support contracts,,,False,,,,,,,,0,,
 194962,1,IC-194962,"Starter catalog item for managed it provider under monitoring
 Business Type: Managed IT Provider",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:59:06.800423Z,194438,,,292,Server Monitoring,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for managed it provider under monitoring,,,False,,,,,,,,0,,
+218566,1,IC-218566,Two hour photo session for newborn ,False,"{""DurationUnit"": ""Hour(s)"", ""ServiceNotes"": ""Newborn "", ""ShowDuration"": ""False"", ""EnabledCountries"": ""[\""Ghana\""]"", ""EstimatedDuration"": ""2"", ""CertificationLicenseRequired"": ""False""}",2026-07-03T18:20:59.642225Z,194550,,,292,Newborn Mini Session For Baby Only(2Hours),,,,,,,False,,False,1111,False,1,Ghana,,,,False,,,,,,,,0,,
 194652,1,IC-194652,"Starter catalog item for diagnostic center under consultation
 Business Type: Diagnostic Center",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:55:55.554584Z,194352,,,292,Result Interpretation Fee,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for diagnostic center under consultation,,,False,,,,,,,,0,,
 194654,1,IC-194654,"Starter catalog item for dental clinic under consultation
@@ -189,6 +190,7 @@ Business Type: Private School",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\"
 Business Type: Training Center",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:58:22.432701Z,194410,,,292,Course Fee,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for training center under tuition,,,False,,,,,,,,0,,
 194894,1,IC-194894,"Starter catalog item for training center under exams & activities
 Business Type: Training Center",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:58:24.787942Z,194416,,,292,Certification Exam Fee,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for training center under exams & activities,,,False,,,,,,,,0,,
+215758,1,IC-215758,,False,,2026-06-26T08:02:10.284589Z,215756,,,292,Call-out / Site Inspection,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
 194656,1,IC-194656,"Starter catalog item for dental clinic under procedures
 Business Type: Dental Clinic",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:55:57.895058Z,194356,,,292,Teeth Cleaning,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for dental clinic under procedures,,,False,,,,,,,,0,,
 194660,1,IC-194660,"Starter catalog item for dental clinic under procedures
@@ -241,8 +243,7 @@ Business Type: Dental Clinic",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""
 194684,1,IC-194684,"Starter catalog item for homecare provider under consultation
 Business Type: Homecare Provider",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:56:14.05085Z,194352,,,292,Doctor Home Consultation,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for homecare provider under consultation,,,False,,,,,,,,0,,
 12662,0,M-En/Ant-12662,"M-Enro contains Enrofloxacin which is a broad spectrum antibiotic used in treatment of CRD complex such as mycoplasma associated with E.coli infection. Also highly effective against coryza, bronchitis, BWD, etc.",True,{},2020-11-24T15:24:39.135162Z,2138,production/product-images/product-12662-202104080150340762.jpg,1349.0,1400,M-Enro (100ml),.,,14.8,14.0,3.0,100.0,True,0.0,False,1111,False,0,GH,M-Enro contains Enrofloxacin which is a broad spectrum antibiotic used in treatment of CRD complex such as mycoplasma associated with E.coli infection.,1.0,,True,,,,,,,,0,,
-194690,1,IC-194690,"Starter catalog item for general contractor under installation
-Business Type: General Contractor",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:56:19.051368Z,194366,,,292,Concrete Works,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for general contractor under installation,,,False,,,,,,,,0,,
+187648,1,IC-187648,,False,,2026-03-16T23:43:09.969762Z,187644,,,292,Deworming,,,,,,,False,,False,1111,False,1,,,,,False,,,,,,,,2,500.0,"[""3cbe52ac2afb415493499dcecff5971a"",""65574e6c5bd7461fac43c29afb0eb708""]"
 20122,0,Limo/Ant-20122," Treats arthritis, gastrointestinal and respiratory infections caused by oxytetracycline sensitive micro-organisms, like Bordetella, Campylobacter, Chlamydia, E. coli, Haemophilus, Mycoplasma, Pasteurella, Rickettsia, Salmonella, Staphylococcus and Streptococcus spp. in calves, goats, sheep and swine.",True,{},2021-03-15T12:23:20.830729Z,2138,production/product-images/product-20122-202103280023169521.png,1330.0,296,Limoxin-50 Inj (100ml),Oxytetracycline,,11.75,11.2,3.0,100.0,True,0.0,False,1111,False,0,NL,Oxytetracycline belongs to the group of tetracyclines and acts bacteriostatic against many Gram-positive and Gram-negative bacteria,1.0,,True,,,,,,,,0,,
 1148,0,Ampr/Ant-1148,AMPROCOX contains Amprolium HCl and excipient. Amprocox is indicated for the treatment and control of avian coccidiosis.,True,{},2020-08-29T12:44:54.467805Z,15844,production/product-images/product-1148-202102041018493795.jpeg,1345.0,12156,Amprocox WS (1kg),Amprolim Hydrochloride,,185.0,161.5,2.0,1.0,True,0.0,False,1111,False,0,CN,AMPROCOX contains Amprolium HCl and excipient. Amprocox is indicated for the treatment and control of avian coccidiosis.,1.0,,True,,,,,,,,0,,
 21102,0,Flod/Ant-21102,"CRD, Pneumonia, Pleuritis, Pasteurellosis, Gastrointestinal diseases: Enteritis, Gastritis, Diarrhoea, White-feces diarrhoea, Paratyphoid.",True,{},2021-03-17T13:31:15.739964Z,2138,production/product-images/product-21102-202103171331544349.jpg,1271.0,300,Flodox-P (1kg),Flodox-P,,162.5,156.8,2.0,1.0,True,0.0,False,1111,False,0,GH,Treatment for respiratory diseases,1.0,,True,,,,,,,,0,,
@@ -254,6 +255,8 @@ Business Type: Interior Fit-out Contractor",False,"{""EnabledCountries"": ""[\""
 Business Type: Interior Fit-out Contractor",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:56:46.598635Z,194374,,,292,Snag List Inspection,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for interior fit-out contractor under inspection & handover,,,False,,,,,,,,0,,
 194746,1,IC-194746,"Starter catalog item for appliance repair service under emergency call-out
 Business Type: Appliance Repair Service",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:56:53.300275Z,194384,,,292,Emergency Repair Call-out,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for appliance repair service under emergency call-out,,,False,,,,,,,,0,,
+194690,1,IC-194690,"Starter catalog item for general contractor under installation
+Business Type: General Contractor",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:56:19.051368Z,194366,,,292,Concrete Works,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for general contractor under installation,,,False,,,,,,,,1,695.0,"[""202cc53401ee4f7f9be3e73ef59293f1""]"
 187618,1,IC-187618,,False,,2026-03-16T23:42:59.470736Z,187612,,,292,Washing / bathing,,,,,,,False,,False,1111,False,1,,,,,False,,,,,,,,1,2500.0,"[""655d277cbb58463d85010cf67d74d99e""]"
 184558,0,VIR/Pou-184558,Do not expose vaccine to direct sunlight,True,{},2025-10-20T12:26:52.077391Z,2142,,184186.0,184554,VIR 423L (ND+IB+EDS),ND+IB+EDS,,1400.0,1092.0,7.0,1000.0,True,0.0,False,1111,True,0,IL,"Inactivated vaccine against Newcastle Disease, Egg Drop Syndrome, and Infectious Bronchitis",0.25,Store at 2°C - 8°C,False,,,,,,,,1,1400.0,"[""f698d0bb631f4b2f8930cf03f2e679b5""]"
 184570,0,I-2/Pou-184570,Administer: 1ml-500ml (Water),True,{},2025-10-20T12:49:12.63938Z,2142,,184566.0,34844,I-2 ND Vaccine (500D),I-2 Vaccine,,38.0,30.0,7.0,500.0,True,0.0,False,1111,True,0,GH,Application: Oral/Ocular,0.0,2°C-8°C,False,,,,,,,,1,38.0,"[""f698d0bb631f4b2f8930cf03f2e679b5""]"
@@ -281,6 +284,9 @@ Niacin, DL-Methionine, L-lysine. Its used to Stimulate Egg Production and Mainta
 Business Type: Homecare Provider",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:56:10.616924Z,194358,,,292,Patient Monitoring,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for homecare provider under follow-up care,,,False,,,,,,,,0,,
 194682,1,IC-194682,"Starter catalog item for homecare provider under administrative fees
 Business Type: Homecare Provider",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:56:12.913367Z,194362,,,292,Care Plan Setup,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for homecare provider under administrative fees,,,False,,,,,,,,0,,
+215760,1,IC-215760,,False,,2026-06-26T08:02:10.284589Z,215756,,,292,Block Laying,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215762,1,IC-215762,,False,,2026-06-26T08:02:10.284589Z,215756,,,292,Wall Construction,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215764,1,IC-215764,,False,,2026-06-26T08:02:10.284589Z,215756,,,292,Wall Crack Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
 184548,0,Vir/Pou-184548,Store at 2°C - 8°C. Protect from direct sunlight. ,True,{},2025-10-20T12:06:15.116152Z,2142,,184186.0,184544,VIR 220 (Lasota + IB),Lasota + IB,,90.0,70.2,7.0,1000.0,True,0.0,False,1111,True,0,IL,"Live Vaccine—Newcastle Disease + Infectious Bronchitis. 
 LaSota+H120 Strains",0.0,One dose per vial,False,,,,,,,,1,90.0,"[""f698d0bb631f4b2f8930cf03f2e679b5""]"
 184224,0,VIR/Pou-184224,1000 DOSES PER VIAL,True,{},2025-03-19T15:59:47.736823Z,2142,,184186.0,184220,VIR 114 (GUMBORO INTER) 1000DS,GUMBORO INTER,,85.0,66.3,7.0,1000.0,True,0.0,False,1111,True,0,IL,INFECTIOUS BURSAL DISEASE VIRGO 7 STRAIN,0.0,BETWEEN 2 DEGREE CELSIUS AND 8 DEGREE CELSIUS,False,,,,,,,,1,100.0,"[""f698d0bb631f4b2f8930cf03f2e679b5""]"
@@ -309,8 +315,6 @@ Business Type: Civil Works Contractor",False,"{""EnabledCountries"": ""[\""GH\""
 Business Type: Civil Works Contractor",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:56:36.783503Z,194366,,,292,Road Grading,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for civil works contractor under installation,,,False,,,,,,,,0,,
 194726,1,IC-194726,"Starter catalog item for civil works contractor under maintenance
 Business Type: Civil Works Contractor",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:56:40.544503Z,194370,,,292,Maintenance Contract,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for civil works contractor under maintenance,,,False,,,,,,,,0,,
-194730,1,IC-194730,"Starter catalog item for interior fit-out contractor under installation
-Business Type: Interior Fit-out Contractor",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:56:42.978487Z,194366,,,292,Ceiling Installation,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for interior fit-out contractor under installation,,,False,,,,,,,,0,,
 194732,1,IC-194732,"Starter catalog item for interior fit-out contractor under repairs
 Business Type: Interior Fit-out Contractor",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:56:44.158775Z,194368,,,292,Finishing Touch-ups,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for interior fit-out contractor under repairs,,,False,,,,,,,,0,,
 194964,1,IC-194964,"Starter catalog item for managed it provider under training
@@ -340,6 +344,7 @@ Business Type: Motorbike Delivery Service",False,"{""EnabledCountries"": ""[\""G
 Business Type: Parcel Locker Service",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:58:06.274079Z,194404,,,292,Returned Parcel Processing,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for parcel locker service under returns handling,,,False,,,,,,,,0,,
 194872,1,IC-194872,"Starter catalog item for document delivery service under bulk delivery
 Business Type: Document Delivery Service",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:58:10.963973Z,194406,,,292,Corporate Dispatch Contract,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for document delivery service under bulk delivery,,,False,,,,,,,,0,,
+215766,1,IC-215766,,False,,2026-06-26T08:02:10.284589Z,215756,,,292,Plastering,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
 194748,1,IC-194748,"Starter catalog item for auto repair garage under diagnostics
 Business Type: Auto Repair Garage",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:56:54.521343Z,194376,,,292,Vehicle Diagnostics,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for auto repair garage under diagnostics,,,False,,,,,,,,0,,
 194856,1,IC-194856,"Starter catalog item for motorbike delivery service under tracking & proof
@@ -405,6 +410,8 @@ Business Type: Telecom Installer",False,"{""EnabledCountries"": ""[\""GH\"",\""K
 Business Type: VoIP Service Provider",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:59:00.311532Z,194426,,,292,Support Desk Fee,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for voip service provider under support & maintenance,,,False,,,,,,,,0,,
 194966,1,IC-194966,"Starter catalog item for managed it provider under licensing & subscriptions
 Business Type: Managed IT Provider",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:59:09.240353Z,194440,,,292,Backup Subscription,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for managed it provider under licensing & subscriptions,,,False,,,,,,,,0,,
+215768,1,IC-215768,,False,,2026-06-26T08:02:10.284589Z,215756,,,292,Screeding,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215770,1,IC-215770,,False,,2026-06-26T08:02:10.284589Z,215756,,,292,Concrete Floor Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
 184234,0,VIR/Pou-184234,1000 DOSES PER VIAL,True,{},2025-03-19T16:04:20.304012Z,2142,,184186.0,184230,VIR 102 (FOWL POX) 1000DS,FOWL POX,,125.0,97.5,7.0,1000.0,True,0.0,False,1111,True,0,IL,LIVE VACCINE FOWL POX,0.0,BETWEEN 2 DEGREE CELSIUS AND 8 DEGREE CELSIUS,False,,,,,,,,1,125.0,"[""f698d0bb631f4b2f8930cf03f2e679b5""]"
 194754,1,IC-194754,"Starter catalog item for auto repair garage under parts & consumables
 Business Type: Auto Repair Garage",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:56:58.138913Z,194386,,,292,AC Refill,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for auto repair garage under parts & consumables,,,False,,,,,,,,0,,
@@ -424,8 +431,6 @@ Business Type: Plumbing Service",False,"{""EnabledCountries"": ""[\""GH\"",\""KE
 68568,0,Cev/Pou-68568,"CEVAC GUMBO L must be administered by drinking water method.
 Broilers should be vaccinated with CEVAC GUMBO L from 14 to 21 days of age, depending on the level of maternally derived antibodies. In case of heterogeneity of this level between chicks, a first vaccination between 7 to 10 days of age is recommended.",True,{},2021-11-01T16:01:02.196116Z,2142,production/product-images/product-68568-202111011601255522.png,1294.0,68564,CEVAC GUMBO L 1000D/2R ANG-50,Gumbo L,,89.0,43.0,7.0,1000.0,True,0.0,False,1111,True,0,FR,CEVAC GUMBO L contains the LIBDV intermediate strain of Infectious Bursal Disease virus for the active immunization of healthy chickens against Infectious Bursal Disease (Gumboro Disease),1.0,"Store vaccine between +2??C and +8??C
 Protect from light",False,,,,,,,,0,,
-194772,1,IC-194772,"Starter catalog item for plumbing service under installation
-Business Type: Plumbing Service",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:57:08.947465Z,194382,,,292,Bathroom Installation,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for plumbing service under installation,,,False,,,,,,,,0,,
 194774,1,IC-194774,"Starter catalog item for plumbing service under preventive maintenance
 Business Type: Plumbing Service",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:57:10.230848Z,194380,,,292,Monthly Plumbing Check,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for plumbing service under preventive maintenance,,,False,,,,,,,,0,,
 194788,1,IC-194788,"Starter catalog item for fleet operator under contract services
@@ -467,6 +472,9 @@ Business Type: Tutoring Service",False,"{""EnabledCountries"": ""[\""GH\"",\""KE
 Business Type: Driving School",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:58:34.264324Z,194410,,,292,Driving Lesson,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for driving school under tuition,,,False,,,,,,,,0,,
 194916,1,IC-194916,"Starter catalog item for driving school under recurring fees
 Business Type: Driving School",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:58:38.362131Z,194418,,,292,Monthly Training Package,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for driving school under recurring fees,,,False,,,,,,,,0,,
+215772,1,IC-215772,,False,,2026-06-26T08:02:10.284589Z,215756,,,292,Minor Foundation Works,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215774,1,IC-215774,,False,,2026-06-26T08:02:10.284589Z,215756,,,292,Compound Paving,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215776,1,IC-215776,,False,,2026-06-26T08:02:10.284589Z,215756,,,292,Manhole / Chamber Construction,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
 194758,1,IC-194758,"Starter catalog item for electrical service under diagnostics
 Business Type: Electrical Service",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:57:00.559498Z,194376,,,292,Fault Diagnosis,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for electrical service under diagnostics,,,False,,,,,,,,0,,
 194760,1,IC-194760,"Starter catalog item for electrical service under repair
@@ -507,6 +515,7 @@ Business Type: Internet Service Provider",False,"{""EnabledCountries"": ""[\""GH
 20104,0,Ampr/Ant-20104,"Amprolin-300 WS is indicated for coccidiosis caused by coccidia susceptible to amprolium (Eimeria spp.) or gastrointestinal infections for which it is therapeutically or prophylactically indicated to administer amprolium in calves, goats, sheep and poultry.",False,{},2021-03-15T11:29:27.844618Z,15844,production/product-images/product-20104-202103272357462083.jpg,1330.0,296,Amprolin-300 WS (100g),Amprolium Hydrochloride,,25.45,24.2,1.0,100.0,True,0.0,False,1111,False,0,NL,Amprolium is a coccidiostat (antiprotozoal) used for the treatment and prevention of coccidiosis .,1.0,,True,,,,,,,,0,,
 194938,1,IC-194938,"Starter catalog item for telecom installer under installation
 Business Type: Telecom Installer",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:58:51.908348Z,194422,,,292,Fiber Installation,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for telecom installer under installation,,,False,,,,,,,,0,,
+215780,1,IC-215780,,False,,2026-06-26T08:02:10.284589Z,215756,,,292,Minor Demolition Works,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
 1176,0,Ampr/Ant-1176,"Indications: Coccidiosis in calves, sheep, goats and poultry. Contra-indications: Administration to animals with impaired hepatic and/or renal functions. Hypersensitivity to amprolium and/or sulfaquinoxaline. Side effects: At high dosages in laying hens egg-drop and in broilers growth inhibition and polyneuritis can occur. Other side effects may include crystalluria, anaemia, leucopenia and thrombocytopenia. Dosage: For oral administration: Calves, sheep and goats: Preventive : 1 g per 50 - 100 kg body weight through drinking water or milk for 21 days. Curative : 5 g per 25 - 50 kg body weight through drinking water or milk for 5 days. Poultry : 20 g per 20 - 40 litres of drinking water for 5 - 7 days. Note: for pre-ruminant calves, lambs and kids only. Do not administer to hens producing eggs for human consumption. Withdrawal times: - For meat: Calves, sheep and goats : 14 days. Poultry : 14 days. Packaging: Sachet of 100 g and jar of 1000 g. ???",True,{},2020-08-29T12:54:37.8439Z,15844,production/product-images/product-1176-202104080408418323.png,1330.0,296,Amprocox WS Inter Chemie (100g),Amprolium Hydrochloride,,19.1,17.0,1.0,100.0,True,0.0,True,1111,False,0,Netherlands,"Indications: Coccidiosis in calves, sheep, goats and poultry. Contra-indications: Administration to animals with impaired hepatic and/or renal functions. Hypersensitivity to amprolium and/or sulfaquinoxaline.",0.0,,True,,,,,,,,0,,
 184204,0,VIR/Pou-184204,1000 doses per vial,True,{},2025-03-19T15:48:15.456451Z,2142,,184186.0,184200,VIR 105 (HB1) 1000 DS,HB1,,60.0,46.8,7.0,1000.0,True,0.0,False,1111,True,0,IL,Live vaccine Newcastle disease VH strain,0.5,between 2 degree celsius and 8 degree celsius,False,,,,,,,,1,70.0,"[""f698d0bb631f4b2f8930cf03f2e679b5""]"
 18796,0,Ampr/Ant-18796,"Amprolium 20% Oral is a concentrated liquid containing amprolium, to be used in drinking water of poultry, calves, lambs, young goats, cattle and sheep. It is used as a therapeutic agent against Eimeria infections in poultry. It is effective against other protozoal infections like Histomoniasis (Blackhead) in turkeys and poultry; against coccidiosis in calves, sheep, goats and pigs; against amoebiasis in various species.",True,{},2021-03-04T14:33:42.479396Z,2152,production/product-images/product-18796-202103280009498920.jpg,1337.0,292,Amprolium 20% (1kg),Amprolium Hydrochloride,,174.6,162.0,2.0,1.0,True,0.0,False,1111,False,0,NL,Amprolium is an anti-protozoal drug and in chemical structure analogue to thiamine (vitamin B1). It inhibits the use of thiamine by the protozoal parasites.,1.0,,True,,,,,,,,0,,
@@ -922,6 +931,8 @@ Business Type: Engineering Services Firm",False,"{""EnabledCountries"": ""[\""GH
 Business Type: Engineering Services Firm",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:01:35.110323Z,194492,,,292,Technical Report,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for engineering services firm under documentation,,,False,,,,,,,,0,,
 195206,1,IC-195206,"Starter catalog item for engineering services firm under advisory
 Business Type: Engineering Services Firm",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:01:36.274866Z,194484,,,292,Technical Advisory Session,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for engineering services firm under advisory,,,False,,,,,,,,0,,
+195210,1,IC-195210,"Starter catalog item for vet clinic under vaccination
+Business Type: Vet Clinic",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:01:39.158957Z,194498,,,292,Vaccination Service,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for vet clinic under vaccination,,,False,,,,,,,,2,1050.0,"[""0ed95f93c992420bb8fb3fda1c9821af"",""633cc8842b724116819876b3afbf45ce""]"
 195212,1,IC-195212,"Starter catalog item for vet clinic under preventive care
 Business Type: Vet Clinic",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:01:40.355299Z,194496,,,292,Deworming Service,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for vet clinic under preventive care,,,False,,,,,,,,0,,
 195214,1,IC-195214,"Starter catalog item for vet clinic under diagnostics
@@ -950,8 +961,6 @@ Business Type: Boarding / Kennels",False,"{""EnabledCountries"": ""[\""GH\"",\""
 Business Type: Boarding / Kennels",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:02:10.12964Z,194508,,,292,Emergency Vet Escalation,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for boarding / kennels under emergency care,,,False,,,,,,,,0,,
 195268,1,IC-195268,"Starter catalog item for farm advisory service under monitoring
 Business Type: Farm Advisory Service",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:02:14.215074Z,194514,,,292,Crop Monitoring Report,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for farm advisory service under monitoring,,,False,,,,,,,,0,,
-195210,1,IC-195210,"Starter catalog item for vet clinic under vaccination
-Business Type: Vet Clinic",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:01:39.158957Z,194498,,,292,Vaccination Service,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for vet clinic under vaccination,,,False,,,,,,,,1,500.0,"[""0ed95f93c992420bb8fb3fda1c9821af""]"
 195178,1,IC-195178,"Starter catalog item for business advisory firm under advisory
 Business Type: Business Advisory Firm",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:01:19.507401Z,194484,,,292,Strategy Workshop,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for business advisory firm under advisory,,,False,,,,,,,,0,,
 195180,1,IC-195180,"Starter catalog item for business advisory firm under retainers
@@ -1114,6 +1123,9 @@ Business Type: Property Valuation Firm",False,"{""EnabledCountries"": ""[\""GH\"
 Business Type: Property Valuation Firm",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:03:21.842883Z,194532,,,292,Valuation Retainer,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for property valuation firm under management fees,,,False,,,,,,,,0,,
 195380,1,IC-195380,"Starter catalog item for property valuation firm under inspections
 Business Type: Property Valuation Firm",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:03:23.026843Z,194536,,,292,Inspection Visit,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for property valuation firm under inspections,,,False,,,,,,,,0,,
+215728,1,IC-215728,,False,,2026-06-26T08:02:09.49845Z,215726,,,292,Call-out / Inspection,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+215730,1,IC-215730,,False,,2026-06-26T08:02:09.49845Z,215726,,,292,Door Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+215732,1,IC-215732,,False,,2026-06-26T08:02:09.49845Z,215726,,,292,Door Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
 195388,1,IC-195388,"Starter catalog item for graphic design studio under retainers
 Business Type: Graphic Design Studio",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:03:28.275051Z,194546,,,292,Monthly Design Retainer,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for graphic design studio under retainers,,,False,,,,,,,,0,,
 195392,1,IC-195392,"Starter catalog item for graphic design studio under campaign services
@@ -1178,6 +1190,10 @@ Business Type: Videography Service",False,"{""EnabledCountries"": ""[\""GH\"",\"
 Business Type: Videography Service",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:04:04.275632Z,194554,,,292,Highlight Reel,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for videography service under editing,,,False,,,,,,,,0,,
 195450,1,IC-195450,"Starter catalog item for videography service under printing & delivery
 Business Type: Videography Service",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:04:05.477207Z,194556,,,292,Drive Delivery,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for videography service under printing & delivery,,,False,,,,,,,,0,,
+215734,1,IC-215734,,False,,2026-06-26T08:02:09.49845Z,215726,,,292,Door Lock Area Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+215736,1,IC-215736,,False,,2026-06-26T08:02:09.49845Z,215726,,,292,Window Frame Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+215738,1,IC-215738,,False,,2026-06-26T08:02:09.49845Z,215726,,,292,Kitchen Cabinet Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215740,1,IC-215740,,False,,2026-06-26T08:02:09.49845Z,215726,,,292,Wardrobe Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
 195452,1,IC-195452,"Starter catalog item for videography service under equipment / add-ons
 Business Type: Videography Service",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:04:06.789703Z,194558,,,292,Drone Add-on,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for videography service under equipment / add-ons,,,False,,,,,,,,0,,
 195456,1,IC-195456,"Starter catalog item for drone imaging service under event coverage
@@ -1308,6 +1324,9 @@ Business Type: Makeup Artist",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""
 Business Type: Makeup Artist",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:05:23.858734Z,194584,,,292,Monthly Glam Plan,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for makeup artist under memberships,,,False,,,,,,,,0,,
 195580,1,IC-195580,"Starter catalog item for makeup artist under home service
 Business Type: Makeup Artist",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:05:25.018546Z,194586,,,292,Home Service Booking,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for makeup artist under home service,,,False,,,,,,,,0,,
+215742,1,IC-215742,,False,,2026-06-26T08:02:09.49845Z,215726,,,292,Bed Frame Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+215744,1,IC-215744,,False,,2026-06-26T08:02:09.49845Z,215726,,,292,Table / Chair Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215746,1,IC-215746,,False,,2026-06-26T08:02:09.49845Z,215726,,,292,Sofa Frame Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
 195582,1,IC-195582,"Starter catalog item for makeup artist under add-ons
 Business Type: Makeup Artist",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:05:26.148395Z,194588,,,292,Lashes Add-on,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for makeup artist under add-ons,,,False,,,,,,,,0,,
 195590,1,IC-195590,"Starter catalog item for nail studio under home service
@@ -1402,6 +1421,10 @@ Business Type: Decor Service",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""
 Business Type: Decor Service",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:06:14.6409Z,194600,,,292,Booking Deposit,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for decor service under bookings,,,False,,,,,,,,0,,
 195666,1,IC-195666,"Starter catalog item for mc / host service under planning
 Business Type: MC / Host Service",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:06:16.952622Z,194602,,,292,Pre-event Consultation,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for mc / host service under planning,,,False,,,,,,,,0,,
+215748,1,IC-215748,,False,,2026-06-26T08:02:09.49845Z,215726,,,292,Shelving Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+215750,1,IC-215750,,False,,2026-06-26T08:02:09.49845Z,215726,,,292,Furniture Assembly,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215752,1,IC-215752,,False,,2026-06-26T08:02:09.49845Z,215726,,,292,Wood Polishing,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215754,1,IC-215754,,False,,2026-06-26T08:02:09.49845Z,215726,,,292,Custom Furniture Work,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
 195676,1,IC-195676,"Starter catalog item for travel agency under support services
 Business Type: Travel Agency",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T08:06:23.518586Z,194616,,,292,Visa Advisory,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for travel agency under support services,,,False,,,,,,,,0,,
 195680,1,IC-195680,"Starter catalog item for travel agency under packages
@@ -1527,3 +1550,215 @@ Business Type: Office Cleaning Service",False,"{""EnabledCountries"": ""[\""GH\"
 196190,1,IC-196190,Monthly fees,False,"{""DurationUnit"": ""Minutes"", ""ServiceNotes"": ""monthly Service "", ""ShowDuration"": ""False"", ""EnabledCountries"": ""[\""Ghana\""]"", ""EstimatedDuration"": ""15"", ""CertificationLicenseRequired"": ""False""}",2026-04-25T21:10:58.066987Z,196188,,,292,Monthly Collection-Small Bin,,,,,,,False,,False,1111,False,1,Ghana,,,,False,,,,,,,,1,80.0,"[""b288473061884888a63ec5be2a173a11""]"
 196192,1,IC-196192,Large,False,"{""DurationUnit"": ""Minutes"", ""ServiceNotes"": ""Large"", ""ShowDuration"": ""False"", ""EnabledCountries"": ""[\""Ghana\""]"", ""EstimatedDuration"": ""15"", ""CertificationLicenseRequired"": ""False""}",2026-04-25T21:15:40.979404Z,196188,,,292,Monthly Refuse Collection-Large Bin,,,,,,,False,,False,1111,False,1,Ghana,,,,False,,,,,,,,1,120.0,"[""b288473061884888a63ec5be2a173a11""]"
 187662,1,IC-187662,,False,,2026-03-16T23:43:12.048442Z,187660,,,292,Diagnosis and treatment of diseases,,,,,,,False,,False,1111,False,1,,,,,False,,,,,,,,9,1888.89,"[""0ed95f93c992420bb8fb3fda1c9821af"",""2c36c87678324b198eaa02ae3f8de0e4"",""2db0c51a736642e78a927c02b21fdb84"",""492776790caf401dabc26624383b896f"",""633cc8842b724116819876b3afbf45ce"",""65574e6c5bd7461fac43c29afb0eb708"",""842524850e30436cb09b3f670a450e2b"",""a30206097c2c4dc9a1028622cf123be0"",""ea6468dd9dad45c9bcc69900552bdd63""]"
+194730,1,IC-194730,"Starter catalog item for interior fit-out contractor under installation
+Business Type: Interior Fit-out Contractor",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:56:42.978487Z,194366,,,292,Ceiling Installation,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for interior fit-out contractor under installation,,,False,,,,,,,,1,200.0,"[""202cc53401ee4f7f9be3e73ef59293f1""]"
+194772,1,IC-194772,"Starter catalog item for plumbing service under installation
+Business Type: Plumbing Service",False,"{""EnabledCountries"": ""[\""GH\"",\""KE\""]""}",2026-04-23T07:57:08.947465Z,194382,,,292,Bathroom Installation,,,,,,,False,,False,1111,False,1,"GH,KE",Starter catalog item for plumbing service under installation,,,False,,,,,,,,1,250.0,"[""fd2d33b5a38f44b4ae81cfce8854a8d0""]"
+215804,1,IC-215804,,False,,2026-06-26T08:02:10.354718Z,215782,,,292,Water Pump Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215806,1,IC-215806,,False,,2026-06-26T08:02:10.354718Z,215782,,,292,Shower Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215810,1,IC-215810,,False,,2026-06-26T08:02:10.354718Z,215782,,,292,Plumbing Point Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_point,,,,,0,,
+215814,1,IC-215814,,False,,2026-06-26T08:02:10.450462Z,215812,,,292,Call-out / Fault Inspection,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+215816,1,IC-215816,,False,,2026-06-26T08:02:10.450462Z,215812,,,292,Light Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_point,,,,,0,,
+215818,1,IC-215818,,False,,2026-06-26T08:02:10.450462Z,215812,,,292,Socket Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_point,,,,,0,,
+215820,1,IC-215820,,False,,2026-06-26T08:02:10.450462Z,215812,,,292,Switch Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_point,,,,,0,,
+215822,1,IC-215822,,False,,2026-06-26T08:02:10.450462Z,215812,,,292,Ceiling Fan Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215824,1,IC-215824,,False,,2026-06-26T08:02:10.450462Z,215812,,,292,Electrical Fault Tracing,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215826,1,IC-215826,,False,,2026-06-26T08:02:10.450462Z,215812,,,292,Distribution Board Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215828,1,IC-215828,,False,,2026-06-26T08:02:10.450462Z,215812,,,292,Breaker Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215830,1,IC-215830,,False,,2026-06-26T08:02:10.450462Z,215812,,,292,House Wiring,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215832,1,IC-215832,,False,,2026-06-26T08:02:10.450462Z,215812,,,292,Rewiring,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215834,1,IC-215834,,False,,2026-06-26T08:02:10.450462Z,215812,,,292,Earthing Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215836,1,IC-215836,,False,,2026-06-26T08:02:10.450462Z,215812,,,292,Security Light Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215838,1,IC-215838,,False,,2026-06-26T08:02:10.450462Z,215812,,,292,Generator Changeover Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215842,1,IC-215842,,False,,2026-06-26T08:02:10.642664Z,215840,,,292,Site Inspection,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+215844,1,IC-215844,,False,,2026-06-26T08:02:10.642664Z,215840,,,292,Single Room Painting,,,,,,,False,,False,1111,False,1,,,,,False,,,per_room,,,,,0,,
+215846,1,IC-215846,,False,,2026-06-26T08:02:10.642664Z,215840,,,292,Interior Painting,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215848,1,IC-215848,,False,,2026-06-26T08:02:10.642664Z,215840,,,292,Exterior Painting,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215850,1,IC-215850,,False,,2026-06-26T08:02:10.642664Z,215840,,,292,Ceiling Painting,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215852,1,IC-215852,,False,,2026-06-26T08:02:10.642664Z,215840,,,292,Gate Painting,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+215854,1,IC-215854,,False,,2026-06-26T08:02:10.642664Z,215840,,,292,Wall Preparation / Filling,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215856,1,IC-215856,,False,,2026-06-26T08:02:10.642664Z,215840,,,292,Primer Application,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215858,1,IC-215858,,False,,2026-06-26T08:02:10.642664Z,215840,,,292,Texture Painting,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215860,1,IC-215860,,False,,2026-06-26T08:02:10.642664Z,215840,,,292,Wallpaper Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215862,1,IC-215862,,False,,2026-06-26T08:02:10.642664Z,215840,,,292,Decorative Painting,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215866,1,IC-215866,,False,,2026-06-26T08:02:10.724661Z,215864,,,292,Site Inspection,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+215868,1,IC-215868,,False,,2026-06-26T08:02:10.724661Z,215864,,,292,Floor Tile Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215870,1,IC-215870,,False,,2026-06-26T08:02:10.724661Z,215864,,,292,Wall Tile Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215872,1,IC-215872,,False,,2026-06-26T08:02:10.724661Z,215864,,,292,Bathroom Tiling,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215874,1,IC-215874,,False,,2026-06-26T08:02:10.724661Z,215864,,,292,Kitchen Tiling,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215876,1,IC-215876,,False,,2026-06-26T08:02:10.724661Z,215864,,,292,Broken Tile Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215878,1,IC-215878,,False,,2026-06-26T08:02:10.724661Z,215864,,,292,Tile Grouting,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215880,1,IC-215880,,False,,2026-06-26T08:02:10.724661Z,215864,,,292,Tile Polishing / Cleaning,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215882,1,IC-215882,,False,,2026-06-26T08:02:10.724661Z,215864,,,292,Vinyl Flooring Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215884,1,IC-215884,,False,,2026-06-26T08:02:10.724661Z,215864,,,292,Laminate Flooring Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215886,1,IC-215886,,False,,2026-06-26T08:02:10.724661Z,215864,,,292,Floor Screed Preparation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215808,1,IC-215808,,False,,2026-06-26T08:02:10.354718Z,215782,,,292,Bathroom Plumbing Rough-In,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,1,100.0,"[""fd2d33b5a38f44b4ae81cfce8854a8d0""]"
+215890,1,IC-215890,,False,,2026-06-26T08:02:10.813077Z,215888,,,292,Roof / Ceiling Inspection,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+215892,1,IC-215892,,False,,2026-06-26T08:02:10.813077Z,215888,,,292,Roof Leak Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215894,1,IC-215894,,False,,2026-06-26T08:02:10.813077Z,215888,,,292,Roofing Sheet Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215896,1,IC-215896,,False,,2026-06-26T08:02:10.813077Z,215888,,,292,Roof Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215914,1,IC-215914,,False,,2026-06-26T08:02:10.925325Z,215912,,,292,Site Inspection,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+215784,1,IC-215784,,False,,2026-06-26T08:02:10.354718Z,215782,,,292,Call-out / Inspection,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+215786,1,IC-215786,,False,,2026-06-26T08:02:10.354718Z,215782,,,292,Pipe Leak Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+215788,1,IC-215788,,False,,2026-06-26T08:02:10.354718Z,215782,,,292,Tap Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215790,1,IC-215790,,False,,2026-06-26T08:02:10.354718Z,215782,,,292,Tap Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215792,1,IC-215792,,False,,2026-06-26T08:02:10.354718Z,215782,,,292,WC / Toilet Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215794,1,IC-215794,,False,,2026-06-26T08:02:10.354718Z,215782,,,292,WC / Toilet Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+215796,1,IC-215796,,False,,2026-06-26T08:02:10.354718Z,215782,,,292,Sink Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215798,1,IC-215798,,False,,2026-06-26T08:02:10.354718Z,215782,,,292,Sink Unblocking,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+215800,1,IC-215800,,False,,2026-06-26T08:02:10.354718Z,215782,,,292,Drain Unblocking,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+215802,1,IC-215802,,False,,2026-06-26T08:02:10.354718Z,215782,,,292,Water Tank Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215898,1,IC-215898,,False,,2026-06-26T08:02:10.813077Z,215888,,,292,Gutter Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_meter,,,,,0,,
+215900,1,IC-215900,,False,,2026-06-26T08:02:10.813077Z,215888,,,292,Gutter Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215902,1,IC-215902,,False,,2026-06-26T08:02:10.813077Z,215888,,,292,Ceiling Board Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215904,1,IC-215904,,False,,2026-06-26T08:02:10.813077Z,215888,,,292,Ceiling Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215906,1,IC-215906,,False,,2026-06-26T08:02:10.813077Z,215888,,,292,POP Ceiling Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215908,1,IC-215908,,False,,2026-06-26T08:02:10.813077Z,215888,,,292,Roof Woodwork Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215910,1,IC-215910,,False,,2026-06-26T08:02:10.813077Z,215888,,,292,Roof Waterproofing,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215916,1,IC-215916,,False,,2026-06-26T08:02:10.925325Z,215912,,,292,Sliding Window Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215918,1,IC-215918,,False,,2026-06-26T08:02:10.925325Z,215912,,,292,Sliding Door Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215920,1,IC-215920,,False,,2026-06-26T08:02:10.925325Z,215912,,,292,Glass Door Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215922,1,IC-215922,,False,,2026-06-26T08:02:10.925325Z,215912,,,292,Window Glass Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215924,1,IC-215924,,False,,2026-06-26T08:02:10.925325Z,215912,,,292,Shop Front Glasswork,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215926,1,IC-215926,,False,,2026-06-26T08:02:10.925325Z,215912,,,292,Shower Glass Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215928,1,IC-215928,,False,,2026-06-26T08:02:10.925325Z,215912,,,292,Aluminium Partitioning,,,,,,,False,,False,1111,False,1,,,,,False,,,per_square_meter,,,,,0,,
+215930,1,IC-215930,,False,,2026-06-26T08:02:10.925325Z,215912,,,292,Mosquito Net Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215932,1,IC-215932,,False,,2026-06-26T08:02:10.925325Z,215912,,,292,Window / Sliding Lock Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+215936,1,IC-215936,,False,,2026-06-26T08:02:11.028653Z,215934,,,292,Site Inspection,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+215938,1,IC-215938,,False,,2026-06-26T08:02:11.028653Z,215934,,,292,Gate Fabrication,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215940,1,IC-215940,,False,,2026-06-26T08:02:11.028653Z,215934,,,292,Gate Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+215942,1,IC-215942,,False,,2026-06-26T08:02:11.028653Z,215934,,,292,Burglar Proof Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215944,1,IC-215944,,False,,2026-06-26T08:02:11.028653Z,215934,,,292,Metal Door Fabrication,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215946,1,IC-215946,,False,,2026-06-26T08:02:11.028653Z,215934,,,292,Metal Railing Fabrication,,,,,,,False,,False,1111,False,1,,,,,False,,,per_meter,,,,,0,,
+215948,1,IC-215948,,False,,2026-06-26T08:02:11.028653Z,215934,,,292,Metal Staircase Fabrication,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215950,1,IC-215950,,False,,2026-06-26T08:02:11.028653Z,215934,,,292,Container / Kiosk Welding,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215952,1,IC-215952,,False,,2026-06-26T08:02:11.028653Z,215934,,,292,Metal Frame Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+215954,1,IC-215954,,False,,2026-06-26T08:02:11.028653Z,215934,,,292,On-site Welding Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216052,1,IC-216052,,False,,2026-06-26T08:02:11.52173Z,216030,,,292,Decoder Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216054,1,IC-216054,,False,,2026-06-26T08:02:11.52173Z,216030,,,292,Sound System Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216058,1,IC-216058,,False,,2026-06-26T08:02:11.644531Z,216056,,,292,Computer Diagnosis,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+216060,1,IC-216060,,False,,2026-06-26T08:02:11.644531Z,216056,,,292,Laptop Screen Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216062,1,IC-216062,,False,,2026-06-26T08:02:11.644531Z,216056,,,292,Keyboard Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216064,1,IC-216064,,False,,2026-06-26T08:02:11.644531Z,216056,,,292,Laptop Battery Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216066,1,IC-216066,,False,,2026-06-26T08:02:11.644531Z,216056,,,292,Operating System Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216068,1,IC-216068,,False,,2026-06-26T08:02:11.644531Z,216056,,,292,Software Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216070,1,IC-216070,,False,,2026-06-26T08:02:11.644531Z,216056,,,292,Virus Removal,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216072,1,IC-216072,,False,,2026-06-26T08:02:11.644531Z,216056,,,292,Data Recovery,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216074,1,IC-216074,,False,,2026-06-26T08:02:11.644531Z,216056,,,292,Printer Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216076,1,IC-216076,,False,,2026-06-26T08:02:11.644531Z,216056,,,292,Printer Servicing,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216078,1,IC-216078,,False,,2026-06-26T08:02:11.644531Z,216056,,,292,Cartridge Refill,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216080,1,IC-216080,,False,,2026-06-26T08:02:11.644531Z,216056,,,292,Office / Home Network Setup,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216084,1,IC-216084,,False,,2026-06-26T08:02:11.746102Z,216082,,,292,Generator Diagnosis,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+216086,1,IC-216086,,False,,2026-06-26T08:02:11.746102Z,216082,,,292,Generator Servicing,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216088,1,IC-216088,,False,,2026-06-26T08:02:11.746102Z,216082,,,292,Minor Generator Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216090,1,IC-216090,,False,,2026-06-26T08:02:11.746102Z,216082,,,292,Major Generator Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216092,1,IC-216092,,False,,2026-06-26T08:02:11.746102Z,216082,,,292,Carburetor Cleaning,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216094,1,IC-216094,,False,,2026-06-26T08:02:11.746102Z,216082,,,292,Spark Plug Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215956,1,IC-215956,,False,,2026-06-26T08:02:11.028653Z,215934,,,292,Security Grill Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+215960,1,IC-215960,,False,,2026-06-26T08:02:11.122126Z,215958,,,292,AC Diagnosis / Inspection,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+215962,1,IC-215962,,False,,2026-06-26T08:02:11.122126Z,215958,,,292,AC Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215964,1,IC-215964,,False,,2026-06-26T08:02:11.122126Z,215958,,,292,AC Servicing,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215966,1,IC-215966,,False,,2026-06-26T08:02:11.122126Z,215958,,,292,AC Gas Refill,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215968,1,IC-215968,,False,,2026-06-26T08:02:11.122126Z,215958,,,292,AC Leak Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215970,1,IC-215970,,False,,2026-06-26T08:02:11.122126Z,215958,,,292,AC Relocation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215972,1,IC-215972,,False,,2026-06-26T08:02:11.122126Z,215958,,,292,AC Uninstallation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+215974,1,IC-215974,,False,,2026-06-26T08:02:11.122126Z,215958,,,292,Fridge / Freezer Diagnosis,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+215976,1,IC-215976,,False,,2026-06-26T08:02:11.122126Z,215958,,,292,Fridge / Freezer Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215978,1,IC-215978,,False,,2026-06-26T08:02:11.122126Z,215958,,,292,Compressor Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215980,1,IC-215980,,False,,2026-06-26T08:02:11.122126Z,215958,,,292,Cold Room Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215982,1,IC-215982,,False,,2026-06-26T08:02:11.122126Z,215958,,,292,Commercial Freezer Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215986,1,IC-215986,,False,,2026-06-26T08:02:11.243658Z,215984,,,292,Solar Site Assessment,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+215988,1,IC-215988,,False,,2026-06-26T08:02:11.243658Z,215984,,,292,Solar Panel Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215990,1,IC-215990,,False,,2026-06-26T08:02:11.243658Z,215984,,,292,Solar Inverter Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215992,1,IC-215992,,False,,2026-06-26T08:02:11.243658Z,215984,,,292,Solar Battery Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215994,1,IC-215994,,False,,2026-06-26T08:02:11.243658Z,215984,,,292,Solar System Maintenance,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+215996,1,IC-215996,,False,,2026-06-26T08:02:11.243658Z,215984,,,292,Solar Fault Diagnosis,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+215998,1,IC-215998,,False,,2026-06-26T08:02:11.243658Z,215984,,,292,Solar Panel Cleaning,,,,,,,False,,False,1111,False,1,,,,,False,,,per_panel,,,,,0,,
+216000,1,IC-216000,,False,,2026-06-26T08:02:11.243658Z,215984,,,292,Solar Security Light Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216002,1,IC-216002,,False,,2026-06-26T08:02:11.243658Z,215984,,,292,Solar Water Pump Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216004,1,IC-216004,,False,,2026-06-26T08:02:11.243658Z,215984,,,292,Backup Power Setup,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216008,1,IC-216008,,False,,2026-06-26T08:02:11.406962Z,216006,,,292,Appliance Diagnosis,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+216010,1,IC-216010,,False,,2026-06-26T08:02:11.406962Z,216006,,,292,Washing Machine Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216012,1,IC-216012,,False,,2026-06-26T08:02:11.406962Z,216006,,,292,Electric Iron Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216014,1,IC-216014,,False,,2026-06-26T08:02:11.406962Z,216006,,,292,Blender Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216016,1,IC-216016,,False,,2026-06-26T08:02:11.406962Z,216006,,,292,Microwave Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216018,1,IC-216018,,False,,2026-06-26T08:02:11.406962Z,216006,,,292,Rice Cooker Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216020,1,IC-216020,,False,,2026-06-26T08:02:11.406962Z,216006,,,292,Kettle Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216022,1,IC-216022,,False,,2026-06-26T08:02:11.406962Z,216006,,,292,Fan Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216024,1,IC-216024,,False,,2026-06-26T08:02:11.406962Z,216006,,,292,Water Heater Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216026,1,IC-216026,,False,,2026-06-26T08:02:11.406962Z,216006,,,292,Cooker / Oven Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216028,1,IC-216028,,False,,2026-06-26T08:02:11.406962Z,216006,,,292,Sewing Machine Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216032,1,IC-216032,,False,,2026-06-26T08:02:11.52173Z,216030,,,292,Phone Diagnosis,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216034,1,IC-216034,,False,,2026-06-26T08:02:11.52173Z,216030,,,292,Phone Screen Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216036,1,IC-216036,,False,,2026-06-26T08:02:11.52173Z,216030,,,292,Phone Battery Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216038,1,IC-216038,,False,,2026-06-26T08:02:11.52173Z,216030,,,292,Charging Port Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216040,1,IC-216040,,False,,2026-06-26T08:02:11.52173Z,216030,,,292,Speaker / Mic Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216042,1,IC-216042,,False,,2026-06-26T08:02:11.52173Z,216030,,,292,Software Flashing,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216044,1,IC-216044,,False,,2026-06-26T08:02:11.52173Z,216030,,,292,Phone Unlocking,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216046,1,IC-216046,,False,,2026-06-26T08:02:11.52173Z,216030,,,292,Data Transfer,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216048,1,IC-216048,,False,,2026-06-26T08:02:11.52173Z,216030,,,292,Tablet Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216050,1,IC-216050,,False,,2026-06-26T08:02:11.52173Z,216030,,,292,TV Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216096,1,IC-216096,,False,,2026-06-26T08:02:11.746102Z,216082,,,292,Generator Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216098,1,IC-216098,,False,,2026-06-26T08:02:11.746102Z,216082,,,292,Lawn Mower Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216100,1,IC-216100,,False,,2026-06-26T08:02:11.746102Z,216082,,,292,Water Pump Engine Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216102,1,IC-216102,,False,,2026-06-26T08:02:11.746102Z,216082,,,292,Chainsaw Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216104,1,IC-216104,,False,,2026-06-26T08:02:11.746102Z,216082,,,292,Small Engine Servicing,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216108,1,IC-216108,,False,,2026-06-26T08:02:11.876577Z,216106,,,292,Borehole / Pump Inspection,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+216110,1,IC-216110,,False,,2026-06-26T08:02:11.876577Z,216106,,,292,Water Pump Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216112,1,IC-216112,,False,,2026-06-26T08:02:11.876577Z,216106,,,292,Water Pump Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216114,1,IC-216114,,False,,2026-06-26T08:02:11.876577Z,216106,,,292,Submersible Pump Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216116,1,IC-216116,,False,,2026-06-26T08:02:11.876577Z,216106,,,292,Pressure Switch Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216118,1,IC-216118,,False,,2026-06-26T08:02:11.876577Z,216106,,,292,Pump Control Panel Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216120,1,IC-216120,,False,,2026-06-26T08:02:11.876577Z,216106,,,292,Borehole Flushing,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216122,1,IC-216122,,False,,2026-06-26T08:02:11.876577Z,216106,,,292,Tank Connection,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216124,1,IC-216124,,False,,2026-06-26T08:02:11.876577Z,216106,,,292,Water Flow Troubleshooting,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+216126,1,IC-216126,,False,,2026-06-26T08:02:11.876577Z,216106,,,292,Irrigation Pump Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216130,1,IC-216130,,False,,2026-06-26T08:02:11.99689Z,216128,,,292,Vehicle Diagnosis,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+216132,1,IC-216132,,False,,2026-06-26T08:02:11.99689Z,216128,,,292,Engine Servicing,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216134,1,IC-216134,,False,,2026-06-26T08:02:11.99689Z,216128,,,292,Oil Change,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216136,1,IC-216136,,False,,2026-06-26T08:02:11.99689Z,216128,,,292,Brake Pad Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216138,1,IC-216138,,False,,2026-06-26T08:02:11.99689Z,216128,,,292,Suspension Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216140,1,IC-216140,,False,,2026-06-26T08:02:11.99689Z,216128,,,292,Engine Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216142,1,IC-216142,,False,,2026-06-26T08:02:11.99689Z,216128,,,292,Gearbox Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216144,1,IC-216144,,False,,2026-06-26T08:02:11.99689Z,216128,,,292,Vehicle Battery Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216146,1,IC-216146,,False,,2026-06-26T08:02:11.99689Z,216128,,,292,Alternator Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216148,1,IC-216148,,False,,2026-06-26T08:02:11.99689Z,216128,,,292,Starter Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216150,1,IC-216150,,False,,2026-06-26T08:02:11.99689Z,216128,,,292,Car AC Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216152,1,IC-216152,,False,,2026-06-26T08:02:11.99689Z,216128,,,292,Car Wiring Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216154,1,IC-216154,,False,,2026-06-26T08:02:11.99689Z,216128,,,292,Car Computer Scanning,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216158,1,IC-216158,,False,,2026-06-26T08:02:12.152633Z,216156,,,292,Body Works Assessment,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+216160,1,IC-216160,,False,,2026-06-26T08:02:12.152633Z,216156,,,292,Panel Beating,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216162,1,IC-216162,,False,,2026-06-26T08:02:12.152633Z,216156,,,292,Bumper Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216164,1,IC-216164,,False,,2026-06-26T08:02:12.152633Z,216156,,,292,Full Car Spraying,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216166,1,IC-216166,,False,,2026-06-26T08:02:12.152633Z,216156,,,292,Single Panel Spraying,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216168,1,IC-216168,,False,,2026-06-26T08:02:12.152633Z,216156,,,292,Scratch Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216170,1,IC-216170,,False,,2026-06-26T08:02:12.152633Z,216156,,,292,Windscreen Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216172,1,IC-216172,,False,,2026-06-26T08:02:12.152633Z,216156,,,292,Tyre Patching,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216174,1,IC-216174,,False,,2026-06-26T08:02:12.152633Z,216156,,,292,Tyre Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216176,1,IC-216176,,False,,2026-06-26T08:02:12.152633Z,216156,,,292,Wheel Balancing,,,,,,,False,,False,1111,False,1,,,,,False,,,per_wheel,,,,,0,,
+216178,1,IC-216178,,False,,2026-06-26T08:02:12.152633Z,216156,,,292,Wheel Alignment,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216180,1,IC-216180,,False,,2026-06-26T08:02:12.152633Z,216156,,,292,Basic Car Wash,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216182,1,IC-216182,,False,,2026-06-26T08:02:12.152633Z,216156,,,292,Car Detailing,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216186,1,IC-216186,,False,,2026-06-26T08:02:12.312358Z,216184,,,292,Motorcycle Diagnosis,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+216188,1,IC-216188,,False,,2026-06-26T08:02:12.312358Z,216184,,,292,Motorcycle Servicing,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216190,1,IC-216190,,False,,2026-06-26T08:02:12.312358Z,216184,,,292,Tricycle Servicing,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216192,1,IC-216192,,False,,2026-06-26T08:02:12.312358Z,216184,,,292,Motorcycle Engine Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216194,1,IC-216194,,False,,2026-06-26T08:02:12.312358Z,216184,,,292,Tricycle Engine Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216196,1,IC-216196,,False,,2026-06-26T08:02:12.312358Z,216184,,,292,Chain / Sprocket Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216198,1,IC-216198,,False,,2026-06-26T08:02:12.312358Z,216184,,,292,Motorcycle Brake Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216200,1,IC-216200,,False,,2026-06-26T08:02:12.312358Z,216184,,,292,Motorcycle Electrical Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216202,1,IC-216202,,False,,2026-06-26T08:02:12.312358Z,216184,,,292,Tyre / Tube Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216204,1,IC-216204,,False,,2026-06-26T08:02:12.312358Z,216184,,,292,Motorcycle Spraying,,,,,,,False,,False,1111,False,1,,,,,False,,,quote_required,,,,,0,,
+216206,1,IC-216206,,False,,2026-06-26T08:02:12.312358Z,216184,,,292,Delivery Box Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216210,1,IC-216210,,False,,2026-06-26T08:02:12.460047Z,216208,,,292,Call-out / Inspection,,,,,,,False,,False,1111,False,1,,,,,False,,,callout,,,,,0,,
+216212,1,IC-216212,,False,,2026-06-26T08:02:12.460047Z,216208,,,292,Lock Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216214,1,IC-216214,,False,,2026-06-26T08:02:12.460047Z,216208,,,292,Key Cutting,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216216,1,IC-216216,,False,,2026-06-26T08:02:12.460047Z,216208,,,292,Door Handle Replacement,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216218,1,IC-216218,,False,,2026-06-26T08:02:12.460047Z,216208,,,292,Padlock Removal,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216220,1,IC-216220,,False,,2026-06-26T08:02:12.460047Z,216208,,,292,Curtain Rod Installation,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216222,1,IC-216222,,False,,2026-06-26T08:02:12.460047Z,216208,,,292,Picture / Mirror Hanging,,,,,,,False,,False,1111,False,1,,,,,False,,,per_item,,,,,0,,
+216224,1,IC-216224,,False,,2026-06-26T08:02:12.460047Z,216208,,,292,Minor Furniture Repair,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216226,1,IC-216226,,False,,2026-06-26T08:02:12.460047Z,216208,,,292,Minor Plumbing Fix,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216228,1,IC-216228,,False,,2026-06-26T08:02:12.460047Z,216208,,,292,Minor Electrical Fix,,,,,,,False,,False,1111,False,1,,,,,False,,,fixed,,,,,0,,
+216230,1,IC-216230,,False,,2026-06-26T08:02:12.460047Z,216208,,,292,Half-Day Home Maintenance,,,,,,,False,,False,1111,False,1,,,,,False,,,per_day,,,,,0,,
+216232,1,IC-216232,,False,,2026-06-26T08:02:12.460047Z,216208,,,292,Full-Day Home Maintenance,,,,,,,False,,False,1111,False,1,,,,,False,,,per_day,,,,,0,,

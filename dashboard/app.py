@@ -108,6 +108,12 @@ st.markdown("""
 [data-testid="stSidebar"] {
     background-color: #14532d !important;
     padding-top: 0 !important;
+    width: 190px !important;
+    min-width: 190px !important;
+    max-width: 190px !important;
+}
+[data-testid="stSidebar"] > div:first-child {
+    width: 190px !important;
 }
 
 /* ── Force ALL sidebar text white ── */
@@ -128,15 +134,17 @@ st.markdown("""
     box-shadow: none !important;
     outline: none !important;
     color: #ffffff !important;
-    font-size: 14px !important;
+    font-size: 12.5px !important;
     font-weight: 500 !important;
     text-align: center !important;
     justify-content: center !important;
-    padding: 11px 16px !important;
+    padding: 9px 8px !important;
     border-radius: 8px !important;
     width: 100% !important;
     cursor: pointer !important;
-    letter-spacing: 0.2px !important;
+    letter-spacing: 0.1px !important;
+    white-space: normal !important;
+    line-height: 1.25 !important;
     transition: background 0.15s ease !important;
 }
 [data-testid="stSidebar"] .stButton button:hover {
@@ -871,8 +879,8 @@ NAV_ICONS = {
 
 with st.sidebar:
     st.markdown("""
-    <div style="padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:8px">
-        <div style="font-size:18px;font-weight:800;color:white">TribeCo Ghana Data Analysis</div>
+    <div style="padding:16px 10px 12px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:8px">
+        <div style="font-size:14px;font-weight:800;color:white;line-height:1.3">TribeCo Ghana Data Analysis</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1331,7 +1339,7 @@ elif page == "Sales Performance":
     inv_y = apply_year(inv_scoped, yr)
     months_available = sorted(inv_y["Month"].dropna().unique())
     selected = st.multiselect("Filter by Month", months_available,
-                              default=months_available[-6:] if len(months_available) >= 6 else months_available)
+                              default=months_available)
     inv_f = inv_y[inv_y["Month"].isin(selected)] if selected else inv_y
 
     r1 = kpi_card("Total Sales", f"GHS {inv_f['Discountedvalue'].sum():,.0f}", "Sales in period", "#4f46e5") + \
@@ -1380,21 +1388,49 @@ elif page == "Sales Performance":
 
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown(chart_wrap("Monthly Sales vs Previous Month"), unsafe_allow_html=True)
+        st.markdown(chart_wrap("Monthly Revenue"), unsafe_allow_html=True)
         m = inv_f.groupby("Month")["Discountedvalue"].sum().reset_index()
         m["Prev"]     = m["Discountedvalue"].shift(1)
         m["Change %"] = (((m["Discountedvalue"] - m["Prev"]) / m["Prev"]).astype(float) * 100).round(1)
-        fig = go.Figure()
-        fig.add_bar(x=m["Month"], y=m["Discountedvalue"], marker_color="#4f46e5",
-                    name="Sales (GHS)", text=m["Discountedvalue"].apply(lambda x: f"{x/1000:.0f}k"),
-                    textposition="outside", textfont=dict(size=10))
-        for _, row in m.dropna(subset=["Change %"]).iterrows():
-            clr = "#16a34a" if row["Change %"] >= 0 else "#dc2626"
-            fig.add_annotation(x=row["Month"], y=row["Discountedvalue"],
-                               text=f"{'+' if row['Change %']>=0 else ''}{row['Change %']:.0f}%",
-                               showarrow=False, yshift=30, font=dict(size=10, color=clr))
-        fig.update_layout(**white_layout(300))
-        st.plotly_chart(fig, use_container_width=True, config=CHART_CFG)
+
+        _target_path = f"{DATA}/revenue_target.csv"
+        _target = pd.read_csv(_target_path) if os.path.exists(_target_path) else pd.DataFrame(columns=["Month", "Target"])
+        m_t = m.merge(_target, on="Month", how="left")
+
+        tab_mom, tab_target = st.tabs(["Vs Previous Month", "Actual vs Target"])
+
+        with tab_mom:
+            fig = go.Figure()
+            fig.add_bar(x=m["Month"], y=m["Discountedvalue"], marker_color="#4f46e5",
+                        name="Sales (GHS)", text=m["Discountedvalue"].apply(lambda x: f"{x/1000:.0f}k"),
+                        textposition="outside", textfont=dict(size=10))
+            for _, row in m.dropna(subset=["Change %"]).iterrows():
+                clr = "#16a34a" if row["Change %"] >= 0 else "#dc2626"
+                fig.add_annotation(x=row["Month"], y=row["Discountedvalue"],
+                                   text=f"{'+' if row['Change %']>=0 else ''}{row['Change %']:.0f}%",
+                                   showarrow=False, yshift=30, font=dict(size=10, color=clr))
+            fig.update_layout(**white_layout(300))
+            fig.update_layout(xaxis=dict(type="category", tickmode="linear", dtick=1, tickangle=-35))
+            st.plotly_chart(fig, use_container_width=True, config=CHART_CFG)
+
+        with tab_target:
+            if m_t["Target"].notna().any():
+                fig_t = go.Figure()
+                fig_t.add_bar(x=m_t["Month"], y=m_t["Discountedvalue"], marker_color="#4f46e5", name="Actual (GHS)")
+                fig_t.add_bar(x=m_t["Month"], y=m_t["Target"], marker_color="#eab308", name="Target (GHS)")
+                for _, row in m_t.dropna(subset=["Target"]).iterrows():
+                    attain = (row["Discountedvalue"] / row["Target"] * 100) if row["Target"] else 0
+                    clr = "#16a34a" if attain >= 100 else "#dc2626"
+                    fig_t.add_annotation(x=row["Month"], y=max(row["Discountedvalue"], row["Target"]),
+                                       text=f"{attain:.0f}%", showarrow=False, yshift=14,
+                                       font=dict(size=10, color=clr))
+                fig_t.update_layout(**white_layout(300))
+                fig_t.update_layout(barmode="group", legend=dict(orientation="h", y=-0.3),
+                                    xaxis=dict(type="category", tickmode="linear", dtick=1, tickangle=-35))
+                st.plotly_chart(fig_t, use_container_width=True, config=CHART_CFG)
+            else:
+                st.info("No revenue target set for the selected months.")
+
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col2:
