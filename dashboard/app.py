@@ -5,8 +5,10 @@ Run: python -m streamlit run d:/company-dashboard/dashboard/app.py
 import os
 import io
 import time
+import base64
 import requests
 import streamlit as st
+from string import Template
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -24,12 +26,40 @@ except ImportError:
 st.set_page_config(
     page_title="CowTribe Sales Dashboard",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
     menu_items={},
 )
 
 DATA      = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 CHART_CFG = {"displayModeBar": False}
+
+# ── Device preview switcher ───────────────────────────────────────────────────────
+# Streamlit has no client-side way to fake a viewport width, so "previewing" a device
+# means rendering the app a second time inside an iframe of that exact pixel width —
+# the iframe gets its own real viewport, so our @media breakpoints fire for real.
+# `dashboard_frame=1` marks that nested render so it doesn't draw another switcher/iframe.
+_IS_PREVIEW_FRAME = st.query_params.get("dashboard_frame") == "1"
+
+if not _IS_PREVIEW_FRAME:
+    _dp_bar_l, _dp_bar_r = st.columns([5, 2])
+    with _dp_bar_r:
+        _device = st.segmented_control(
+            "Preview as", ["Desktop", "Tablet", "Mobile"],
+            default="Desktop", key="device_preview", label_visibility="collapsed",
+        )
+    if _device and _device != "Desktop":
+        _dp_dims = {"Tablet": (820, 1180), "Mobile": (390, 844)}
+        _dp_w, _dp_h = _dp_dims[_device]
+        st.markdown(f"""
+        <div style="display:flex;justify-content:center;padding:12px 0 30px">
+          <div style="border:3px solid #a8d9bf;border-radius:30px;
+                      box-shadow:0 24px 60px rgba(0,0,0,0.25);overflow:hidden;line-height:0">
+            <iframe src="?dashboard_frame=1&embed=true" width="{_dp_w}" height="{_dp_h}"
+                    style="border:none;display:block"></iframe>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.stop()
 
 # ── Metabase connection ──────────────────────────────────────────────────────────
 _MB_CFG     = st.secrets["metabase"]
@@ -101,22 +131,97 @@ def _mb_sql(token, db_id, sql):
         offset += PAGE
     return _mb_rename(pd.DataFrame(all_rows, columns=cols or []))
 
-# ── Global CSS ───────────────────────────────────────────────────────────────────
-st.markdown("""
+# ── Brand & Theme ────────────────────────────────────────────────────────────────
+# Colors sampled directly from the TribeCo logo (dashboard/assets/tribeco_logo.png)
+BRAND_GREEN_DEEP  = "#024b30"   # exact logo background
+BRAND_GREEN       = "#1f7a4d"   # usable mid-green — primary brand accent (replaces old indigo)
+BRAND_GREEN_LIGHT = "#3fa873"   # lighter tint
+BRAND_GOLD        = "#c9975a"   # sampled from the logo's tree icon
+BRAND_GOLD_LIGHT  = "#e0b980"
+
+if "dark_mode" not in st.session_state:
+    st.session_state["dark_mode"] = False
+THEME = "dark" if st.session_state["dark_mode"] else "light"
+
+_THEME_TOKENS = {
+    "light": dict(
+        page_grad="linear-gradient(135deg, #f2f7f4 0%, #eaf5ee 45%, #fbf1e3 100%)",
+        card_bg="rgba(255,255,255,0.55)",
+        card_border="rgba(255,255,255,0.65)",
+        card_shadow="0 8px 32px rgba(2,75,48,0.10)",
+        text_heading="#0d3b25",
+        text_body="#374151",
+        text_muted="#6b7280",
+        sidebar_bg="rgba(2,75,48,0.78)",
+        sidebar_border="rgba(255,255,255,0.14)",
+        hr_color="rgba(2,75,48,0.15)",
+        badge_bg="rgba(255,255,255,0.55)",
+        badge_border="rgba(2,75,48,0.15)",
+        dl_bg="rgba(255,255,255,0.55)",
+        dl_border="rgba(2,75,48,0.25)",
+        dl_text="#0d3b25",
+        widget_bg="rgba(255,255,255,0.6)",
+        widget_text="#111827",
+        collapsed_bg="rgba(255,255,255,0.6)",
+        collapsed_fill="#0d3b25",
+        color_scheme="light",
+    ),
+    "dark": dict(
+        page_grad="linear-gradient(135deg, #050f0a 0%, #0a1f14 45%, #17130a 100%)",
+        card_bg="rgba(15,35,26,0.55)",
+        card_border="rgba(255,255,255,0.10)",
+        card_shadow="0 8px 32px rgba(0,0,0,0.45)",
+        text_heading="#eef6f0",
+        text_body="#d7ded9",
+        text_muted="#9fb0a6",
+        sidebar_bg="rgba(1,18,12,0.82)",
+        sidebar_border="rgba(255,255,255,0.08)",
+        hr_color="rgba(255,255,255,0.12)",
+        badge_bg="rgba(255,255,255,0.06)",
+        badge_border="rgba(255,255,255,0.12)",
+        dl_bg="rgba(255,255,255,0.06)",
+        dl_border="rgba(255,255,255,0.18)",
+        dl_text="#eef6f0",
+        widget_bg="rgba(255,255,255,0.08)",
+        widget_text="#eef6f0",
+        collapsed_bg="rgba(255,255,255,0.12)",
+        collapsed_fill="#eef6f0",
+        color_scheme="dark",
+    ),
+}
+_T = dict(_THEME_TOKENS[THEME], brand_green=BRAND_GREEN, brand_green_deep=BRAND_GREEN_DEEP,
+          brand_green_light=BRAND_GREEN_LIGHT, brand_gold=BRAND_GOLD, brand_gold_light=BRAND_GOLD_LIGHT)
+
+# Shared Plotly canvas tokens — charts render on a transparent glass card, so
+# text/gridlines must flip with THEME even for charts that build their own layout dict.
+CHART_FONT = _T["text_body"]
+CHART_GRID = "rgba(255,255,255,0.12)" if THEME == "dark" else "rgba(2,75,48,0.10)"
+
+# ── Global CSS (theme-aware: liquid glass + responsive + brand colors) ───────────
+_CSS_TEMPLATE = Template("""
 <style>
-/* ── Sidebar background ── */
+/* ── Page backdrop — glass needs something behind it to blur ── */
+[data-testid="stAppViewContainer"] {
+    padding-top: 0 !important;
+    background: $page_grad !important;
+    background-attachment: fixed !important;
+}
+[data-testid="stHeader"] { background: transparent !important; }
+.main { background: transparent !important; }
+
+/* ── Sidebar (glass) ── */
 [data-testid="stSidebar"] {
-    background-color: #14532d !important;
+    background: $sidebar_bg !important;
+    backdrop-filter: blur(18px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
+    border-right: 1px solid $sidebar_border !important;
     padding-top: 0 !important;
     width: 190px !important;
     min-width: 190px !important;
     max-width: 190px !important;
 }
-[data-testid="stSidebar"] > div:first-child {
-    width: 190px !important;
-}
+[data-testid="stSidebar"] > div:first-child { width: 190px !important; }
 
-/* ── Force ALL sidebar text white ── */
 [data-testid="stSidebar"],
 [data-testid="stSidebar"] *,
 [data-testid="stSidebar"] p,
@@ -157,84 +262,91 @@ st.markdown("""
     outline: none !important;
 }
 [data-testid="stSidebar"] .stButton button[kind="primary"] {
-    background: rgba(74,222,128,0.25) !important;
-    border-left: 3px solid #4ade80 !important;
+    background: rgba(201,151,90,0.28) !important;
+    border-left: 3px solid $brand_gold !important;
     color: #ffffff !important;
     font-weight: 700 !important;
     border-radius: 0 8px 8px 0 !important;
     box-shadow: none !important;
 }
 [data-testid="stSidebar"] .stButton button[kind="primary"]:hover {
-    background: rgba(74,222,128,0.35) !important;
+    background: rgba(201,151,90,0.4) !important;
 }
+
+/* ── Sidebar toggle switch (dark mode) ── */
+[data-testid="stSidebar"] [data-testid="stCheckbox"] label p { color: #ffffff !important; }
 
 /* ── Main layout ── */
 .main .block-container { padding: 1.5rem 2rem !important; max-width: 100% !important; }
-.main { background-color: #f1f5f9 !important; }
 
 /* ── Top bar ── */
 .topbar {
     display: flex; align-items: center; justify-content: space-between;
     margin-bottom: 6px;
 }
-.topbar-title { font-size: 22px; font-weight: 800; color: #1e1b4b; }
+.topbar-title { font-size: 22px; font-weight: 800; color: $text_heading; }
 .topbar-right { display: flex; align-items: center; gap: 10px; }
 .badge-date {
-    background: white; color: #374151; font-size: 12px; font-weight: 600;
-    padding: 5px 14px; border-radius: 20px; border: 1px solid #e5e7eb;
+    background: $badge_bg; color: $text_body; font-size: 12px; font-weight: 600;
+    padding: 5px 14px; border-radius: 20px; border: 1px solid $badge_border;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
 }
 
-/* ── KPI cards ── */
-.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 16px 0; }
+/* ── KPI cards (glass, responsive auto-fit grid) ── */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px; margin: 16px 0;
+}
 .kpi-card {
-    background: white; border-radius: 14px; padding: 20px 22px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
-    border-top: 4px solid #4f46e5;
+    background: $card_bg;
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    border: 1px solid $card_border;
+    border-radius: 16px; padding: 20px 22px;
+    box-shadow: $card_shadow;
+    border-top: 4px solid $brand_green;
     position: relative;
 }
 .kpi-label {
     font-size: 11px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.6px; color: #6b7280; margin-bottom: 2px;
+    letter-spacing: 0.6px; color: $text_muted; margin-bottom: 2px;
 }
 .kpi-badge {
     font-size: 11px; font-weight: 700; margin-left: 6px;
     padding: 1px 6px; border-radius: 10px;
 }
 .kpi-value {
-    font-size: 30px; font-weight: 800; color: #111827;
+    font-size: 30px; font-weight: 800; color: $text_heading;
     margin: 8px 0 6px; line-height: 1;
 }
-.kpi-sub { font-size: 12px; color: #9ca3af; }
+.kpi-sub { font-size: 12px; color: $text_muted; }
 
-/* ── Chart card ── */
+/* ── Chart card (glass) ── */
 .chart-card {
-    background: white; border-radius: 14px; padding: 20px 22px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 16px;
+    background: $card_bg;
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    border: 1px solid $card_border;
+    border-radius: 16px; padding: 20px 22px;
+    box-shadow: $card_shadow; margin-bottom: 16px;
 }
-.chart-title { font-size: 15px; font-weight: 700; color: #1e1b4b; margin-bottom: 2px; }
-.chart-sub   { font-size: 12px; color: #9ca3af; margin-bottom: 12px; }
+.chart-title { font-size: 15px; font-weight: 700; color: $text_heading; margin-bottom: 2px; }
+.chart-sub   { font-size: 12px; color: $text_muted; margin-bottom: 12px; }
 
 /* ── Divider ── */
-hr { border: none; border-top: 1px solid #e5e7eb; margin: 12px 0; }
+hr { border: none; border-top: 1px solid $hr_color; margin: 12px 0; }
 
 /* ── Hide Streamlit chrome ── */
 #MainMenu { display: none !important; }
 footer { display: none !important; }
-/* Collapse the header bar height to zero, do NOT use visibility/display
-   so the sidebar toggle button inside it stays functional */
-[data-testid="stHeader"] {
-    height: 0 !important;
-    min-height: 0 !important;
-    padding: 0 !important;
-    overflow: visible !important;
-}
 .stDeployButton { display: none; }
 
-/* ── Download button ── */
+/* ── Download button (glass) ── */
 [data-testid="stDownloadButton"] button {
-    background: #f8fafc !important;
-    border: 1px solid #d1d5db !important;
-    color: #374151 !important;
+    background: $dl_bg !important;
+    border: 1px solid $dl_border !important;
+    color: $dl_text !important;
     font-size: 12px !important;
     font-weight: 600 !important;
     padding: 5px 14px !important;
@@ -243,31 +355,78 @@ footer { display: none !important; }
     min-width: 0 !important;
     max-width: 220px !important;
     box-shadow: none !important;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
     transition: background 0.15s ease, color 0.15s ease !important;
 }
 [data-testid="stDownloadButton"] button:hover {
-    background: #16a34a !important;
-    border-color: #16a34a !important;
+    background: $brand_green !important;
+    border-color: $brand_green !important;
     color: #ffffff !important;
 }
 
-/* Push the app body up to reclaim the space */
-[data-testid="stAppViewContainer"] {
-    padding-top: 0 !important;
-}
-/* Sidebar expand tab — style it to match the dark sidebar */
+/* ── Sidebar expand/collapse control ── */
 [data-testid="collapsedControl"],
-[data-testid="stSidebarCollapsedControl"] {
-    background-color: #e5e7eb !important;
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="stSidebarCollapseButton"] {
+    background-color: $collapsed_bg !important;
     border-radius: 0 8px 8px 0 !important;
     top: 48px !important;
+    backdrop-filter: blur(10px);
 }
 [data-testid="collapsedControl"] svg,
-[data-testid="stSidebarCollapsedControl"] svg {
-    fill: #374151 !important;
+[data-testid="stSidebarCollapsedControl"] svg,
+[data-testid="stSidebarCollapseButton"] svg {
+    fill: $collapsed_fill !important;
+}
+
+/* ── Native widgets — best-effort theme awareness ── */
+[data-testid="stDataFrame"] { color-scheme: $color_scheme; }
+[data-testid="stMultiSelect"] > div > div,
+[data-testid="stSelectbox"] > div > div {
+    background: $widget_bg !important;
+    color: $widget_text !important;
+    border-color: $card_border !important;
+}
+div[data-baseweb="popover"] li, div[data-baseweb="popover"] div { color: $widget_text !important; }
+div[data-baseweb="popover"] ul { background: $card_bg !important; backdrop-filter: blur(14px); }
+[data-baseweb="tag"] {
+    background: $brand_green !important;
+    color: #ffffff !important;
+    border-color: $brand_green !important;
+}
+[data-testid="stCheckbox"] label[data-baseweb="checkbox"] span:first-child,
+[data-testid="stCheckbox"] [role="switch"] {
+    background: $brand_green !important;
+}
+[data-testid="stTabs"] [data-baseweb="tab"] { color: $text_body !important; }
+[data-testid="stTabs"] [aria-selected="true"] { color: $brand_green !important; border-bottom-color: $brand_green !important; }
+[data-testid="stSegmentedControl"] label[data-baseweb="radio"] { color: $text_body !important; }
+[data-testid="stSegmentedControl"] label[data-baseweb="radio"][aria-checked="true"] {
+    background: $brand_green !important; color: #ffffff !important;
+}
+[data-testid="stExpander"] {
+    background: $card_bg !important; border: 1px solid $card_border !important; border-radius: 12px !important;
+}
+[data-testid="stExpander"] summary, [data-testid="stExpander"] p { color: $text_body !important; }
+
+/* ── Responsive breakpoints: tablet / mobile ── */
+@media (max-width: 1024px) {
+    .main .block-container { padding: 1rem 1.1rem !important; }
+    .kpi-value { font-size: 24px; }
+    .topbar-title { font-size: 19px; }
+}
+@media (max-width: 480px) {
+    .main .block-container { padding: 0.75rem 0.6rem !important; }
+    .kpi-grid { grid-template-columns: 1fr !important; }
+    .kpi-value { font-size: 21px; }
+    .topbar-title { font-size: 16px; }
+    .chart-title { font-size: 13px; }
+    [data-testid="stSidebar"] { width: 160px !important; min-width: 160px !important; max-width: 160px !important; }
+    [data-testid="stSidebar"] > div:first-child { width: 160px !important; }
 }
 </style>
-""", unsafe_allow_html=True)
+""")
+st.markdown(_CSS_TEMPLATE.substitute(**_T), unsafe_allow_html=True)
 
 
 # ── Shared data-processing pipeline ─────────────────────────────────────────────
@@ -586,11 +745,11 @@ def kpi_card(label, value, subtitle, color, badge="", badge_color=""):
     </div>"""
 
 def kpi_grid(html, max_cols=4):
-    n = html.count('class="kpi-card"')
-    if n == 0:
+    """max_cols is kept for call-site compatibility but no longer forces a fixed column
+    count — the .kpi-grid CSS class handles responsive reflow via auto-fit/minmax."""
+    if 'class="kpi-card"' not in html:
         return ""
-    cols = min(n, max_cols)
-    return f'<div class="kpi-grid" style="grid-template-columns:repeat({cols},1fr)">{html}</div>'
+    return f'<div class="kpi-grid">{html}</div>'
 
 def chart_wrap(title, subtitle=""):
     sub = f'<div class="chart-sub">{subtitle}</div>' if subtitle else ""
@@ -612,10 +771,11 @@ def apply_year(df, year, date_col="Created At"):
     return df[df[date_col].dt.year == year]
 
 def white_layout(height=300):
-    return dict(plot_bgcolor="white", paper_bgcolor="white",
+    """Transparent chart canvas so the glass card shows through; text/gridlines adapt to THEME."""
+    return dict(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                 margin=dict(t=10, b=40, l=10, r=10), height=height,
-                font=dict(family="Inter, sans-serif", size=12),
-                yaxis=dict(gridcolor="#f3f4f6", gridwidth=1),
+                font=dict(family="Inter, sans-serif", size=12, color=CHART_FONT),
+                yaxis=dict(gridcolor=CHART_GRID, gridwidth=1),
                 xaxis=dict(tickangle=-35))
 
 def make_excel(sheets: dict) -> bytes:
@@ -661,7 +821,7 @@ def dl_row(excel_sheets, excel_file, pdf_bytes, pdf_file, label="Report"):
 
 # ── PDF chart helpers (matplotlib → PNG bytes) ───────────────────────────────────
 if _PDF_AVAIL:
-    def _bar_png(x, y, title="", color="#4f46e5", ylabel="", figw=8.5, figh=3.0):
+    def _bar_png(x, y, title="", color=BRAND_GREEN, ylabel="", figw=8.5, figh=3.0):
         fig, ax = plt.subplots(figsize=(figw, figh))
         ax.bar(list(x), list(y), color=color, alpha=0.88, zorder=3)
         if title:
@@ -680,7 +840,7 @@ if _PDF_AVAIL:
         plt.close(fig)
         return buf.getvalue()
 
-    def _hbar_png(x, y, title="", color="#4f46e5", figw=8.5, figh=3.2):
+    def _hbar_png(x, y, title="", color=BRAND_GREEN, figw=8.5, figh=3.2):
         fig, ax = plt.subplots(figsize=(figw, figh))
         ax.barh(list(y), list(x), color=color, alpha=0.88, zorder=3)
         if title:
@@ -698,7 +858,7 @@ if _PDF_AVAIL:
         return buf.getvalue()
 
     def _grouped_bar_png(df, x_col, bars, title="", colors=None, figw=8.5, figh=3.0):
-        _dc = ['#4f46e5','#16a34a','#f59e0b','#dc2626']
+        _dc = [BRAND_GREEN_DEEP,'#16a34a','#f59e0b','#dc2626']
         x   = range(len(df))
         w   = 0.8 / len(bars)
         fig, ax = plt.subplots(figsize=(figw, figh))
@@ -878,11 +1038,25 @@ NAV_ICONS = {
 }
 
 with st.sidebar:
-    st.markdown("""
-    <div style="padding:16px 10px 12px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:8px">
-        <div style="font-size:14px;font-weight:800;color:white;line-height:1.3">TribeCo Ghana Data Analysis</div>
+    _logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "tribeco_logo.png")
+    _logo_b64  = ""
+    if os.path.exists(_logo_path):
+        with open(_logo_path, "rb") as _f:
+            _logo_b64 = base64.b64encode(_f.read()).decode()
+    _logo_img = (f'<img src="data:image/png;base64,{_logo_b64}" '
+                 f'style="width:40px;height:44px;border-radius:8px;flex-shrink:0" />') if _logo_b64 else ""
+    st.markdown(f"""
+    <div style="padding:16px 10px 12px;border-bottom:1px solid rgba(255,255,255,0.14);margin-bottom:4px;
+                display:flex;align-items:center;gap:10px">
+        {_logo_img}
+        <div>
+            <div style="font-size:14px;font-weight:800;color:white;line-height:1.2">TribeCo</div>
+            <div style="font-size:10.5px;font-weight:500;color:rgba(255,255,255,0.75);line-height:1.2">Ghana Data Analysis</div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
+
+    st.toggle("🌙 Dark mode", key="dark_mode")
 
     all_pages = [item for items in NAV_GROUPS.values() for item in items]
     for item in all_pages:
@@ -915,15 +1089,18 @@ with st.sidebar:
                 f'word-break:break-all">{err}</div>',
                 unsafe_allow_html=True,
             )
-        # On the initial page render, just record the baseline — don't trigger a rerun.
-        if not st.session_state.get("_refresh_initialized"):
-            st.session_state["_refresh_initialized"] = True
+        # This fragment body also runs on every ordinary rerun (widget clicks, page nav,
+        # etc.), not just its own run_every timer — a boolean "did I just trigger this"
+        # flag can't tell those apart. Gate on real elapsed wall-clock time instead, so
+        # routine interactions never get treated as a refresh tick.
+        now  = time.time()
+        last = st.session_state.get("_last_refresh_at")
+        if last is None:
+            st.session_state["_last_refresh_at"] = now
             return
-        # On the full-page rerun we ourselves triggered, skip to avoid a loop.
-        if st.session_state.pop("_refresh_triggered", False):
+        if now - last < 290:
             return
-        # Timer-fired run: clear the data cache and reload the page.
-        st.session_state["_refresh_triggered"] = True
+        st.session_state["_last_refresh_at"] = now
         st.cache_data.clear()
         st.rerun()
 
@@ -962,8 +1139,34 @@ st.markdown(f"""
 if page == "Overview":
     yr    = year_filter("yr_overview")
     inv_y = apply_year(inv_scoped, yr)
-    pay_y = apply_year(pay, yr)
     rep_y = apply_year(rep_scoped, yr)
+
+    # ── Filter bar ──────────────────────────────────────────────────────────────
+    st.markdown(chart_wrap("Filters", "Refine every KPI, chart and table below"), unsafe_allow_html=True)
+    _ov_f1, _ov_f2, _ov_f3 = st.columns(3)
+    with _ov_f1:
+        _ov_months = sorted(inv_y["Month"].dropna().unique())
+        _ov_sel_months = st.multiselect("Month", _ov_months, default=[], key="ov_f_month",
+                                         placeholder="All months")
+    with _ov_f2:
+        _ov_cust_map  = rc_names.set_index("ID")["Name"] if "Name" in rc_names.columns else pd.Series(dtype=str)
+        _ov_cust_opts = sorted(inv_y["Customer ID"].map(_ov_cust_map).dropna().unique())
+        _ov_sel_custs = st.multiselect("Customer", _ov_cust_opts, default=[], key="ov_f_cust",
+                                        placeholder="All customers")
+    with _ov_f3:
+        _ov_city_opts = sorted(c for c in inv_y["Customer City"].dropna().unique() if c)
+        _ov_sel_cities = st.multiselect("City / Region", _ov_city_opts, default=[], key="ov_f_city",
+                                         placeholder="All cities")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    if _ov_sel_months:
+        inv_y = inv_y[inv_y["Month"].isin(_ov_sel_months)]
+    if _ov_sel_custs:
+        _ov_sel_cust_ids = set(rc_names[rc_names["Name"].isin(_ov_sel_custs)]["ID"])
+        inv_y = inv_y[inv_y["Customer ID"].isin(_ov_sel_cust_ids)]
+    if _ov_sel_cities:
+        inv_y = inv_y[inv_y["Customer City"].isin(_ov_sel_cities)]
+    rep_y = rep_y[rep_y["Invoice ID"].isin(set(inv_y["ID"].dropna().astype(int)))]
 
     total_invoiced   = inv_y["Discountedvalue"].sum()
     total_revenue    = total_invoiced
@@ -1030,7 +1233,7 @@ if page == "Overview":
 
 
     # Row 1 — Core financials
-    row1 = kpi_card("Total Sales",    f"GHS {total_revenue:,.0f}",   f"{total_orders:,} orders",            "#4f46e5") + \
+    row1 = kpi_card("Total Sales",    f"GHS {total_revenue:,.0f}",   f"{total_orders:,} orders",            BRAND_GREEN) + \
            kpi_card("Collected",      f"GHS {total_repaid:,.0f}",    f"{collection_pct:.1f}% collection rate","#16a34a",
                     f"{collection_pct:.1f}%","#16a34a") + \
            kpi_card("Outstanding",    f"GHS {outstanding_val:,.0f}", f"{outstanding_pct:.1f}% outstanding",  "#dc2626",
@@ -1039,9 +1242,9 @@ if page == "Overview":
     st.markdown(kpi_grid(row1), unsafe_allow_html=True)
 
     # Row 2 — MERL KPIs
-    st.markdown("<div style='font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6366f1;margin:16px 0 6px'>MERL Performance Indicators</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#3fa873;margin:16px 0 6px'>MERL Performance Indicators</div>", unsafe_allow_html=True)
     row2 = kpi_card("New Partners Signed", f"{new_signed:,}",
-                    "Agrovets/Providers registered", "#8b5cf6") + \
+                    "Agrovets/Providers registered", BRAND_GREEN) + \
            kpi_card("Activation Rate (90d)", f"{activation_rate:.1f}%",
                     f"{activated_90d} of {new_signed} placed first order", "#14b8a6",
                     f"{activation_rate:.0f}%","#14b8a6") + \
@@ -1049,8 +1252,8 @@ if page == "Overview":
                     f"{repeat_custs} of {active_custs} customers reordered", "#16a34a",
                     f"{repeat_rate:.0f}%","#16a34a") + \
            kpi_card("Reconciliation Rate", f"{recon_rate:.1f}%",
-                    "Orders matched to payments", "#4f46e5",
-                    f"{recon_rate:.0f}%","#4f46e5")
+                    "Orders matched to payments", BRAND_GREEN,
+                    f"{recon_rate:.0f}%",BRAND_GREEN)
     st.markdown(kpi_grid(row2), unsafe_allow_html=True)
 
     row3 = kpi_card("Top-5 Revenue Conc.", f"{rev_top5:.1f}%",
@@ -1067,7 +1270,7 @@ if page == "Overview":
     # ── Monthly revenue scorecard ─────────────────────────────────────────────────
     _MO_ABBR   = {"01":"Jan","02":"Feb","03":"Mar","04":"Apr","05":"May","06":"Jun",
                   "07":"Jul","08":"Aug","09":"Sep","10":"Oct","11":"Nov","12":"Dec"}
-    _MONTH_COLORS = ["#4f46e5","#6366f1","#8b5cf6","#3b82f6","#0ea5e9","#14b8a6"]
+    _MONTH_COLORS = [BRAND_GREEN_DEEP, BRAND_GREEN, BRAND_GREEN_LIGHT, "#8a9d5e", BRAND_GOLD, BRAND_GOLD_LIGHT]
     _m_rev = inv_y.groupby("Month")["Discountedvalue"].sum().reset_index().sort_values("Month")
     _m_rev["prev"] = _m_rev["Discountedvalue"].shift(1)
     _m_rev["pct"]  = ((_m_rev["Discountedvalue"] - _m_rev["prev"]) / _m_rev["prev"] * 100).round(1)
@@ -1089,7 +1292,7 @@ if page == "Overview":
     if _recent_html or _older_html:
         st.markdown(
             "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
-            "letter-spacing:1px;color:#6366f1;margin:16px 0 6px'>Monthly Revenue</div>",
+            "letter-spacing:1px;color:#3fa873;margin:16px 0 6px'>Monthly Revenue</div>",
             unsafe_allow_html=True)
         if _recent_html:
             st.markdown(
@@ -1113,7 +1316,7 @@ if page == "Overview":
 
         fig = go.Figure()
         fig.add_bar(x=monthly["Month"], y=monthly["Discountedvalue"],
-                    marker_color="#4f46e5", name="Revenue (GHS)",
+                    marker_color=BRAND_GREEN, name="Revenue (GHS)",
                     text=monthly["Discountedvalue"].apply(lambda x: f"{x/1000:.0f}k"),
                     textposition="outside", textfont=dict(size=10))
         fig.add_scatter(x=monthly["Month"], y=monthly["Discountedvalue"],
@@ -1137,14 +1340,14 @@ if page == "Overview":
                            .sort_values("Sales", ascending=False).head(8))
         city_sales = city_sales[city_sales["City"].notna() & (city_sales["City"] != "")]
         fig2 = px.pie(city_sales, names="City", values="Sales", hole=0.5,
-                      color_discrete_sequence=["#4f46e5","#14b8a6","#f59e0b","#f97316","#8b5cf6","#ec4899","#16a34a","#dc2626"])
+                      color_discrete_sequence=[BRAND_GREEN,"#14b8a6","#f59e0b","#f97316","#8b5cf6","#ec4899","#16a34a","#dc2626"])
         fig2.update_traces(textinfo="percent", textposition="inside",
                            insidetextorientation="horizontal",
                            textfont=dict(size=12, color="white"))
-        fig2.update_layout(plot_bgcolor="white", paper_bgcolor="white",
+        fig2.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                            margin=dict(t=10, b=10, l=10, r=10), height=300,
-                           showlegend=True,
-                           legend=dict(orientation="v", x=1.02, y=0.5, font=dict(size=11)))
+                           showlegend=True, font=dict(color=CHART_FONT),
+                           legend=dict(orientation="v", x=1.02, y=0.5, font=dict(size=11, color=CHART_FONT)))
         st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1153,7 +1356,7 @@ if page == "Overview":
         st.markdown(chart_wrap("Repayment Status", "Invoice repayment breakdown"), unsafe_allow_html=True)
         rs = inv_y["Repayment Status"].value_counts().reset_index()
         rs.columns = ["Status", "Count"]
-        clrs = {"Open":"#4f46e5","Repaid":"#16a34a","Overdue":"#dc2626","Due Soon":"#f59e0b"}
+        clrs = {"Open":BRAND_GOLD,"Repaid":"#16a34a","Overdue":"#dc2626","Due Soon":"#f59e0b"}
         fig3 = px.bar(rs, x="Status", y="Count", color="Status",
                       color_discrete_map=clrs, text="Count")
         fig3.update_traces(textposition="outside", textfont=dict(size=11))
@@ -1166,16 +1369,16 @@ if page == "Overview":
         st.markdown(chart_wrap("Payment Mode", "Collection method split"), unsafe_allow_html=True)
         pm = rep_y["Payment Method"].value_counts().reset_index()
         pm.columns = ["Method", "Count"]
-        pm_clrs = {"Mobile Money":"#4f46e5","Bank Transfer":"#16a34a","Cash":"#f59e0b","Mpesa":"#8b5cf6"}
+        pm_clrs = {"Mobile Money":BRAND_GOLD,"Bank Transfer":"#16a34a","Cash":"#f59e0b","Mpesa":"#8b5cf6"}
         fig4 = px.pie(pm, names="Method", values="Count", hole=0.5,
                       color="Method", color_discrete_map=pm_clrs)
         fig4.update_traces(textinfo="percent", textposition="inside",
                            insidetextorientation="horizontal",
                            textfont=dict(size=12, color="white"))
-        fig4.update_layout(plot_bgcolor="white", paper_bgcolor="white",
+        fig4.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                            margin=dict(t=10, b=10, l=10, r=10), height=240,
-                           showlegend=True,
-                           legend=dict(orientation="v", x=1.02, y=0.5, font=dict(size=11)))
+                           showlegend=True, font=dict(color=CHART_FONT),
+                           legend=dict(orientation="v", x=1.02, y=0.5, font=dict(size=11, color=CHART_FONT)))
         st.plotly_chart(fig4, use_container_width=True, config=CHART_CFG)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1223,7 +1426,7 @@ if page == "Overview":
         "Infectious Coryza": "Other Poultry",
     }
     _DISEASE_COLORS = {
-        "Newcastle":     "#4f46e5",
+        "Newcastle":     BRAND_GOLD,
         "Gumboro":       "#06b6d4",
         "Fowlpox":       "#f59e0b",
         "AI":            "#ef4444",
@@ -1315,7 +1518,7 @@ if page == "Overview":
         ])
         if len(monthly):
             _p.add_chart(_bar_png(monthly["Month"], monthly["Discountedvalue"],
-                                  "Monthly Revenue (GHS)", color="#4f46e5", ylabel="GHS"),
+                                  "Monthly Revenue (GHS)", color=BRAND_GREEN, ylabel="GHS"),
                          "Monthly Revenue Trend")
         _t = _mb_tbl.copy()
         for _c in ["Revenue","Collected","Outstanding"]:
@@ -1342,7 +1545,7 @@ elif page == "Sales Performance":
                               default=months_available)
     inv_f = inv_y[inv_y["Month"].isin(selected)] if selected else inv_y
 
-    r1 = kpi_card("Total Sales", f"GHS {inv_f['Discountedvalue'].sum():,.0f}", "Sales in period", "#4f46e5") + \
+    r1 = kpi_card("Total Sales", f"GHS {inv_f['Discountedvalue'].sum():,.0f}", "Sales in period", BRAND_GREEN) + \
          kpi_card("Total Orders", f"{len(inv_f):,}", "In selected period", "#14b8a6") + \
          kpi_card("Avg Sale Value", f"GHS {inv_f['Discountedvalue'].mean():,.0f}", "Per order", "#f59e0b")
     st.markdown(kpi_grid(r1, max_cols=3), unsafe_allow_html=True)
@@ -1350,7 +1553,7 @@ elif page == "Sales Performance":
     # ── Monthly revenue scorecard ─────────────────────────────────────────────────
     _SP_ABBR   = {"01":"Jan","02":"Feb","03":"Mar","04":"Apr","05":"May","06":"Jun",
                   "07":"Jul","08":"Aug","09":"Sep","10":"Oct","11":"Nov","12":"Dec"}
-    _SP_COLORS = ["#4f46e5","#6366f1","#8b5cf6","#3b82f6","#0ea5e9","#14b8a6"]
+    _SP_COLORS = [BRAND_GREEN_DEEP, BRAND_GREEN, BRAND_GREEN_LIGHT, "#8a9d5e", BRAND_GOLD, BRAND_GOLD_LIGHT]
     _sp_rev = inv_f.groupby("Month")["Discountedvalue"].sum().reset_index().sort_values("Month")
     _sp_rev["prev"] = _sp_rev["Discountedvalue"].shift(1)
     _sp_rev["pct"]  = ((_sp_rev["Discountedvalue"] - _sp_rev["prev"]) / _sp_rev["prev"] * 100).round(1)
@@ -1372,7 +1575,7 @@ elif page == "Sales Performance":
     if _sp_recent_html or _sp_older_html:
         st.markdown(
             "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
-            "letter-spacing:1px;color:#6366f1;margin:16px 0 6px'>Monthly Revenue</div>",
+            "letter-spacing:1px;color:#3fa873;margin:16px 0 6px'>Monthly Revenue</div>",
             unsafe_allow_html=True)
         if _sp_recent_html:
             st.markdown(
@@ -1401,7 +1604,7 @@ elif page == "Sales Performance":
 
         with tab_mom:
             fig = go.Figure()
-            fig.add_bar(x=m["Month"], y=m["Discountedvalue"], marker_color="#4f46e5",
+            fig.add_bar(x=m["Month"], y=m["Discountedvalue"], marker_color=BRAND_GREEN,
                         name="Sales (GHS)", text=m["Discountedvalue"].apply(lambda x: f"{x/1000:.0f}k"),
                         textposition="outside", textfont=dict(size=10))
             for _, row in m.dropna(subset=["Change %"]).iterrows():
@@ -1416,7 +1619,7 @@ elif page == "Sales Performance":
         with tab_target:
             if m_t["Target"].notna().any():
                 fig_t = go.Figure()
-                fig_t.add_bar(x=m_t["Month"], y=m_t["Discountedvalue"], marker_color="#4f46e5", name="Actual (GHS)")
+                fig_t.add_bar(x=m_t["Month"], y=m_t["Discountedvalue"], marker_color=BRAND_GREEN, name="Actual (GHS)")
                 fig_t.add_bar(x=m_t["Month"], y=m_t["Target"], marker_color="#eab308", name="Target (GHS)")
                 for _, row in m_t.dropna(subset=["Target"]).iterrows():
                     attain = (row["Discountedvalue"] / row["Target"] * 100) if row["Target"] else 0
@@ -1439,8 +1642,8 @@ elif page == "Sales Performance":
         fig2 = go.Figure()
         fig2.add_bar(x=w["Week"], y=w["Discountedvalue"], marker_color="#e0e7ff", name="Weekly Sales")
         fig2.add_scatter(x=w["Week"], y=w["Discountedvalue"],
-                         mode="lines+markers", line=dict(color="#4f46e5", width=2.5),
-                         marker=dict(size=5, color="#4f46e5"), name="Trend")
+                         mode="lines+markers", line=dict(color=BRAND_GREEN, width=2.5),
+                         marker=dict(size=5, color=BRAND_GREEN), name="Trend")
         fig2.update_layout(**white_layout(300))
         fig2.update_layout(xaxis=dict(tickangle=-45, nticks=8),
                            legend=dict(orientation="h", y=-0.3))
@@ -1472,7 +1675,7 @@ elif page == "Sales Performance":
         ])
         if len(m):
             _p.add_chart(_bar_png(m["Month"], m["Discountedvalue"],
-                                  "Monthly Sales (GHS)", color="#4f46e5", ylabel="GHS"),
+                                  "Monthly Sales (GHS)", color=BRAND_GREEN, ylabel="GHS"),
                          "Monthly Sales Trend")
         _t = _sp_monthly.copy()
         _t["Revenue"] = _t["Revenue"].apply(lambda v: f"GHS {v:,.0f}")
@@ -1526,7 +1729,7 @@ elif page == "Customers":
         rep_c, act_c, rep_rate = 0, 0, 0
 
     r1 = kpi_card("New Partners Signed", f"{new_signed_y:,}",
-                  f"In {yr} · Agrovets & Providers", "#8b5cf6") + \
+                  f"In {yr} · Agrovets & Providers", BRAND_GREEN) + \
          kpi_card("Activation Rate (90d)", f"{act_rate:.1f}%",
                   f"{act_90} of {new_signed_y} ordered within 90d", "#14b8a6",
                   f"{act_rate:.0f}%","#14b8a6") + \
@@ -1537,7 +1740,7 @@ elif page == "Customers":
                   f"{act_c} active ordering customers", "#f59e0b")
     st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
-    r2 = kpi_card("Total Registered",  f"{total_customers:,}", "All customers",  "#4f46e5") + \
+    r2 = kpi_card("Total Registered",  f"{total_customers:,}", "All customers",  BRAND_GREEN) + \
          kpi_card("Active (Status)",   f"{active_customers}",  f"{active_pct:.1f}% of total", "#16a34a",
                   f"{active_pct:.0f}%","#16a34a") + \
          kpi_card("Inactive",          f"{inactive}",          f"{100-active_pct:.1f}% of total","#dc2626") + \
@@ -1553,12 +1756,13 @@ elif page == "Customers":
         st.markdown(chart_wrap("Top 10 Customers by Order Value"), unsafe_allow_html=True)
         fig = px.bar(top_cust.sort_values("Total Value"), x="Total Value", y="Customer",
                      orientation="h", text="Total Value",
-                     color="Total Value", color_continuous_scale=["#e0e7ff","#4f46e5"])
+                     color="Total Value", color_continuous_scale=["#e3f2e8",BRAND_GREEN])
         fig.update_traces(texttemplate="GHS %{text:,.0f}", textposition="inside",
                           insidetextanchor="middle", textfont=dict(color="white", size=10))
-        fig.update_layout(plot_bgcolor="white", paper_bgcolor="white",
-                          margin=dict(t=10, b=10, l=10, r=10), height=360,
-                          coloraxis_showscale=False, xaxis=dict(gridcolor="#f3f4f6"))
+        fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                          margin=dict(t=10, b=10, l=10, r=10), height=360, font=dict(color=CHART_FONT),
+                          coloraxis_showscale=False,
+                          xaxis=dict(gridcolor=CHART_GRID), yaxis=dict(color=CHART_FONT))
         st.plotly_chart(fig, use_container_width=True, config=CHART_CFG)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1566,12 +1770,13 @@ elif page == "Customers":
         st.markdown(chart_wrap("Active vs Inactive"), unsafe_allow_html=True)
         sdf = pd.DataFrame({"Status":["Active","Inactive"],"Count":[active_customers, inactive]})
         fig2 = px.pie(sdf, names="Status", values="Count", hole=0.55,
-                      color="Status", color_discrete_map={"Active":"#4f46e5","Inactive":"#e0e7ff"})
+                      color="Status", color_discrete_map={"Active":BRAND_GREEN,"Inactive":"#e0e7ff"})
         fig2.update_traces(textinfo="percent+label", textposition="inside",
                            insidetextorientation="horizontal",
                            textfont=dict(size=13, color="white"))
-        fig2.update_layout(plot_bgcolor="white", paper_bgcolor="white",
-                           margin=dict(t=10, b=10, l=10, r=10), height=300, showlegend=False)
+        fig2.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                           margin=dict(t=10, b=10, l=10, r=10), height=300, showlegend=False,
+                           font=dict(color=CHART_FONT))
         st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1580,7 +1785,7 @@ elif page == "Customers":
     rc_dated["Month"] = rc_dated["Created At"].dt.to_period("M").astype(str)
     rc_month = rc_dated[rc_dated["Created At"].dt.year == yr] if yr != "All" else rc_dated
     rc_month_grp = rc_month.groupby(["Month","Segment Type"])["ID"].count().to_frame("Count").reset_index()
-    seg_col_map = {"Provider":"#4f46e5","Agrovet":"#14b8a6","Hatchery":"#f59e0b"}
+    seg_col_map = {"Provider":BRAND_GREEN,"Agrovet":"#14b8a6","Hatchery":"#f59e0b"}
     fig3 = px.bar(rc_month_grp, x="Month", y="Count", color="Segment Type",
                   color_discrete_map=seg_col_map, barmode="stack", text="Count")
     fig3.update_traces(textposition="inside", textfont=dict(color="white", size=10))
@@ -1644,7 +1849,7 @@ elif page == "Customers":
         _tc = top_cust.head(10)
         if len(_tc):
             _p.add_chart(_hbar_png(_tc["Total Value"], _tc["Customer"],
-                                   "Top 10 Customers by Order Value (GHS)", color="#4f46e5"),
+                                   "Top 10 Customers by Order Value (GHS)", color=BRAND_GREEN),
                          "Top Customers")
         _t = _cust_revenue.head(20).copy()
         _t["Revenue"]     = _t["Revenue"].apply(lambda v: f"GHS {v:,.0f}")
@@ -1673,7 +1878,7 @@ elif page == "Payments":
                   f"{collection_pct_y:.1f}%", "#16a34a") + \
          kpi_card("Outstanding",         f"GHS {outstanding_y:,.0f}", f"{outstanding_pct_y:.1f}% of invoiced",
                   "#dc2626", f"{outstanding_pct_y:.1f}%", "#dc2626") + \
-         kpi_card("Successful Payments", f"{success_pay_y.shape[0]:,}", "Transactions", "#4f46e5") + \
+         kpi_card("Successful Payments", f"{success_pay_y.shape[0]:,}", "Transactions", BRAND_GREEN) + \
          kpi_card("Avg Payment",         f"GHS {rep_y['Amount'].mean():,.0f}", "Per repayment", "#f97316")
     st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
@@ -1682,16 +1887,16 @@ elif page == "Payments":
         st.markdown(chart_wrap("Payment Mode Distribution", "By number of transactions"), unsafe_allow_html=True)
         pm = rep_y["Payment Method"].value_counts().reset_index()
         pm.columns = ["Method", "Count"]
-        pm_clrs = {"Mobile Money":"#4f46e5","Bank Transfer":"#16a34a","Cash":"#f59e0b","Mpesa":"#8b5cf6"}
+        pm_clrs = {"Mobile Money":BRAND_GOLD,"Bank Transfer":"#16a34a","Cash":"#f59e0b","Mpesa":"#8b5cf6"}
         fig = px.pie(pm, names="Method", values="Count", hole=0.5,
                      color="Method", color_discrete_map=pm_clrs)
         fig.update_traces(textinfo="percent", textposition="inside",
                           insidetextorientation="horizontal",
                           textfont=dict(size=13, color="white"))
-        fig.update_layout(plot_bgcolor="white", paper_bgcolor="white",
+        fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                           margin=dict(t=10, b=10, l=10, r=10), height=300,
-                          showlegend=True,
-                          legend=dict(orientation="v", x=1.02, y=0.5, font=dict(size=11)))
+                          showlegend=True, font=dict(color=CHART_FONT),
+                          legend=dict(orientation="v", x=1.02, y=0.5, font=dict(size=11, color=CHART_FONT)))
         st.plotly_chart(fig, use_container_width=True, config=CHART_CFG)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1704,7 +1909,7 @@ elif page == "Payments":
         cmp = monthly_inv.merge(monthly_col, on="Month", how="left").fillna(0)
         fig2 = go.Figure()
         fig2.add_bar(x=cmp["Month"], y=cmp["Discountedvalue"], name="Invoiced", marker_color="#e0e7ff")
-        fig2.add_bar(x=cmp["Month"], y=cmp["Amount"],            name="Collected", marker_color="#4f46e5")
+        fig2.add_bar(x=cmp["Month"], y=cmp["Amount"],            name="Collected", marker_color=BRAND_GREEN)
         fig2.update_layout(barmode="overlay", **white_layout(300),
                            legend=dict(orientation="h", y=-0.3))
         st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
@@ -1754,7 +1959,7 @@ elif page == "Payments":
             _p.add_chart(_grouped_bar_png(cmp, "Month",
                                           [("Discountedvalue","Invoiced"),("Amount","Collected")],
                                           "Monthly: Invoiced vs Collected",
-                                          colors=["#a5b4fc","#4f46e5"]),
+                                          colors=["#a8d9bf",BRAND_GREEN]),
                          "Monthly Collections vs Invoiced")
         _t = _pay_monthly.copy()
         _t["Collected"] = _t["Collected"].apply(lambda v: f"GHS {v:,.0f}")
@@ -1785,7 +1990,7 @@ elif page == "Weekly Scorecard":
     overdue_inv      = inv_y[inv_y["Repayment Status"] == "Overdue"]
 
     r1 = kpi_card("Orders This Week",    f"{weekly_orders:,}",
-                  f"Week of {latest_week}", "#4f46e5") + \
+                  f"Week of {latest_week}", BRAND_GREEN) + \
          kpi_card("Sales This Week",     f"GHS {weekly_sales:,.0f}",
                   "Total invoiced value", "#14b8a6") + \
          kpi_card("Collected This Week", f"GHS {weekly_collected:,.0f}",
@@ -1805,8 +2010,8 @@ elif page == "Weekly Scorecard":
         fig.add_bar(x=w_trend["Week"], y=w_trend["Sales"],
                     marker_color="#e0e7ff", name="Sales (GHS)", yaxis="y")
         fig.add_scatter(x=w_trend["Week"], y=w_trend["Orders"],
-                        mode="lines+markers", line=dict(color="#4f46e5", width=2.5),
-                        marker=dict(size=6, color="#4f46e5"), name="Orders", yaxis="y2")
+                        mode="lines+markers", line=dict(color=BRAND_GREEN, width=2.5),
+                        marker=dict(size=6, color=BRAND_GREEN), name="Orders", yaxis="y2")
         fig.update_layout(**white_layout(300))
         fig.update_layout(
             yaxis2=dict(overlaying="y", side="right", showgrid=False),
@@ -1894,7 +2099,7 @@ elif page == "Weekly Scorecard":
         ])
         if len(w_trend):
             _p.add_chart(_bar_png(w_trend["Week"], w_trend["Sales"],
-                                  "Weekly Sales (GHS)", color="#4f46e5", ylabel="GHS"),
+                                  "Weekly Sales (GHS)", color=BRAND_GREEN, ylabel="GHS"),
                          "Weekly Sales Trend")
         _p.add_table(weekly_tbl.head(20), "Weekly Breakdown")
         if len(overdue_inv):
@@ -1925,7 +2130,7 @@ elif page == "Reconciliation":
     unmatched_val   = inv_y[inv_y["ID"].isin(unmatched_ids)]["Discountedvalue"].sum()
 
     r1 = kpi_card("Total Invoices",     f"{total_invoices:,}",
-                  "In selected period", "#4f46e5") + \
+                  "In selected period", BRAND_GREEN) + \
          kpi_card("Reconciled",         f"{matched_count:,}",
                   f"{match_rate:.1f}% match rate", "#16a34a",
                   f"{match_rate:.0f}%", "#16a34a") + \
@@ -1948,8 +2153,9 @@ elif page == "Reconciliation":
         fig.update_traces(textinfo="percent+label", textposition="inside",
                           insidetextorientation="horizontal",
                           textfont=dict(size=13, color="white"))
-        fig.update_layout(plot_bgcolor="white", paper_bgcolor="white",
-                          margin=dict(t=10,b=10,l=10,r=10), height=300, showlegend=False)
+        fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                          margin=dict(t=10,b=10,l=10,r=10), height=300, showlegend=False,
+                          font=dict(color=CHART_FONT))
         st.plotly_chart(fig, use_container_width=True, config=CHART_CFG)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1972,7 +2178,7 @@ elif page == "Reconciliation":
     st.markdown(chart_wrap("Repayment Status Breakdown", "Distribution of invoice repayment statuses"), unsafe_allow_html=True)
     rs = inv_y["Repayment Status"].value_counts().reset_index()
     rs.columns = ["Status","Count"]
-    clrs = {"Open":"#4f46e5","Repaid":"#16a34a","Overdue":"#dc2626","Due Soon":"#f59e0b"}
+    clrs = {"Open":BRAND_GREEN,"Repaid":"#16a34a","Overdue":"#dc2626","Due Soon":"#f59e0b"}
     fig3 = px.bar(rs, x="Status", y="Count", color="Status",
                   color_discrete_map=clrs, text="Count")
     fig3.update_traces(textposition="outside", textfont=dict(size=11))
@@ -2019,7 +2225,7 @@ elif page == "Reconciliation":
         _rs_df.columns = ["Status","Count"]
         if len(_rs_df):
             _p.add_chart(_bar_png(_rs_df["Status"], _rs_df["Count"],
-                                  "Repayment Status Distribution", color="#4f46e5"),
+                                  "Repayment Status Distribution", color=BRAND_GREEN),
                          "Status Breakdown")
         if len(_recon_unmatched):
             _t = _recon_unmatched.copy()
@@ -2072,7 +2278,7 @@ elif page == "Data Quality":
     good_fields      = sum(1 for v in all_vals if v >= 90)
 
     r1 = kpi_card("Avg Completeness", f"{avg_completeness:.1f}%",
-                  "Across all key fields", "#4f46e5") + \
+                  "Across all key fields", BRAND_GREEN) + \
          kpi_card("Critical Gaps",    f"{critical_fields}",
                   "Fields below 50% complete", "#dc2626") + \
          kpi_card("High Quality",     f"{good_fields}",
@@ -2094,11 +2300,11 @@ elif page == "Data Quality":
             textposition="inside", insidetextanchor="start",
             textfont=dict(color="white", size=10)
         ))
-        fig.update_layout(plot_bgcolor="white", paper_bgcolor="white",
+        fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                           margin=dict(t=10,b=10,l=10,r=10), height=height,
-                          xaxis=dict(range=[0,108], gridcolor="#f3f4f6", title="% Complete"),
-                          yaxis=dict(tickfont=dict(size=11)),
-                          font=dict(family="Inter, sans-serif", size=12))
+                          xaxis=dict(range=[0,108], gridcolor=CHART_GRID, title="% Complete"),
+                          yaxis=dict(tickfont=dict(size=11, color=CHART_FONT)),
+                          font=dict(family="Inter, sans-serif", size=12, color=CHART_FONT))
         return fig
 
     col1, col2 = st.columns(2)
@@ -2175,7 +2381,7 @@ elif page == "Reliability":
                   f"{in_stock_count:,} locations with stock", "#16a34a") + \
          kpi_card("Fulfillment Rate",
                   f"{irf_rate:.1f}%",
-                  f"{completed_fbc:,}/{total_fbc:,} FBC orders fulfilled", "#4f46e5") + \
+                  f"{completed_fbc:,}/{total_fbc:,} FBC orders fulfilled", BRAND_GREEN) + \
          kpi_card("Pending / In-Progress",
                   f"{ir_all_fbc[ir_all_fbc['Status'].isin([0,1,2])].shape[0]:,}",
                   "Orders not yet completed", "#f59e0b")
@@ -2184,16 +2390,17 @@ elif page == "Reliability":
     st.markdown(chart_wrap("Fulfillment Status Breakdown", "Derived from FBC order status"), unsafe_allow_html=True)
     irf_s = ir_all_fbc["Fulfillment Label"].value_counts().reset_index()
     irf_s.columns = ["Status","Count"]
-    irf_colors = {"Completed":"#16a34a","Not Started":"#f59e0b","Scheduled":"#4f46e5",
+    irf_colors = {"Completed":"#16a34a","Not Started":"#f59e0b","Scheduled":BRAND_GOLD,
                   "In Progress":"#14b8a6","Cancelled":"#dc2626","Unknown":"#9ca3af"}
     fig2 = px.pie(irf_s, names="Status", values="Count", hole=0.5,
                   color="Status", color_discrete_map=irf_colors)
     fig2.update_traces(textinfo="percent", textposition="inside",
                        insidetextorientation="horizontal",
                        textfont=dict(size=13, color="white"))
-    fig2.update_layout(plot_bgcolor="white", paper_bgcolor="white",
+    fig2.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                        margin=dict(t=10,b=10,l=10,r=10), height=340, showlegend=True,
-                       legend=dict(orientation="v", x=1.02, y=0.5, font=dict(size=11)))
+                       font=dict(color=CHART_FONT),
+                       legend=dict(orientation="v", x=1.02, y=0.5, font=dict(size=11, color=CHART_FONT)))
     st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -2214,7 +2421,7 @@ elif page == "Reliability":
         _fs.columns = ["Status","Count"]
         if len(_fs):
             _p.add_chart(_bar_png(_fs["Status"], _fs["Count"],
-                                  "Fulfillment Status Distribution", color="#4f46e5"),
+                                  "Fulfillment Status Distribution", color=BRAND_GREEN),
                          "FBC Order Fulfillment Status")
         _t = _ir_dl.copy()
         _t["Created At"] = pd.to_datetime(_t["Created At"], errors="coerce").dt.strftime("%Y-%m-%d").fillna("")
@@ -2267,7 +2474,7 @@ elif page == "Segmentation":
     top10_pct = crev.head(10).sum() / total_sales * 100 if total_sales else 0
 
     r1 = kpi_card("Classified Customers", f"{total_cls:,}",
-                  f"{classified_pct:.1f}% of {len(rc):,} registered", "#4f46e5") + \
+                  f"{classified_pct:.1f}% of {len(rc):,} registered", BRAND_GREEN) + \
          kpi_card("SKU Breadth/Agrovet",  f"{sku_breadth:.1f}",
                   "Avg distinct SKUs per customer/month", "#14b8a6") + \
          kpi_card("Top-5 Revenue Conc.",  f"{top5_pct:.1f}%",
@@ -2276,7 +2483,7 @@ elif page == "Segmentation":
                   f"Orders ≤ GHS {low_thresh:,.0f}", "#dc2626")
     st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
-    seg_colors = {"Provider":"#4f46e5","Agrovet":"#14b8a6","Hatchery":"#f59e0b","Unclassified":"#9ca3af"}
+    seg_colors = {"Provider":BRAND_GREEN,"Agrovet":"#14b8a6","Hatchery":"#f59e0b","Unclassified":"#9ca3af"}
 
     col1, col2 = st.columns(2)
     with col1:
@@ -2311,7 +2518,7 @@ elif page == "Segmentation":
         crev_df["Rank"] = range(1, len(crev_df)+1)
         fig3 = go.Figure()
         fig3.add_scatter(x=crev_df["Rank"], y=crev_df["Cumulative %"],
-                         mode="lines", line=dict(color="#4f46e5", width=2.5), fill="tozeroy",
+                         mode="lines", line=dict(color=BRAND_GREEN, width=2.5), fill="tozeroy",
                          fillcolor="rgba(79,70,229,0.1)")
         fig3.add_hline(y=top5_pct,  line_dash="dot", line_color="#f97316",
                        annotation_text=f"Top 5: {top5_pct:.0f}%",
@@ -2321,11 +2528,11 @@ elif page == "Segmentation":
                        annotation_text=f"Top 10: {top10_pct:.0f}%",
                        annotation_position="bottom left",
                        annotation_font=dict(color="#dc2626", size=11))
-        fig3.update_layout(plot_bgcolor="white", paper_bgcolor="white",
+        fig3.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                            margin=dict(t=20, b=50, l=60, r=20), height=300,
-                           font=dict(family="Inter, sans-serif", size=12),
-                           xaxis=dict(title="Customer Rank", tickangle=0, gridcolor="#f3f4f6"),
-                           yaxis=dict(title="Cumulative Revenue %", gridcolor="#f3f4f6"))
+                           font=dict(family="Inter, sans-serif", size=12, color=CHART_FONT),
+                           xaxis=dict(title="Customer Rank", tickangle=0, gridcolor=CHART_GRID),
+                           yaxis=dict(title="Cumulative Revenue %", gridcolor=CHART_GRID))
         st.plotly_chart(fig3, use_container_width=True, config=CHART_CFG)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -2333,16 +2540,16 @@ elif page == "Segmentation":
         st.markdown(chart_wrap("Order Value Distribution", "High-frequency small orders analysis"), unsafe_allow_html=True)
         fig4 = go.Figure()
         fig4.add_histogram(x=inv_y["Discountedvalue"], nbinsx=30,
-                           marker_color="#4f46e5", opacity=0.8)
+                           marker_color=BRAND_GREEN, opacity=0.8)
         fig4.add_vline(x=low_thresh, line_dash="dash", line_color="#dc2626",
                        annotation_text=f"Low-ticket<br>≤ GHS {low_thresh:,.0f}",
                        annotation_position="top left",
                        annotation_font=dict(color="#dc2626", size=10))
-        fig4.update_layout(plot_bgcolor="white", paper_bgcolor="white",
+        fig4.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                            margin=dict(t=20, b=50, l=60, r=20), height=300,
-                           font=dict(family="Inter, sans-serif", size=12),
-                           xaxis=dict(title="Order Value (GHS)", tickangle=0, gridcolor="#f3f4f6"),
-                           yaxis=dict(title="# Orders", gridcolor="#f3f4f6"))
+                           font=dict(family="Inter, sans-serif", size=12, color=CHART_FONT),
+                           xaxis=dict(title="Order Value (GHS)", tickangle=0, gridcolor=CHART_GRID),
+                           yaxis=dict(title="# Orders", gridcolor=CHART_GRID))
         st.plotly_chart(fig4, use_container_width=True, config=CHART_CFG)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -2369,7 +2576,7 @@ elif page == "Segmentation":
         ])
         if len(by_segment):
             _p.add_chart(_bar_png(by_segment["Segment Type"], by_segment["Sales"],
-                                  "Sales by Customer Segment (GHS)", color="#4f46e5", ylabel="GHS"),
+                                  "Sales by Customer Segment (GHS)", color=BRAND_GREEN, ylabel="GHS"),
                          "Revenue by Segment")
         _t = by_segment.copy()
         _t["Sales"]        = _t["Sales"].apply(lambda v: f"GHS {v:,.0f}")
@@ -2394,7 +2601,7 @@ elif page == "Campaigns":
                   f"{camp['End Date'].max().strftime('%b %Y')}") if total_campaigns else ","
 
     r1 = kpi_card("Total Campaigns", f"{total_campaigns:,}",
-                  "All time", "#4f46e5") + \
+                  "All time", BRAND_GREEN) + \
          kpi_card("Active",          f"{active_campaigns:,}",
                   "Currently running", "#16a34a",
                   str(active_campaigns), "#16a34a") + \
@@ -2405,16 +2612,16 @@ elif page == "Campaigns":
     st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
     st.markdown(chart_wrap("Campaign Timeline", "Pre-order campaign periods and status"), unsafe_allow_html=True)
-    camp_colors = {"Active":"#16a34a","Completed":"#4f46e5","Cancelled":"#dc2626","Unknown":"#9ca3af"}
+    camp_colors = {"Active":"#16a34a","Completed":BRAND_GOLD,"Cancelled":"#dc2626","Unknown":"#9ca3af"}
     fig = px.timeline(camp, x_start="Start Date", x_end="End Date", y="Name",
                       color="Status Label", color_discrete_map=camp_colors,
                       hover_data={"Status Label":True,"Start Date":True,"End Date":True,"Name":False})
     fig.update_yaxes(autorange="reversed")
-    fig.update_layout(plot_bgcolor="white", paper_bgcolor="white",
+    fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                       margin=dict(t=10,b=40,l=10,r=10), height=220,
-                      xaxis=dict(gridcolor="#f3f4f6"),
-                      legend=dict(orientation="h", y=-0.3, font=dict(size=11)),
-                      font=dict(family="Inter, sans-serif", size=12))
+                      xaxis=dict(gridcolor=CHART_GRID),
+                      legend=dict(orientation="h", y=-0.3, font=dict(size=11, color=CHART_FONT)),
+                      font=dict(family="Inter, sans-serif", size=12, color=CHART_FONT))
     st.plotly_chart(fig, use_container_width=True, config=CHART_CFG)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -2455,7 +2662,7 @@ elif page == "Campaigns":
         _sd.columns = ["Status","Count"]
         if len(_sd):
             _p.add_chart(_bar_png(_sd["Status"], _sd["Count"],
-                                  "Campaigns by Status", color="#4f46e5"),
+                                  "Campaigns by Status", color=BRAND_GREEN),
                          "Campaign Status Distribution")
         _p.add_table(camp_show.reset_index(drop=True)[["Campaign Name","Start Date","End Date","Status","Duration (days)"]],
                      "Campaign Details")
@@ -2503,7 +2710,7 @@ elif page == "Historical Analysis":
 
     r1 = (
         kpi_card("Total Revenue (GHS)", f"GHS {h_total_rev:,.0f}",
-                 f"{h_so['Year'].nunique()} year(s) of sales", "#4f46e5")
+                 f"{h_so['Year'].nunique()} year(s) of sales", BRAND_GREEN)
         + kpi_card("Total Collected (GHS)", f"GHS {h_collected:,.0f}",
                    f"of GHS {h_total_inv:,.0f} invoiced", "#16a34a")
         + kpi_card("Outstanding Balance (GHS)", f"GHS {h_outstanding:,.0f}",
@@ -2537,7 +2744,7 @@ elif page == "Historical Analysis":
         _yr_rev["Year"] = _yr_rev["Year"].astype(str)
         fig_yr = px.bar(_yr_rev, x="Year", y="Revenue GHS", text="Revenue GHS",
                         color="Year",
-                        color_discrete_sequence=["#4f46e5","#16a34a","#f59e0b"],
+                        color_discrete_sequence=[BRAND_GREEN_DEEP,"#16a34a","#f59e0b"],
                         labels={"Revenue GHS": "Revenue (GHS)"})
         fig_yr.update_traces(texttemplate="GHS %{y:,.0f}", textposition="outside")
         fig_yr.update_layout(**white_layout(320))
@@ -2553,7 +2760,7 @@ elif page == "Historical Analysis":
     _mo_rev["Month Label"] = _mo_rev["Month"].apply(
         lambda m: pd.Period(m, freq="M").strftime("%b %Y") if m and m != "NaT" else m)
     fig_mo = px.bar(_mo_rev, x="Month Label", y="Revenue GHS",
-                    color_discrete_sequence=["#4f46e5"],
+                    color_discrete_sequence=[BRAND_GREEN],
                     labels={"Month Label": "", "Revenue GHS": "Revenue (GHS)"})
     fig_mo.update_traces(marker_opacity=0.85)
     fig_mo.update_layout(**white_layout(300))
@@ -2568,7 +2775,7 @@ elif page == "Historical Analysis":
                    .sort_values(ascending=False).head(10).reset_index()
                    .rename(columns={"Invoice Total": "Revenue GHS"}))
         fig_tp = px.bar(_tp, y="Item Name", x="Revenue GHS", orientation="h",
-                        color_discrete_sequence=["#4f46e5"],
+                        color_discrete_sequence=[BRAND_GREEN],
                         labels={"Item Name": "", "Revenue GHS": "Revenue (GHS)"})
         fig_tp.update_layout(**white_layout(360))
         fig_tp.update_layout(yaxis=dict(autorange="reversed"))
