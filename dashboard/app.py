@@ -1233,12 +1233,12 @@ if page == "Overview":
 
 
     # Row 1 — Core financials
-    row1 = kpi_card("Total Sales",    f"GHS {total_revenue:,.0f}",   f"{total_orders:,} orders",            BRAND_GREEN) + \
-           kpi_card("Collected",      f"GHS {total_repaid:,.0f}",    f"{collection_pct:.1f}% collection rate","#16a34a",
+    row1 = kpi_card("Total Sales",    f"GHS {total_revenue:,.2f}",   f"{total_orders:,} orders",            BRAND_GREEN) + \
+           kpi_card("Collected",      f"GHS {total_repaid:,.2f}",    f"{collection_pct:.1f}% collection rate","#16a34a",
                     f"{collection_pct:.1f}%","#16a34a") + \
-           kpi_card("Outstanding",    f"GHS {outstanding_val:,.0f}", f"{outstanding_pct:.1f}% outstanding",  "#dc2626",
+           kpi_card("Outstanding",    f"GHS {outstanding_val:,.2f}", f"{outstanding_pct:.1f}% outstanding",  "#dc2626",
                     f"{outstanding_pct:.1f}%","#dc2626") + \
-           kpi_card("Basket Size (AOV)",f"GHS {avg_order_value:,.0f}","Avg order value",                    "#f59e0b")
+           kpi_card("Basket Size (AOV)",f"GHS {avg_order_value:,.2f}","Avg order value",                    "#f59e0b")
     st.markdown(kpi_grid(row1), unsafe_allow_html=True)
 
     # Row 2 — MERL KPIs
@@ -1257,14 +1257,14 @@ if page == "Overview":
     st.markdown(kpi_grid(row2), unsafe_allow_html=True)
 
     row3 = kpi_card("Top-5 Revenue Conc.", f"{rev_top5:.1f}%",
-                    f"GHS {rev_top5/100*total_invoiced:,.0f} from top 5", "#f97316") + \
+                    f"GHS {rev_top5/100*total_invoiced:,.2f} from top 5", "#f97316") + \
            kpi_card("Top-10 Revenue Conc.", f"{rev_top10:.1f}%",
-                    f"GHS {rev_top10/100*total_invoiced:,.0f} from top 10","#dc2626") + \
+                    f"GHS {rev_top10/100*total_invoiced:,.2f} from top 10","#dc2626") + \
            kpi_card("Active Customers",    f"{active_customers}",
                     f"of {total_customers} registered", "#3b82f6",
                     f"{active_pct:.0f}%","#3b82f6") + \
            kpi_card("High-Freq Small Orders", f"{hfso_rate:.1f}%",
-                    f"Orders ≤ GHS {low_thresh:,.0f}", "#9ca3af")
+                    f"Orders ≤ GHS {low_thresh:,.2f}", "#9ca3af")
     st.markdown(kpi_grid(row3), unsafe_allow_html=True)
 
     # ── Monthly revenue scorecard ─────────────────────────────────────────────────
@@ -1284,7 +1284,7 @@ if page == "Overview":
         _label  = f"{_mo_lbl} {_yr_lbl}"
         _sub    = (f"+{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) and _r["pct"] >= 0
                    else (f"{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) else "First month"))
-        _card = kpi_card(_label, f"GHS {_r['Discountedvalue']:,.0f}", _sub, _MONTH_COLORS[_i % 6])
+        _card = kpi_card(_label, f"GHS {_r['Discountedvalue']:,.2f}", _sub, _MONTH_COLORS[_i % 6])
         if _i >= len(_m_rev_list) - 2:
             _recent_html += _card
         else:
@@ -1317,8 +1317,8 @@ if page == "Overview":
         fig = go.Figure()
         fig.add_bar(x=monthly["Month"], y=monthly["Discountedvalue"],
                     marker_color=BRAND_GREEN, name="Revenue (GHS)",
-                    text=monthly["Discountedvalue"].apply(lambda x: f"{x/1000:.0f}k"),
-                    textposition="outside", textfont=dict(size=10))
+                    text=monthly["Discountedvalue"].apply(lambda x: f"GHS {x:,.2f}"),
+                    textposition="outside", textfont=dict(size=9))
         fig.add_scatter(x=monthly["Month"], y=monthly["Discountedvalue"],
                         mode="lines+markers", line=dict(color="#f59e0b", width=2.5, dash="dot"),
                         marker=dict(size=6, color="#f59e0b"), name="Trend")
@@ -1398,9 +1398,9 @@ if page == "Overview":
     _mb_tbl["prev"]         = _mb_tbl["Revenue"].shift(1)
     _mb_tbl["MoM Change"]   = ((_mb_tbl["Revenue"] - _mb_tbl["prev"]) / _mb_tbl["prev"] * 100).round(1)
     _disp = _mb_tbl.copy()
-    _disp["Revenue"]      = _disp["Revenue"].apply(lambda v: f"GHS {v:,.0f}")
-    _disp["Collected"]    = _disp["Collected"].apply(lambda v: f"GHS {v:,.0f}")
-    _disp["Outstanding"]  = _disp["Outstanding"].apply(lambda v: f"GHS {v:,.0f}")
+    _disp["Revenue"]      = _disp["Revenue"].apply(lambda v: f"GHS {v:,.2f}")
+    _disp["Collected"]    = _disp["Collected"].apply(lambda v: f"GHS {v:,.2f}")
+    _disp["Outstanding"]  = _disp["Outstanding"].apply(lambda v: f"GHS {v:,.2f}")
     _disp["Collection %"] = _disp["Collection %"].apply(lambda v: f"{v:.1f}%")
     _disp["MoM Change"]   = _disp["MoM Change"].apply(
         lambda v: f"+{v:.1f}%" if pd.notna(v) and v >= 0 else (f"{v:.1f}%" if pd.notna(v) else "-"))
@@ -1505,10 +1505,10 @@ if page == "Overview":
         _p = TribePDF(); _p.add_page()
         _p.add_header("Overview Report", "Ghana Operations  ·  FBC Sales", str(yr))
         _p.add_kpi_row([
-            ("Total Sales",    f"GHS {total_revenue:,.0f}"),
-            ("Collected",      f"GHS {total_repaid:,.0f}"),
-            ("Outstanding",    f"GHS {outstanding_val:,.0f}"),
-            ("Avg Order Value",f"GHS {avg_order_value:,.0f}"),
+            ("Total Sales",    f"GHS {total_revenue:,.2f}"),
+            ("Collected",      f"GHS {total_repaid:,.2f}"),
+            ("Outstanding",    f"GHS {outstanding_val:,.2f}"),
+            ("Avg Order Value",f"GHS {avg_order_value:,.2f}"),
         ])
         _p.add_kpi_row([
             ("New Partners",    f"{new_signed:,}"),
@@ -1522,7 +1522,7 @@ if page == "Overview":
                          "Monthly Revenue Trend")
         _t = _mb_tbl.copy()
         for _c in ["Revenue","Collected","Outstanding"]:
-            _t[_c] = _t[_c].apply(lambda v: f"GHS {v:,.0f}")
+            _t[_c] = _t[_c].apply(lambda v: f"GHS {v:,.2f}")
         _t["Collection %"] = _t["Collection %"].apply(lambda v: f"{v:.1f}%")
         _p.add_table(_t[["Month","Invoices","Revenue","Collected","Outstanding","Collection %"]],
                      "Monthly Revenue Breakdown")
@@ -1540,14 +1540,23 @@ if page == "Overview":
 elif page == "Sales Performance":
     yr    = year_filter("yr_sales")
     inv_y = apply_year(inv_scoped, yr)
-    months_available = sorted(inv_y["Month"].dropna().unique())
+    months_available = set(inv_y["Month"].dropna().unique())
+    # Also offer months that only have a revenue target set (e.g. the current month
+    # before any invoices land) so they don't just vanish from the page.
+    _sp_target_path = f"{DATA}/revenue_target.csv"
+    if os.path.exists(_sp_target_path):
+        _sp_target_months = pd.read_csv(_sp_target_path)["Month"].astype(str)
+        if yr != "All":
+            _sp_target_months = _sp_target_months[_sp_target_months.str.startswith(str(yr))]
+        months_available |= set(_sp_target_months)
+    months_available = sorted(months_available)
     selected = st.multiselect("Filter by Month", months_available,
                               default=months_available)
     inv_f = inv_y[inv_y["Month"].isin(selected)] if selected else inv_y
 
-    r1 = kpi_card("Total Sales", f"GHS {inv_f['Discountedvalue'].sum():,.0f}", "Sales in period", BRAND_GREEN) + \
+    r1 = kpi_card("Total Sales", f"GHS {inv_f['Discountedvalue'].sum():,.2f}", "Sales in period", BRAND_GREEN) + \
          kpi_card("Total Orders", f"{len(inv_f):,}", "In selected period", "#14b8a6") + \
-         kpi_card("Avg Sale Value", f"GHS {inv_f['Discountedvalue'].mean():,.0f}", "Per order", "#f59e0b")
+         kpi_card("Avg Sale Value", f"GHS {inv_f['Discountedvalue'].mean():,.2f}", "Per order", "#f59e0b")
     st.markdown(kpi_grid(r1, max_cols=3), unsafe_allow_html=True)
 
     # ── Monthly revenue scorecard ─────────────────────────────────────────────────
@@ -1567,7 +1576,7 @@ elif page == "Sales Performance":
         _label  = f"{_mo_lbl} {_yr_lbl}"
         _sub    = (f"+{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) and _r["pct"] >= 0
                    else (f"{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) else "First month"))
-        _card = kpi_card(_label, f"GHS {_r['Discountedvalue']:,.0f}", _sub, _SP_COLORS[_i % 6])
+        _card = kpi_card(_label, f"GHS {_r['Discountedvalue']:,.2f}", _sub, _SP_COLORS[_i % 6])
         if _i >= len(_sp_rev_list) - 2:
             _sp_recent_html += _card
         else:
@@ -1592,7 +1601,11 @@ elif page == "Sales Performance":
     col1, col2 = st.columns(2)
     with col1:
         st.markdown(chart_wrap("Monthly Revenue"), unsafe_allow_html=True)
-        m = inv_f.groupby("Month")["Discountedvalue"].sum().reset_index()
+        # Reindex against every selected month (not just ones with invoices) so a
+        # month with a target but no sales yet — e.g. the current month — still
+        # shows up as GHS 0 instead of silently dropping off the chart.
+        m = (inv_f.groupby("Month")["Discountedvalue"].sum()
+                  .reindex(sorted(selected)).fillna(0).reset_index())
         m["Prev"]     = m["Discountedvalue"].shift(1)
         m["Change %"] = (((m["Discountedvalue"] - m["Prev"]) / m["Prev"]).astype(float) * 100).round(1)
 
@@ -1605,9 +1618,11 @@ elif page == "Sales Performance":
         with tab_mom:
             fig = go.Figure()
             fig.add_bar(x=m["Month"], y=m["Discountedvalue"], marker_color=BRAND_GREEN,
-                        name="Sales (GHS)", text=m["Discountedvalue"].apply(lambda x: f"{x/1000:.0f}k"),
-                        textposition="outside", textfont=dict(size=10))
+                        name="Sales (GHS)", text=m["Discountedvalue"].apply(lambda x: f"GHS {x:,.2f}"),
+                        textposition="outside", textfont=dict(size=9))
             for _, row in m.dropna(subset=["Change %"]).iterrows():
+                if row["Discountedvalue"] == 0:
+                    continue
                 clr = "#16a34a" if row["Change %"] >= 0 else "#dc2626"
                 fig.add_annotation(x=row["Month"], y=row["Discountedvalue"],
                                    text=f"{'+' if row['Change %']>=0 else ''}{row['Change %']:.0f}%",
@@ -1625,7 +1640,7 @@ elif page == "Sales Performance":
                     attain = (row["Discountedvalue"] / row["Target"] * 100) if row["Target"] else 0
                     clr = "#16a34a" if attain >= 100 else "#dc2626"
                     fig_t.add_annotation(x=row["Month"], y=max(row["Discountedvalue"], row["Target"]),
-                                       text=f"{attain:.0f}%", showarrow=False, yshift=14,
+                                       text=f"{attain:.1f}%", showarrow=False, yshift=14,
                                        font=dict(size=10, color=clr))
                 fig_t.update_layout(**white_layout(300))
                 fig_t.update_layout(barmode="group", legend=dict(orientation="h", y=-0.3),
@@ -1652,9 +1667,11 @@ elif page == "Sales Performance":
 
     st.markdown(chart_wrap("Monthly Sales Summary"), unsafe_allow_html=True)
     summary = m.copy()
-    summary["Sales"]      = summary["Discountedvalue"].apply(lambda x: f"GHS {x:,.0f}")
-    summary["MoM Change"] = summary["Change %"].apply(
-        lambda x: f"+{x:.1f}%" if pd.notna(x) and x >= 0 else (f"{x:.1f}%" if pd.notna(x) else ","))
+    summary["Sales"]      = summary["Discountedvalue"].apply(lambda x: f"GHS {x:,.2f}")
+    summary["MoM Change"] = summary.apply(
+        lambda r: "—" if r["Discountedvalue"] == 0 or pd.isna(r["Change %"])
+        else (f"+{r['Change %']:.1f}%" if r["Change %"] >= 0 else f"{r['Change %']:.1f}%"),
+        axis=1)
     st.dataframe(summary[["Month","Sales","MoM Change"]], use_container_width=True, hide_index=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1669,16 +1686,16 @@ elif page == "Sales Performance":
         _p = TribePDF(); _p.add_page()
         _p.add_header("Sales Performance", "Monthly revenue  ·  weekly trends", str(yr))
         _p.add_kpi_row([
-            ("Total Sales",   f"GHS {inv_f['Discountedvalue'].sum():,.0f}"),
+            ("Total Sales",   f"GHS {inv_f['Discountedvalue'].sum():,.2f}"),
             ("Total Orders",  f"{len(inv_f):,}"),
-            ("Avg Sale Value",f"GHS {inv_f['Discountedvalue'].mean():,.0f}" if len(inv_f) else "N/A"),
+            ("Avg Sale Value",f"GHS {inv_f['Discountedvalue'].mean():,.2f}" if len(inv_f) else "N/A"),
         ])
         if len(m):
             _p.add_chart(_bar_png(m["Month"], m["Discountedvalue"],
                                   "Monthly Sales (GHS)", color=BRAND_GREEN, ylabel="GHS"),
                          "Monthly Sales Trend")
         _t = _sp_monthly.copy()
-        _t["Revenue"] = _t["Revenue"].apply(lambda v: f"GHS {v:,.0f}")
+        _t["Revenue"] = _t["Revenue"].apply(lambda v: f"GHS {v:,.2f}")
         _p.add_table(_t[["Month","Invoices","Revenue"]], "Monthly Summary")
         _sp_pdf = bytes(_p.output())
     dl_row(_sp_sheets, f"Sales_Performance_{yr}.xlsx", _sp_pdf,
@@ -1757,7 +1774,7 @@ elif page == "Customers":
         fig = px.bar(top_cust.sort_values("Total Value"), x="Total Value", y="Customer",
                      orientation="h", text="Total Value",
                      color="Total Value", color_continuous_scale=["#e3f2e8",BRAND_GREEN])
-        fig.update_traces(texttemplate="GHS %{text:,.0f}", textposition="inside",
+        fig.update_traces(texttemplate="GHS %{text:,.2f}", textposition="inside",
                           insidetextanchor="middle", textfont=dict(color="white", size=10))
         fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                           margin=dict(t=10, b=10, l=10, r=10), height=360, font=dict(color=CHART_FONT),
@@ -1797,7 +1814,7 @@ elif page == "Customers":
     st.markdown(chart_wrap("Customer Leaderboard"), unsafe_allow_html=True)
     lb = top_cust.copy()
     lb.index = pd.RangeIndex(1, len(lb)+1)
-    lb["Total Value"] = lb["Total Value"].apply(lambda x: f"GHS {x:,.0f}")
+    lb["Total Value"] = lb["Total Value"].apply(lambda x: f"GHS {x:,.2f}")
     st.dataframe(lb, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1852,8 +1869,8 @@ elif page == "Customers":
                                    "Top 10 Customers by Order Value (GHS)", color=BRAND_GREEN),
                          "Top Customers")
         _t = _cust_revenue.head(20).copy()
-        _t["Revenue"]     = _t["Revenue"].apply(lambda v: f"GHS {v:,.0f}")
-        _t["Outstanding"] = _t["Outstanding"].apply(lambda v: f"GHS {v:,.0f}")
+        _t["Revenue"]     = _t["Revenue"].apply(lambda v: f"GHS {v:,.2f}")
+        _t["Outstanding"] = _t["Outstanding"].apply(lambda v: f"GHS {v:,.2f}")
         _p.add_table(_t[["Name","Orders","Revenue","Outstanding"]], "Customer Revenue Leaderboard")
         _cust_pdf = bytes(_p.output())
     dl_row(_cust_sheets, f"Customers_{yr}.xlsx", _cust_pdf,
@@ -1874,12 +1891,12 @@ elif page == "Payments":
     outstanding_y    = inv_y["Outstanding"].sum()
     outstanding_pct_y= outstanding_y / total_invoiced_y * 100 if total_invoiced_y > 0 else 0
     success_pay_y    = pay_y[pay_y["Payment Status"] == "Success"]
-    r1 = kpi_card("Total Collected",     f"GHS {total_repaid_y:,.0f}", f"{collection_pct_y:.1f}% rate", "#16a34a",
+    r1 = kpi_card("Total Collected",     f"GHS {total_repaid_y:,.2f}", f"{collection_pct_y:.1f}% rate", "#16a34a",
                   f"{collection_pct_y:.1f}%", "#16a34a") + \
-         kpi_card("Outstanding",         f"GHS {outstanding_y:,.0f}", f"{outstanding_pct_y:.1f}% of invoiced",
+         kpi_card("Outstanding",         f"GHS {outstanding_y:,.2f}", f"{outstanding_pct_y:.1f}% of invoiced",
                   "#dc2626", f"{outstanding_pct_y:.1f}%", "#dc2626") + \
          kpi_card("Successful Payments", f"{success_pay_y.shape[0]:,}", "Transactions", BRAND_GREEN) + \
-         kpi_card("Avg Payment",         f"GHS {rep_y['Amount'].mean():,.0f}", "Per repayment", "#f97316")
+         kpi_card("Avg Payment",         f"GHS {rep_y['Amount'].mean():,.2f}", "Per repayment", "#f97316")
     st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
@@ -1950,10 +1967,10 @@ elif page == "Payments":
         _p = TribePDF(); _p.add_page()
         _p.add_header("Payments", "Collections vs invoiced  ·  payment methods", str(yr))
         _p.add_kpi_row([
-            ("Total Collected", f"GHS {total_repaid_y:,.0f}"),
-            ("Outstanding",     f"GHS {outstanding_y:,.0f}"),
+            ("Total Collected", f"GHS {total_repaid_y:,.2f}"),
+            ("Outstanding",     f"GHS {outstanding_y:,.2f}"),
             ("Collection Rate", f"{collection_pct_y:.1f}%"),
-            ("Avg Payment",     f"GHS {rep_y['Amount'].mean():,.0f}" if len(rep_y) else "N/A"),
+            ("Avg Payment",     f"GHS {rep_y['Amount'].mean():,.2f}" if len(rep_y) else "N/A"),
         ])
         if len(cmp):
             _p.add_chart(_grouped_bar_png(cmp, "Month",
@@ -1962,8 +1979,8 @@ elif page == "Payments":
                                           colors=["#a8d9bf",BRAND_GREEN]),
                          "Monthly Collections vs Invoiced")
         _t = _pay_monthly.copy()
-        _t["Collected"] = _t["Collected"].apply(lambda v: f"GHS {v:,.0f}")
-        _t["Invoiced"]  = _t["Invoiced"].apply(lambda v: f"GHS {v:,.0f}")
+        _t["Collected"] = _t["Collected"].apply(lambda v: f"GHS {v:,.2f}")
+        _t["Invoiced"]  = _t["Invoiced"].apply(lambda v: f"GHS {v:,.2f}")
         _t["Collection %"] = _t["Collection %"].apply(lambda v: f"{v:.1f}%")
         _p.add_table(_t[["Month","Invoiced","Collected","Collection %"]], "Monthly Collections")
         _pay_pdf = bytes(_p.output())
@@ -1991,9 +2008,9 @@ elif page == "Weekly Scorecard":
 
     r1 = kpi_card("Orders This Week",    f"{weekly_orders:,}",
                   f"Week of {latest_week}", BRAND_GREEN) + \
-         kpi_card("Sales This Week",     f"GHS {weekly_sales:,.0f}",
+         kpi_card("Sales This Week",     f"GHS {weekly_sales:,.2f}",
                   "Total invoiced value", "#14b8a6") + \
-         kpi_card("Collected This Week", f"GHS {weekly_collected:,.0f}",
+         kpi_card("Collected This Week", f"GHS {weekly_collected:,.2f}",
                   "Repayments received", "#16a34a") + \
          kpi_card("Overdue Invoices",    f"{len(overdue_inv):,}",
                   "Requiring follow-up", "#dc2626",
@@ -2052,8 +2069,8 @@ elif page == "Weekly Scorecard":
     weekly_tbl["Sales_Collected"] = weekly_tbl["Sales_Collected"].fillna(0)
     weekly_tbl["Collection Rate"] = weekly_tbl.apply(
         lambda r: f"{r['Sales_Collected']/r['Invoice_Total']*100:.1f}%" if r["Invoice_Total"] > 0 else "0.0%", axis=1)
-    weekly_tbl["Value GHS"]             = weekly_tbl["Invoice_Total"].apply(lambda x: f"GHS {x:,.0f}")
-    weekly_tbl["Sales Collected (GHS)"] = weekly_tbl["Sales_Collected"].apply(lambda x: f"GHS {x:,.0f}")
+    weekly_tbl["Value GHS"]             = weekly_tbl["Invoice_Total"].apply(lambda x: f"GHS {x:,.2f}")
+    weekly_tbl["Sales Collected (GHS)"] = weekly_tbl["Sales_Collected"].apply(lambda x: f"GHS {x:,.2f}")
 
     # Week start date (e.g. "5-Jan-2026") and ISO week number (continuous across the year)
     _wk_starts = weekly_tbl["Week"].apply(lambda w: pd.Period(w, freq="W").start_time)
@@ -2072,7 +2089,7 @@ elif page == "Weekly Scorecard":
         exc = overdue_inv.merge(rc_names[["ID","Name"]], left_on="Customer ID", right_on="ID", how="left")
         exc = exc[["Created At","Name","Discountedvalue","Due Date","Repayment Status"]].copy()
         exc.columns = ["Invoice Date","Customer","Amount (GHS)","Due Date","Status"]
-        exc["Amount (GHS)"] = exc["Amount (GHS)"].apply(lambda x: f"GHS {x:,.0f}")
+        exc["Amount (GHS)"] = exc["Amount (GHS)"].apply(lambda x: f"GHS {x:,.2f}")
         exc["Invoice Date"] = exc["Invoice Date"].dt.strftime("%Y-%m-%d")
         exc["Due Date"]     = pd.to_datetime(exc["Due Date"], errors="coerce").dt.strftime("%Y-%m-%d")
         exc = exc.sort_values("Due Date")
@@ -2093,8 +2110,8 @@ elif page == "Weekly Scorecard":
         _p.add_header("Weekly Scorecard", "Weekly orders  ·  collections  ·  overdue alerts", str(yr))
         _p.add_kpi_row([
             ("Orders This Week",    f"{weekly_orders:,}"),
-            ("Sales This Week",     f"GHS {weekly_sales:,.0f}"),
-            ("Collected This Week", f"GHS {weekly_collected:,.0f}"),
+            ("Sales This Week",     f"GHS {weekly_sales:,.2f}"),
+            ("Collected This Week", f"GHS {weekly_collected:,.2f}"),
             ("Overdue Invoices",    f"{len(overdue_inv):,}"),
         ])
         if len(w_trend):
@@ -2136,7 +2153,7 @@ elif page == "Reconciliation":
                   f"{match_rate:.0f}%", "#16a34a") + \
          kpi_card("Unreconciled",       f"{unmatched_count:,}",
                   "No repayment record", "#dc2626") + \
-         kpi_card("Unreconciled Value", f"GHS {unmatched_val:,.0f}",
+         kpi_card("Unreconciled Value", f"GHS {unmatched_val:,.2f}",
                   "Awaiting payment", "#f59e0b")
     st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
@@ -2168,7 +2185,7 @@ elif page == "Reconciliation":
         fig2 = px.bar(val_df, x="Category", y="Value", color="Category",
                       color_discrete_map={"Reconciled":"#16a34a","Unreconciled":"#dc2626"},
                       text="Value")
-        fig2.update_traces(texttemplate="GHS %{text:,.0f}", textposition="outside",
+        fig2.update_traces(texttemplate="GHS %{text:,.2f}", textposition="outside",
                            textfont=dict(size=11))
         fig2.update_layout(**white_layout(300))
         fig2.update_layout(showlegend=False, xaxis=dict(tickangle=0))
@@ -2193,7 +2210,7 @@ elif page == "Reconciliation":
         unmatched_df = unmatched_df.merge(rc_names[["ID","Name"]], left_on="Customer ID", right_on="ID", how="left")
         show_cols = unmatched_df[["Created At","Name","Discountedvalue","Repayment Status"]].copy()
         show_cols.columns = ["Invoice Date","Customer","Amount (GHS)","Status"]
-        show_cols["Amount (GHS)"] = show_cols["Amount (GHS)"].apply(lambda x: f"GHS {x:,.0f}")
+        show_cols["Amount (GHS)"] = show_cols["Amount (GHS)"].apply(lambda x: f"GHS {x:,.2f}")
         show_cols["Invoice Date"] = show_cols["Invoice Date"].dt.strftime("%Y-%m-%d")
         show_cols = show_cols.sort_values("Invoice Date", ascending=False).head(30)
         show_cols.index = pd.RangeIndex(1, len(show_cols)+1)
@@ -2219,7 +2236,7 @@ elif page == "Reconciliation":
             ("Total Invoices",     f"{total_invoices:,}"),
             ("Reconciled",         f"{matched_count:,}  ({match_rate:.1f}%)"),
             ("Unreconciled",       f"{unmatched_count:,}"),
-            ("Unreconciled Value", f"GHS {unmatched_val:,.0f}"),
+            ("Unreconciled Value", f"GHS {unmatched_val:,.2f}"),
         ])
         _rs_df = inv_y["Repayment Status"].value_counts().reset_index()
         _rs_df.columns = ["Status","Count"]
@@ -2229,7 +2246,7 @@ elif page == "Reconciliation":
                          "Status Breakdown")
         if len(_recon_unmatched):
             _t = _recon_unmatched.copy()
-            _t["Amount"] = pd.to_numeric(_t["Amount"], errors="coerce").apply(lambda v: f"GHS {v:,.0f}")
+            _t["Amount"] = pd.to_numeric(_t["Amount"], errors="coerce").apply(lambda v: f"GHS {v:,.2f}")
             _p.add_table(_t.head(30), "Unreconciled Invoices (Top 30)")
         _recon_pdf = bytes(_p.output())
     dl_row(_recon_sheets, f"Reconciliation_{yr}.xlsx", _recon_pdf,
@@ -2480,7 +2497,7 @@ elif page == "Segmentation":
          kpi_card("Top-5 Revenue Conc.",  f"{top5_pct:.1f}%",
                   "Share from top 5 customers", "#f97316") + \
          kpi_card("High-Freq Small Orders",f"{hfso_pct:.1f}%",
-                  f"Orders ≤ GHS {low_thresh:,.0f}", "#dc2626")
+                  f"Orders ≤ GHS {low_thresh:,.2f}", "#dc2626")
     st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
     seg_colors = {"Provider":BRAND_GREEN,"Agrovet":"#14b8a6","Hatchery":"#f59e0b","Unclassified":"#9ca3af"}
@@ -2490,7 +2507,7 @@ elif page == "Segmentation":
         st.markdown(chart_wrap("Sales by Customer Segment", "Total order value per segment"), unsafe_allow_html=True)
         fig = px.bar(by_segment, x="Segment Type", y="Sales", color="Segment Type",
                      color_discrete_map=seg_colors, text="Sales")
-        fig.update_traces(texttemplate="GHS %{text:,.0f}", textposition="outside", textfont=dict(size=10))
+        fig.update_traces(texttemplate="GHS %{text:,.2f}", textposition="outside", textfont=dict(size=10))
         fig.update_layout(**white_layout(300))
         fig.update_layout(showlegend=False, xaxis=dict(tickangle=0))
         st.plotly_chart(fig, use_container_width=True, config=CHART_CFG)
@@ -2501,7 +2518,7 @@ elif page == "Segmentation":
         rpp = by_segment[by_segment["Segment Type"] != "Unclassified"].copy()
         fig2 = px.bar(rpp, x="Segment Type", y="Rev/Purchase", color="Segment Type",
                       color_discrete_map=seg_colors, text="Rev/Purchase")
-        fig2.update_traces(texttemplate="GHS %{text:,.0f}", textposition="outside", textfont=dict(size=11))
+        fig2.update_traces(texttemplate="GHS %{text:,.2f}", textposition="outside", textfont=dict(size=11))
         fig2.update_layout(**white_layout(300))
         fig2.update_layout(showlegend=False, xaxis=dict(tickangle=0),
                            yaxis=dict(title="Avg Rev/Purchase (GHS)", gridcolor="#f3f4f6"))
@@ -2542,7 +2559,7 @@ elif page == "Segmentation":
         fig4.add_histogram(x=inv_y["Discountedvalue"], nbinsx=30,
                            marker_color=BRAND_GREEN, opacity=0.8)
         fig4.add_vline(x=low_thresh, line_dash="dash", line_color="#dc2626",
-                       annotation_text=f"Low-ticket<br>≤ GHS {low_thresh:,.0f}",
+                       annotation_text=f"Low-ticket<br>≤ GHS {low_thresh:,.2f}",
                        annotation_position="top left",
                        annotation_font=dict(color="#dc2626", size=10))
         fig4.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
@@ -2555,8 +2572,8 @@ elif page == "Segmentation":
 
     st.markdown(chart_wrap("Portfolio Segmentation Summary — MERL"), unsafe_allow_html=True)
     seg_tbl = by_segment.copy()
-    seg_tbl["Sales"]        = seg_tbl["Sales"].apply(lambda x: f"GHS {x:,.0f}")
-    seg_tbl["Rev/Purchase"] = seg_tbl["Rev/Purchase"].apply(lambda x: f"GHS {x:,.0f}")
+    seg_tbl["Sales"]        = seg_tbl["Sales"].apply(lambda x: f"GHS {x:,.2f}")
+    seg_tbl["Rev/Purchase"] = seg_tbl["Rev/Purchase"].apply(lambda x: f"GHS {x:,.2f}")
     seg_tbl.columns = ["Segment","Orders","Total Sales","Customers","Rev/Purchase (AOV)"]
     seg_tbl.index = pd.RangeIndex(1, len(seg_tbl)+1)
     st.dataframe(seg_tbl, use_container_width=True)
@@ -2579,8 +2596,8 @@ elif page == "Segmentation":
                                   "Sales by Customer Segment (GHS)", color=BRAND_GREEN, ylabel="GHS"),
                          "Revenue by Segment")
         _t = by_segment.copy()
-        _t["Sales"]        = _t["Sales"].apply(lambda v: f"GHS {v:,.0f}")
-        _t["Rev/Purchase"] = _t["Rev/Purchase"].apply(lambda v: f"GHS {v:,.0f}")
+        _t["Sales"]        = _t["Sales"].apply(lambda v: f"GHS {v:,.2f}")
+        _t["Rev/Purchase"] = _t["Rev/Purchase"].apply(lambda v: f"GHS {v:,.2f}")
         _t.columns = ["Segment","Orders","Total Sales","Customers","Rev/Purchase (AOV)"]
         _p.add_table(_t, "Segment Summary")
         _seg_pdf = bytes(_p.output())
@@ -2709,11 +2726,11 @@ elif page == "Historical Analysis":
     h_top_prod     = h_top_prod_row.iloc[0]["Item Name"] if len(h_top_prod_row) else "—"
 
     r1 = (
-        kpi_card("Total Revenue (GHS)", f"GHS {h_total_rev:,.0f}",
+        kpi_card("Total Revenue (GHS)", f"GHS {h_total_rev:,.2f}",
                  f"{h_so['Year'].nunique()} year(s) of sales", BRAND_GREEN)
-        + kpi_card("Total Collected (GHS)", f"GHS {h_collected:,.0f}",
-                   f"of GHS {h_total_inv:,.0f} invoiced", "#16a34a")
-        + kpi_card("Outstanding Balance (GHS)", f"GHS {h_outstanding:,.0f}",
+        + kpi_card("Total Collected (GHS)", f"GHS {h_collected:,.2f}",
+                   f"of GHS {h_total_inv:,.2f} invoiced", "#16a34a")
+        + kpi_card("Outstanding Balance (GHS)", f"GHS {h_outstanding:,.2f}",
                    "unpaid invoices", "#dc2626")
         + kpi_card("Collection Rate", f"{h_coll_rate:.1f}%",
                    "payments vs invoiced", "#f59e0b")
@@ -2746,7 +2763,7 @@ elif page == "Historical Analysis":
                         color="Year",
                         color_discrete_sequence=[BRAND_GREEN_DEEP,"#16a34a","#f59e0b"],
                         labels={"Revenue GHS": "Revenue (GHS)"})
-        fig_yr.update_traces(texttemplate="GHS %{y:,.0f}", textposition="outside")
+        fig_yr.update_traces(texttemplate="GHS %{y:,.2f}", textposition="outside")
         fig_yr.update_layout(**white_layout(320))
         st.plotly_chart(fig_yr, use_container_width=True, config=CHART_CFG)
         st.markdown("</div>", unsafe_allow_html=True)
@@ -2833,7 +2850,7 @@ elif page == "Historical Analysis":
                    .rename(columns={"Amount Received": "Amount GHS"}))
         fig_pm = px.bar(_pm, x="Mode of Payment", y="Amount GHS", text="Amount GHS",
                         color_discrete_sequence=["#0891b2"])
-        fig_pm.update_traces(texttemplate="GHS %{y:,.0f}", textposition="outside")
+        fig_pm.update_traces(texttemplate="GHS %{y:,.2f}", textposition="outside")
         fig_pm.update_layout(**white_layout(280))
         st.plotly_chart(fig_pm, use_container_width=True, config=CHART_CFG)
         st.markdown("</div>", unsafe_allow_html=True)
@@ -2852,8 +2869,8 @@ elif page == "Historical Analysis":
     _mo_tbl["Collection Rate"] = (_mo_tbl["Collected_GHS"] / _mo_tbl["Total_GHS"] * 100).fillna(0)
     _mo_tbl["Month Label"] = _mo_tbl["Month"].apply(
         lambda m: pd.Period(m, freq="M").strftime("%b %Y") if m and m != "NaT" else m)
-    _mo_tbl["Revenue GHS"]    = _mo_tbl["Revenue_GHS"].map(lambda x: f"GHS {x:,.0f}")
-    _mo_tbl["Collected GHS"]  = _mo_tbl["Collected_GHS"].fillna(0).map(lambda x: f"GHS {x:,.0f}")
+    _mo_tbl["Revenue GHS"]    = _mo_tbl["Revenue_GHS"].map(lambda x: f"GHS {x:,.2f}")
+    _mo_tbl["Collected GHS"]  = _mo_tbl["Collected_GHS"].fillna(0).map(lambda x: f"GHS {x:,.2f}")
     _mo_tbl["Collection Rate"] = _mo_tbl["Collection Rate"].map(lambda x: f"{x:.1f}%")
     _mo_show = _mo_tbl[["Month Label","Orders","Revenue GHS","Collected GHS","Collection Rate"]].rename(
         columns={"Month Label": "Month"})
