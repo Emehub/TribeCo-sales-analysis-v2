@@ -307,6 +307,7 @@ _CSS_TEMPLATE = Template("""
     box-shadow: $card_shadow;
     border-top: 4px solid $brand_green;
     position: relative;
+    container-type: inline-size;
 }
 .kpi-label {
     font-size: 11px; font-weight: 700; text-transform: uppercase;
@@ -317,8 +318,13 @@ _CSS_TEMPLATE = Template("""
     padding: 1px 6px; border-radius: 10px;
 }
 .kpi-value {
-    font-size: 30px; font-weight: 800; color: $text_heading;
-    margin: 8px 0 6px; line-height: 1;
+    /* Scales with the card's own width (not the viewport) so full-precision
+       figures like "GHS 3,729,342.00" stay on one line instead of wrapping
+       mid-number as cards get squeezed in a dense grid. */
+    font-size: clamp(16px, 8.5cqi, 30px);
+    font-weight: 800; color: $text_heading;
+    margin: 8px 0 6px; line-height: 1.15;
+    white-space: nowrap;
 }
 .kpi-sub { font-size: 12px; color: $text_muted; }
 
@@ -412,13 +418,11 @@ div[data-baseweb="popover"] ul { background: $card_bg !important; backdrop-filte
 /* ── Responsive breakpoints: tablet / mobile ── */
 @media (max-width: 1024px) {
     .main .block-container { padding: 1rem 1.1rem !important; }
-    .kpi-value { font-size: 24px; }
     .topbar-title { font-size: 19px; }
 }
 @media (max-width: 480px) {
     .main .block-container { padding: 0.75rem 0.6rem !important; }
     .kpi-grid { grid-template-columns: 1fr !important; }
-    .kpi-value { font-size: 21px; }
     .topbar-title { font-size: 16px; }
     .chart-title { font-size: 13px; }
     [data-testid="stSidebar"] { width: 160px !important; min-width: 160px !important; max-width: 160px !important; }
@@ -1084,9 +1088,11 @@ with st.sidebar:
             unsafe_allow_html=True,
         )
         if err:
+            import html as _html
             st.markdown(
-                f'<div style="color:#fca5a5;font-size:10px;padding:2px 16px 8px;'
-                f'word-break:break-all">{err}</div>',
+                f'<div style="color:rgba(255,255,255,0.55);font-size:10px;'
+                f'padding:2px 16px 8px" title="{_html.escape(err)}">'
+                f'Live connection unavailable &mdash; showing the last cached data pull.</div>',
                 unsafe_allow_html=True,
             )
         # This fragment body also runs on every ordinary rerun (widget clicks, page nav,
