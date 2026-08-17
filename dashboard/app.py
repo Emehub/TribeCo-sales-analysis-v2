@@ -2026,22 +2026,62 @@ elif page == "Weekly Scorecard":
     col1, col2 = st.columns([3, 2])
     with col1:
         st.markdown(chart_wrap("Weekly Orders & Sales Trend", "Last 16 weeks"), unsafe_allow_html=True)
-        w_trend = (inv_y.groupby("Week")
-                        .agg(Orders=("ID","count"), Sales=("Discountedvalue","sum"))
-                        .reset_index().tail(16))
-        fig = go.Figure()
-        fig.add_bar(x=w_trend["Week"], y=w_trend["Sales"],
-                    marker_color="#e0e7ff", name="Sales (GHS)", yaxis="y")
-        fig.add_scatter(x=w_trend["Week"], y=w_trend["Orders"],
-                        mode="lines+markers", line=dict(color=BRAND_GREEN, width=2.5),
-                        marker=dict(size=6, color=BRAND_GREEN), name="Orders", yaxis="y2")
-        fig.update_layout(**white_layout(300))
-        fig.update_layout(
-            yaxis2=dict(overlaying="y", side="right", showgrid=False),
-            legend=dict(orientation="h", y=-0.3),
-            xaxis=dict(tickangle=-45, nticks=8)
-        )
-        st.plotly_chart(fig, use_container_width=True, config=CHART_CFG)
+
+        _wk_target_path = f"{DATA}/weekly_revenue_target.csv"
+        _wk_target = (pd.read_csv(_wk_target_path)[["Week", "Target"]]
+                      if os.path.exists(_wk_target_path) else pd.DataFrame(columns=["Week", "Target"]))
+        # Union with target-only weeks (e.g. the current week before any invoices land)
+        # so they show up instead of silently dropping off the last-16 window. Anchor the
+        # window on today's date rather than the tail of the list — the target file runs
+        # all the way to December, which would otherwise push a "last 16" window straight
+        # past the real, current data into far-future target-only weeks.
+        _wk_all  = sorted(set(inv_y["Week"].dropna().unique()) | set(_wk_target["Week"]))
+        _wk_now  = pd.Timestamp.now()
+        _wk_recent = sorted(
+            w for w in _wk_all if pd.Period(w, freq="W").start_time <= _wk_now + pd.Timedelta(weeks=1)
+        )[-16:]
+
+        tab_wk_trend, tab_wk_target = st.tabs(["Trend", "Actual vs Target"])
+
+        with tab_wk_trend:
+            w_trend = (inv_y.groupby("Week")
+                            .agg(Orders=("ID","count"), Sales=("Discountedvalue","sum"))
+                            .reset_index().tail(16))
+            fig = go.Figure()
+            fig.add_bar(x=w_trend["Week"], y=w_trend["Sales"],
+                        marker_color="#e0e7ff", name="Sales (GHS)", yaxis="y")
+            fig.add_scatter(x=w_trend["Week"], y=w_trend["Orders"],
+                            mode="lines+markers", line=dict(color=BRAND_GREEN, width=2.5),
+                            marker=dict(size=6, color=BRAND_GREEN), name="Orders", yaxis="y2")
+            fig.update_layout(**white_layout(300))
+            fig.update_layout(
+                yaxis2=dict(overlaying="y", side="right", showgrid=False),
+                legend=dict(orientation="h", y=-0.3),
+                xaxis=dict(tickangle=-45, nticks=8)
+            )
+            st.plotly_chart(fig, use_container_width=True, config=CHART_CFG)
+
+        with tab_wk_target:
+            if _wk_target["Target"].notna().any():
+                w_t = (inv_y.groupby("Week")["Discountedvalue"].sum()
+                            .reindex(_wk_recent).fillna(0).reset_index())
+                w_t = w_t.merge(_wk_target, on="Week", how="left")
+                fig_wt = go.Figure()
+                fig_wt.add_bar(x=w_t["Week"], y=w_t["Discountedvalue"], marker_color=BRAND_GREEN, name="Actual (GHS)")
+                fig_wt.add_bar(x=w_t["Week"], y=w_t["Target"], marker_color="#eab308", name="Target (GHS)")
+                for _, row in w_t.dropna(subset=["Target"]).iterrows():
+                    attain = (row["Discountedvalue"] / row["Target"] * 100) if row["Target"] else 0
+                    clr = "#16a34a" if attain >= 100 else "#dc2626"
+                    fig_wt.add_annotation(x=row["Week"], y=max(row["Discountedvalue"], row["Target"]),
+                                          text=f"{attain:.1f}%", showarrow=False, yshift=12,
+                                          font=dict(size=9, color=clr))
+                fig_wt.update_layout(**white_layout(300))
+                fig_wt.update_layout(barmode="group", legend=dict(orientation="h", y=-0.3),
+                                     xaxis=dict(tickangle=-45, nticks=8))
+                st.plotly_chart(fig_wt, use_container_width=True, config=CHART_CFG)
+            else:
+                st.info("No weekly revenue target set.")
+
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col2:
