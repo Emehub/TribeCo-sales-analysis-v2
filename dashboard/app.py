@@ -2505,6 +2505,82 @@ elif page == "Weekly Info":
             st.success("No discounts were given this week.")
         st.markdown("</div>", unsafe_allow_html=True)
 
+        # ── Business Read — patterns computed from the data, not written commentary ──
+        st.markdown(
+            "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
+            "letter-spacing:1px;color:#3fa873;margin:22px 0 6px'>Business Read</div>",
+            unsafe_allow_html=True)
+
+        _insights = []
+
+        # 1. Monthly attainment landing suspiciously close to exactly 100%, repeatedly
+        _mo_target_path = f"{DATA}/revenue_target.csv"
+        if os.path.exists(_mo_target_path):
+            _mo_target = pd.read_csv(_mo_target_path)
+            _mo_rev = inv_scoped.copy()
+            _mo_rev["Month"] = _mo_rev["Created At"].dt.to_period("M").astype(str)
+            _mo_g = _mo_rev.groupby("Month")["Discountedvalue"].sum().reset_index()
+            _mo_m = _mo_g.merge(_mo_target, on="Month", how="inner").sort_values("Month")
+            _mo_m["Attain"] = _mo_m["Discountedvalue"] / _mo_m["Target"] * 100
+            _mo_m["Near100"] = (_mo_m["Attain"] - 100).abs() <= 1.0
+            _cur, _best = [], []
+            for _, r in _mo_m.iterrows():
+                _cur = _cur + [r["Month"]] if r["Near100"] else []
+                _best = _cur if len(_cur) > len(_best) else _best
+            if len(_best) >= 3:
+                _insights.append(("🎯", "Check how targets are set",
+                    f"{len(_best)} months in a row ({_best[0]} to {_best[-1]}) landed within one point of "
+                    f"exactly 100% of target. That's an unusual pattern for independently-set targets, worth "
+                    f"confirming those months' targets were fixed in advance, not derived from the actuals "
+                    f"afterward. If they were, 'hitting target' those months isn't a real performance signal."))
+
+        # 2. Weekly attainment swinging wildly even when the month closes near 100%
+        if len(_co_target):
+            _wk_rev_all = inv_scoped.groupby("Week")["Discountedvalue"].sum().reset_index()
+            _wk_m = _wk_rev_all.merge(_co_target, on="Week", how="inner")
+            _wk_m = _wk_m[_wk_m["Target"] > 0]
+            _wk_m["Attain"] = _wk_m["Discountedvalue"] / _wk_m["Target"] * 100
+            _wk_recent = _wk_m.sort_values("Week").tail(10)
+            if len(_wk_recent) >= 5:
+                _wmin, _wmax = _wk_recent["Attain"].min(), _wk_recent["Attain"].max()
+                if _wmax - _wmin > 150:
+                    _insights.append(("📉", "Weekly volatility is high",
+                        f"Over the last {len(_wk_recent)} weeks, attainment ranged from {_wmin:.0f}% to "
+                        f"{_wmax:.0f}% of target, even in months that closed near 100%. Revenue is landing "
+                        f"unevenly week to week, which makes weekly cash and stock planning harder than the "
+                        f"monthly trend alone suggests."))
+
+        # 3. AR sitting in the 31-90 day danger zone for the selected week
+        if len(_co_ar_detail):
+            _danger_total = _co_ar_detail[_co_ar_detail["Bucket"].isin(
+                ["31, 60 days overdue", "61, 90 days overdue"])]["Outstanding"].sum()
+            if _danger_total > 0:
+                _insights.append(("🕒", "Collections danger zone",
+                    f"GHS {_danger_total:,.2f} is currently 31, 90 days overdue as of this week, still "
+                    f"realistically collectible, but starting to be at risk of aging into the 90+ bucket. "
+                    f"This is the priority slice of the AR Aging chase list above."))
+
+        # 4. Segment tagging coverage limiting how much the Agrovet KPIs really describe
+        _agro_tagged_n, _agro_total_n = len(_co_agro_ids), len(rc)
+        if _agro_total_n and _agro_tagged_n / _agro_total_n < 0.5:
+            _insights.append(("🏷️", "Segment tagging gap",
+                f"Only {_agro_tagged_n} of {_agro_total_n} Ghana retail centres "
+                f"({_agro_tagged_n/_agro_total_n*100:.0f}%) are tagged 'Agrovet' in the system. The "
+                f"Active/Repeat Agrovet figures above only ever describe this tagged subset, tagging the "
+                f"rest would make every segment-level number on this page more reliable."))
+
+        if _insights:
+            for _icon, _title, _text in _insights:
+                st.markdown(
+                    f'<div style="background:{_T["card_bg"]};backdrop-filter:blur(14px);'
+                    f'border:1px solid {_T["card_border"]};border-left:4px solid {BRAND_GOLD};'
+                    f'border-radius:12px;padding:14px 18px;margin-bottom:10px">'
+                    f'<div style="font-weight:700;color:{_T["text_heading"]};margin-bottom:4px">{_icon} {_title}</div>'
+                    f'<div style="font-size:13px;color:{_T["text_body"]}">{_text}</div></div>',
+                    unsafe_allow_html=True)
+        else:
+            st.info("No notable patterns flagged for the current data window.")
+
 
 # ══════════════════════════════════════════════════════════════════════════════════
 # PAGE — RECONCILIATION
