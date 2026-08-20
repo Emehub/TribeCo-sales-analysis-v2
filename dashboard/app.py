@@ -149,6 +149,8 @@ _THEME_TOKENS = {
         card_bg="rgba(255,255,255,0.55)",
         card_border="rgba(255,255,255,0.65)",
         card_shadow="0 8px 32px rgba(2,75,48,0.10)",
+        kpi_shadow="0 1px 2px rgba(2,75,48,0.07), 0 12px 28px rgba(2,75,48,0.16)",
+        kpi_shadow_hover="0 4px 10px rgba(2,75,48,0.12), 0 20px 40px rgba(2,75,48,0.22)",
         text_heading="#0d3b25",
         text_body="#374151",
         text_muted="#6b7280",
@@ -171,6 +173,8 @@ _THEME_TOKENS = {
         card_bg="rgba(15,35,26,0.55)",
         card_border="rgba(255,255,255,0.10)",
         card_shadow="0 8px 32px rgba(0,0,0,0.45)",
+        kpi_shadow="0 1px 2px rgba(0,0,0,0.35), 0 12px 30px rgba(0,0,0,0.55)",
+        kpi_shadow_hover="0 4px 10px rgba(0,0,0,0.45), 0 20px 44px rgba(0,0,0,0.65)",
         text_heading="#eef6f0",
         text_body="#d7ded9",
         text_muted="#9fb0a6",
@@ -304,10 +308,19 @@ _CSS_TEMPLATE = Template("""
     -webkit-backdrop-filter: blur(14px) saturate(160%);
     border: 1px solid $card_border;
     border-radius: 16px; padding: 20px 22px;
-    box-shadow: $card_shadow;
+    box-shadow: $kpi_shadow;
     border-top: 4px solid $brand_green;
     position: relative;
     container-type: inline-size;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.kpi-card:hover {
+    transform: translateY(-3px);
+    box-shadow: $kpi_shadow_hover;
+}
+@media (prefers-reduced-motion: reduce) {
+    .kpi-card { transition: none; }
+    .kpi-card:hover { transform: none; }
 }
 .kpi-label {
     font-size: 11px; font-weight: 700; text-transform: uppercase;
@@ -395,6 +408,13 @@ footer { display: none !important; }
 }
 div[data-baseweb="popover"] li, div[data-baseweb="popover"] div { color: $widget_text !important; }
 div[data-baseweb="popover"] ul { background: $card_bg !important; backdrop-filter: blur(14px); }
+/* st.popover() content (not the selectbox/multiselect dropdown above) always renders on
+   Streamlit's own white panel regardless of app theme, so force dark text unconditionally
+   rather than the theme-driven $widget_text color meant for the dropdown case. */
+div[data-baseweb="popover"][data-testid="stPopoverBody"] { color: #111827 !important; }
+div[data-baseweb="popover"][data-testid="stPopoverBody"] * {
+    color: #111827 !important; background: transparent !important; backdrop-filter: none !important;
+}
 [data-baseweb="tag"] {
     background: $brand_green !important;
     color: #ffffff !important;
@@ -1019,6 +1039,7 @@ if "active_page" not in st.session_state:
     st.session_state["active_page"] = "Overview"
 
 NAV_GROUPS = {
+    "Leadership":     ["Weekly Info"],
     "Core Analytics": ["Overview", "Sales Performance"],
     "Business":       ["Customers", "Payments"],
     "Phase 1":        ["Weekly Scorecard", "Reconciliation", "Data Quality"],
@@ -1027,6 +1048,7 @@ NAV_GROUPS = {
 }
 
 NAV_ICONS = {
+    "Weekly Info":        "🧭",
     "Overview":            "🏠",
     "Sales Performance":   "📈",
     "Products":            "📦",
@@ -2170,6 +2192,318 @@ elif page == "Weekly Scorecard":
         _wk_pdf = bytes(_p.output())
     dl_row(_wk_sheets, f"Weekly_Scorecard_{yr}.xlsx", _wk_pdf,
            f"Weekly_Scorecard_{yr}.pdf", "Weekly Scorecard")
+
+
+# ══════════════════════════════════════════════════════════════════════════════════
+# PAGE — CEO CLOSEOUT
+# ══════════════════════════════════════════════════════════════════════════════════
+elif page == "Weekly Info":
+    _co_all_weeks = sorted(inv_scoped["Week"].dropna().unique())
+    if not _co_all_weeks:
+        st.info("No invoice data available yet.")
+    else:
+        _co_week_num = lambda w: pd.Period(w, freq="W").start_time.isocalendar()[1]
+        _co_week = st.selectbox("Week", _co_all_weeks, index=len(_co_all_weeks) - 1, key="co_week",
+                                format_func=lambda w: f"Week {_co_week_num(w)}")
+        _co_wk_start = pd.Period(_co_week, freq="W").start_time.tz_localize("UTC")
+        _co_wk_end   = pd.Period(_co_week, freq="W").end_time.tz_localize("UTC")
+        st.caption(f"Week {_co_week_num(_co_week)} · {_co_wk_start.strftime('%d %b %Y')}, {_co_wk_end.strftime('%d %b %Y')}")
+
+        inv_wk = inv_scoped[inv_scoped["Week"] == _co_week]
+        rep_wk_all = rep_scoped.copy()
+        rep_wk_all["Week"] = rep_wk_all["Created At"].dt.to_period("W").astype(str)
+        rep_wk = rep_wk_all[rep_wk_all["Week"] == _co_week]
+
+        # ── 1. Revenue vs target ─────────────────────────────────────────────────
+        _co_target_path = f"{DATA}/weekly_revenue_target.csv"
+        _co_target = (pd.read_csv(_co_target_path) if os.path.exists(_co_target_path)
+                      else pd.DataFrame(columns=["Week", "Target"]))
+        _co_target_row = _co_target[_co_target["Week"] == _co_week]
+        _co_target_val = float(_co_target_row["Target"].iloc[0]) if len(_co_target_row) else None
+        _co_revenue = inv_wk["Discountedvalue"].sum()
+        _co_attain  = (_co_revenue / _co_target_val * 100) if _co_target_val else None
+
+        # ── 2. Collections % ─────────────────────────────────────────────────────
+        _co_collected = rep_wk["Amount"].sum()
+        _co_collection_pct = (_co_collected / _co_revenue * 100) if _co_revenue else 0
+
+        # ── 3. DSO — outstanding AR as of week-end over trailing 90-day sales ────
+        # "Outstanding" on inv_scoped is a running total repaid AS OF NOW, not as of
+        # week-end — using it here would let repayments received *after* the selected
+        # week silently reduce a balance we're claiming to measure at an earlier date.
+        # Rebuild the repaid amount per invoice from repayment-level dates instead, so
+        # only money actually received by week-end counts.
+        _co_sales_90d = inv_scoped[(inv_scoped["Created At"] > _co_wk_end - pd.Timedelta(days=90)) &
+                                    (inv_scoped["Created At"] <= _co_wk_end)]["Discountedvalue"].sum()
+        _co_inv_asof = inv_scoped[inv_scoped["Created At"] <= _co_wk_end][["ID", "Discountedvalue"]]
+        _co_repaid_asof = (rep_scoped[rep_scoped["Created At"] <= _co_wk_end]
+                           .groupby("Invoice ID")["Amount"].sum())
+        _co_inv_asof = _co_inv_asof.merge(_co_repaid_asof.rename("Repaid"), left_on="ID", right_index=True, how="left")
+        _co_inv_asof["Repaid"] = _co_inv_asof["Repaid"].fillna(0)
+        _co_ar_asof = (_co_inv_asof["Discountedvalue"] - _co_inv_asof["Repaid"]).clip(lower=0).sum()
+        _co_dso = (_co_ar_asof / _co_sales_90d * 90) if _co_sales_90d else None
+
+        # ── 4. Active / repeat Agrovets ───────────────────────────────────────────
+        _co_agro_ids    = set(rc[rc["Segment Type"] == "Agrovet"]["ID"])
+        _co_wk_agro_custs = set(inv_wk[inv_wk["Customer ID"].isin(_co_agro_ids)]["Customer ID"])
+        _co_active_agro   = len(_co_wk_agro_custs)
+        _co_prior_agro_custs = set(
+            inv_scoped[(inv_scoped["Created At"] < _co_wk_start) &
+                       (inv_scoped["Customer ID"].isin(_co_agro_ids))]["Customer ID"])
+        _co_repeat_agro     = len(_co_wk_agro_custs & _co_prior_agro_custs)
+        _co_repeat_agro_pct = (_co_repeat_agro / _co_active_agro * 100) if _co_active_agro else 0
+
+        _co_wk_idx    = _co_all_weeks.index(_co_week)
+        _co_prev_week = _co_all_weeks[_co_wk_idx - 1] if _co_wk_idx > 0 else None
+        if _co_prev_week:
+            _co_active_agro_prev = inv_scoped[(inv_scoped["Week"] == _co_prev_week) &
+                                               (inv_scoped["Customer ID"].isin(_co_agro_ids))]["Customer ID"].nunique()
+            _co_agro_delta = _co_active_agro - _co_active_agro_prev
+        else:
+            _co_agro_delta = None
+
+        # ── 5. Multi-SKU adoption ─────────────────────────────────────────────────
+        _co_il_wk = il[il["Invoice ID"].isin(inv_wk["ID"])]
+        _co_sku_per_order    = _co_il_wk.groupby("Invoice ID")["Product ID"].nunique()
+        _co_orders_with_lines = len(_co_sku_per_order)
+        _co_multi_sku_orders  = int((_co_sku_per_order > 1).sum())
+        _co_multi_sku_pct     = (_co_multi_sku_orders / _co_orders_with_lines * 100) if _co_orders_with_lines else None
+
+        # ── 6. Gross margin % — coverage-limited to SKUs with cost data on file ──
+        _co_il_cost = _co_il_wk.merge(prod[["ID", "Sku", "Purchase Price"]], left_on="Product ID", right_on="ID", how="left")
+        _co_il_cost["Line Revenue"] = _co_il_cost["Price"] * _co_il_cost["Quantity"]
+        _co_il_cost["Line Cost"]    = _co_il_cost["Purchase Price"] * _co_il_cost["Quantity"]
+        _co_total_line_rev = _co_il_cost["Line Revenue"].sum()
+        _co_covered         = _co_il_cost.dropna(subset=["Purchase Price"])
+        _co_covered_rev      = _co_covered["Line Revenue"].sum()
+        _co_coverage_pct     = (_co_covered_rev / _co_total_line_rev * 100) if _co_total_line_rev else 0
+        _co_margin_pct = (((_co_covered_rev - _co_covered["Line Cost"].sum()) / _co_covered_rev * 100)
+                          if _co_covered_rev else None)
+
+        _co_cogs = _co_covered["Line Cost"].sum() if len(_co_covered) else 0
+
+        _r1c1, _r1c2, _r1c3, _r1c4 = st.columns(4)
+        with _r1c1:
+            st.markdown(kpi_card("Revenue This Week", f"GHS {_co_revenue:,.2f}",
+                        (f"{_co_attain:.1f}% of GHS {_co_target_val:,.2f} target" if _co_target_val is not None
+                         else "No target set for this week"),
+                        BRAND_GREEN,
+                        (f"{_co_attain:.1f}%" if _co_attain is not None else ""),
+                        ("#16a34a" if (_co_attain or 0) >= 100 else "#dc2626") if _co_attain is not None else ""),
+                        unsafe_allow_html=True)
+        with _r1c2:
+            st.markdown(kpi_card("Collections %", f"{_co_collection_pct:.1f}%",
+                        f"GHS {_co_collected:,.2f} collected", "#16a34a"), unsafe_allow_html=True)
+        with _r1c3:
+            st.markdown(kpi_card("DSO", f"{_co_dso:.0f} days" if _co_dso is not None else "N/A",
+                        "Trailing 90-day basis", "#f59e0b"), unsafe_allow_html=True)
+            with st.popover("🔎 View formula", use_container_width=True):
+                st.markdown("**DSO = Outstanding AR ÷ Trailing 90-day sales × 90**")
+                st.markdown(
+                    f"- Outstanding AR (as of week-end): **GHS {_co_ar_asof:,.2f}**\n"
+                    f"- Sales, trailing 90 days: **GHS {_co_sales_90d:,.2f}**\n\n"
+                    f"DSO = ({_co_ar_asof:,.2f} ÷ {_co_sales_90d:,.2f}) × 90 = "
+                    f"**{_co_dso:.1f} days**" if _co_dso is not None else "Not enough data to calculate.")
+        with _r1c4:
+            st.markdown(kpi_card("Gross Margin %", f"{_co_margin_pct:.1f}%" if _co_margin_pct is not None else "N/A",
+                        f"Based on {_co_coverage_pct:.0f}% of this week's revenue with cost data on file", "#8b5cf6"),
+                        unsafe_allow_html=True)
+            with st.popover("🔎 View formula", use_container_width=True):
+                st.markdown("**Gross Margin % = (Revenue − Cost) ÷ Revenue × 100**")
+                st.markdown(
+                    f"- Revenue with cost data on file: **GHS {_co_covered_rev:,.2f}** "
+                    f"({_co_coverage_pct:.0f}% of this week's revenue)\n"
+                    f"- Cost of goods sold: **GHS {_co_cogs:,.2f}**\n\n"
+                    f"Margin = ({_co_covered_rev:,.2f} − {_co_cogs:,.2f}) ÷ {_co_covered_rev:,.2f} = "
+                    f"**{_co_margin_pct:.1f}%**" if _co_margin_pct is not None else "No cost data for this week.")
+
+        r2 = kpi_card("Active Agrovets", f"{_co_active_agro}",
+                      (f"{'+' if _co_agro_delta >= 0 else ''}{_co_agro_delta} vs last week"
+                       if _co_agro_delta is not None else "No prior week to compare"),
+                      BRAND_GREEN) + \
+             kpi_card("Repeat Agrovets", f"{_co_repeat_agro_pct:.1f}%",
+                      f"{_co_repeat_agro} of {_co_active_agro} also ordered before this week", "#14b8a6") + \
+             kpi_card("Multi-SKU Adoption", f"{_co_multi_sku_pct:.1f}%" if _co_multi_sku_pct is not None else "N/A",
+                      (f"{_co_multi_sku_orders} of {_co_orders_with_lines} orders had 2+ SKUs"
+                       if _co_orders_with_lines else "No line-item data for this week"), "#3b82f6")
+        st.markdown(kpi_grid(r2, max_cols=3), unsafe_allow_html=True)
+
+        # ── Behind the Numbers — revenue bridge, margin/DSO workings, SKU & discount detail ──
+        st.markdown(
+            "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
+            "letter-spacing:1px;color:#3fa873;margin:22px 0 6px'>Behind the Numbers</div>",
+            unsafe_allow_html=True)
+
+        _co_predisc_rev = inv_wk["Total Order Value"].sum() if "Total Order Value" in inv_wk.columns else _co_revenue
+        _co_discount_given = _co_predisc_rev - _co_revenue
+
+        rb = kpi_card("Pre-Discount Value", f"GHS {_co_predisc_rev:,.2f}",
+                      "List-price total of everything sold this week", "#64748b") + \
+             kpi_card("Discounts Given", f"GHS {_co_discount_given:,.2f}",
+                      (f"{_co_discount_given/_co_predisc_rev*100:.1f}% of pre-discount value"
+                       if _co_predisc_rev else "No discounts this week"), "#dc2626") + \
+             kpi_card("Net Revenue (Invoiced)", f"GHS {_co_revenue:,.2f}",
+                      "What's actually billed, matches Revenue This Week above", BRAND_GREEN)
+        st.markdown(kpi_grid(rb, max_cols=3), unsafe_allow_html=True)
+
+        def _co_kv_rows(rows):
+            return "".join(
+                f'<div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;'
+                f'border-bottom:1px solid {_T["hr_color"]};font-size:13px">'
+                f'<span style="color:{_T["text_muted"]}">{k}</span>'
+                f'<span style="font-weight:700;text-align:right;color:{_T["text_heading"]}">{v}</span></div>'
+                for k, v in rows)
+
+        col_m, col_d = st.columns(2)
+        with col_m:
+            st.markdown(chart_wrap("Gross Margin, How It's Calculated",
+                                    f"{_co_coverage_pct:.0f}% of this week's revenue has cost data on file"),
+                        unsafe_allow_html=True)
+            st.markdown(_co_kv_rows([
+                ("Total line revenue (this week)", f"GHS {_co_total_line_rev:,.2f}"),
+                ("Revenue with cost data on file",  f"GHS {_co_covered_rev:,.2f}"),
+                ("Cost of goods sold",              f"GHS {_co_cogs:,.2f}"),
+                ("Gross profit",                    f"GHS {(_co_covered_rev - _co_cogs):,.2f}"),
+                ("Gross margin %",                  f"{_co_margin_pct:.1f}%" if _co_margin_pct is not None else "N/A"),
+            ]), unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with col_d:
+            st.markdown(chart_wrap("DSO, How It's Calculated", "Outstanding AR ÷ trailing 90-day sales × 90"),
+                        unsafe_allow_html=True)
+            st.markdown(_co_kv_rows([
+                ("Outstanding AR as of week-end", f"GHS {_co_ar_asof:,.2f}"),
+                ("Sales, trailing 90 days",        f"GHS {_co_sales_90d:,.2f}"),
+                ("DSO",                            f"{_co_dso:.1f} days" if _co_dso is not None else "N/A"),
+            ]), unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── AR Aging — turns the DSO number into an actionable chase list ────────
+        st.markdown(chart_wrap("AR Aging, Collections Chase List",
+                                f"Every unpaid invoice as of week-end, by how overdue it is"),
+                    unsafe_allow_html=True)
+        _co_ar_detail = _co_inv_asof.merge(inv_scoped[["ID", "Customer ID", "Due Date"]], on="ID", how="left")
+        _co_ar_detail["Outstanding"] = (_co_ar_detail["Discountedvalue"] - _co_ar_detail["Repaid"]).clip(lower=0)
+        _co_ar_detail = _co_ar_detail[_co_ar_detail["Outstanding"] > 0.01].copy()
+        _co_ar_detail["Due Date"]    = pd.to_datetime(_co_ar_detail["Due Date"], errors="coerce")
+        _co_ar_detail["Days Overdue"] = (_co_wk_end - _co_ar_detail["Due Date"]).dt.days
+
+        def _co_age_bucket(d):
+            if pd.isna(d):  return "No due date"
+            if d < 0:       return "Not yet due"
+            if d <= 30:     return "0, 30 days overdue"
+            if d <= 60:     return "31, 60 days overdue"
+            if d <= 90:     return "61, 90 days overdue"
+            return "90+ days overdue"
+
+        _co_ar_detail["Bucket"] = _co_ar_detail["Days Overdue"].apply(_co_age_bucket)
+        _co_bucket_order  = ["Not yet due", "0, 30 days overdue", "31, 60 days overdue",
+                             "61, 90 days overdue", "90+ days overdue", "No due date"]
+        _co_bucket_colors = {"Not yet due": "#94a3b8", "0, 30 days overdue": "#16a34a",
+                             "31, 60 days overdue": "#eab308", "61, 90 days overdue": "#f97316",
+                             "90+ days overdue": "#dc2626", "No due date": "#94a3b8"}
+
+        if len(_co_ar_detail):
+            _co_bucket_sum = (_co_ar_detail.groupby("Bucket")["Outstanding"].agg(Total="sum", Invoices="count")
+                              .reindex(_co_bucket_order).dropna(how="all"))
+            _co_bucket_sum = _co_bucket_sum[_co_bucket_sum["Invoices"].fillna(0) > 0]
+
+            _age_fig = go.Figure(go.Bar(
+                x=_co_bucket_sum["Total"], y=_co_bucket_sum.index, orientation="h",
+                marker_color=[_co_bucket_colors[b] for b in _co_bucket_sum.index],
+                text=[f"GHS {t:,.0f} · {int(n)} invoices" for t, n in zip(_co_bucket_sum["Total"], _co_bucket_sum["Invoices"])],
+                textposition="outside",
+            ))
+            _age_fig.update_layout(plot_bgcolor="white", paper_bgcolor="white",
+                                   margin=dict(t=10, b=10, l=10, r=120), height=max(140, 44 * len(_co_bucket_sum)),
+                                   font=dict(family="Inter, sans-serif", size=12),
+                                   xaxis=dict(gridcolor="#f3f4f6", range=[0, _co_bucket_sum["Total"].max() * 1.35]),
+                                   yaxis=dict(autorange="reversed"))
+            st.plotly_chart(_age_fig, use_container_width=True, config=CHART_CFG)
+
+            _co_chase = _co_ar_detail[_co_ar_detail["Bucket"] != "Not yet due"].sort_values("Days Overdue", ascending=False)
+            if len(_co_chase):
+                _co_chase = _co_chase.merge(rc_names[["ID", "Name"]], left_on="Customer ID", right_on="ID",
+                                            how="left", suffixes=("", "_cust"))
+                _co_chase_disp = pd.DataFrame({
+                    "Customer":      _co_chase["Name"].fillna("Unknown"),
+                    "Invoice ID":    _co_chase["ID"],
+                    "Due Date":      _co_chase["Due Date"].dt.strftime("%Y-%m-%d"),
+                    "Days Overdue":  _co_chase["Days Overdue"].astype(int),
+                    "Outstanding":   _co_chase["Outstanding"].apply(lambda x: f"GHS {x:,.2f}"),
+                    "Bucket":        _co_chase["Bucket"],
+                }).head(25)
+                st.dataframe(_co_chase_disp, use_container_width=True, hide_index=True)
+                if len(_co_chase) > 25:
+                    st.caption(f"Showing the 25 most overdue of {len(_co_chase)} overdue invoices, "
+                               f"totaling GHS {_co_chase['Outstanding'].sum():,.2f} outstanding.")
+                else:
+                    st.caption(f"{len(_co_chase)} overdue invoices, "
+                               f"totaling GHS {_co_chase['Outstanding'].sum():,.2f} outstanding.")
+            else:
+                st.success("No overdue invoices as of week-end, everything outstanding isn't due yet.")
+        else:
+            st.success("No outstanding receivables as of week-end.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── SKU performance ──────────────────────────────────────────────────────
+        st.markdown(chart_wrap("SKU Performance This Week",
+                                f"{_co_il_cost['Sku'].nunique()} distinct SKUs · "
+                                f"{int(_co_il_cost['Quantity'].sum())} units sold"),
+                    unsafe_allow_html=True)
+        _sku_tbl = (_co_il_cost.groupby("Sku").agg(
+            Units=("Quantity", "sum"), Revenue=("Line Revenue", "sum"), Cost=("Line Cost", "sum"),
+        ).reset_index())
+        if len(_sku_tbl):
+            _sku_tbl["Gross Profit"] = _sku_tbl["Revenue"] - _sku_tbl["Cost"]
+            _sku_tbl["Margin %"]     = _sku_tbl["Gross Profit"] / _sku_tbl["Revenue"] * 100
+            _sku_tbl = _sku_tbl.sort_values("Revenue", ascending=False)
+
+            _sku_fig = go.Figure(go.Bar(
+                x=_sku_tbl["Revenue"], y=_sku_tbl["Sku"], orientation="h",
+                marker_color=_sku_tbl["Margin %"].apply(
+                    lambda m: "#9ca3af" if pd.isna(m) else ("#16a34a" if m >= 25 else ("#eab308" if m >= 15 else "#dc2626"))),
+                text=_sku_tbl["Revenue"].apply(lambda v: f"GHS {v:,.0f}"), textposition="outside",
+            ))
+            _sku_fig.update_layout(plot_bgcolor="white", paper_bgcolor="white",
+                                   margin=dict(t=10, b=10, l=10, r=40), height=max(160, 34 * len(_sku_tbl)),
+                                   font=dict(family="Inter, sans-serif", size=12),
+                                   xaxis=dict(gridcolor="#f3f4f6", range=[0, _sku_tbl["Revenue"].max() * 1.2]),
+                                   yaxis=dict(autorange="reversed"))
+            st.plotly_chart(_sku_fig, use_container_width=True, config=CHART_CFG)
+
+            _sku_disp = pd.DataFrame({
+                "SKU":          _sku_tbl["Sku"],
+                "Units Sold":   _sku_tbl["Units"].astype(int),
+                "Revenue":      _sku_tbl["Revenue"].apply(lambda x: f"GHS {x:,.2f}"),
+                "Cost":         _sku_tbl["Cost"].apply(lambda x: f"GHS {x:,.2f}" if pd.notna(x) else "No cost data"),
+                "Gross Profit": _sku_tbl.apply(lambda r: f"GHS {r['Gross Profit']:,.2f}" if pd.notna(r["Cost"]) else "—", axis=1),
+                "Margin %":     _sku_tbl["Margin %"].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "—"),
+            })
+            st.dataframe(_sku_disp, use_container_width=True, hide_index=True)
+        else:
+            st.info("No line-item data for this week.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── Discounts given ──────────────────────────────────────────────────────
+        st.markdown(chart_wrap("Discounts Given This Week"), unsafe_allow_html=True)
+        _disc_tbl = inv_wk[inv_wk["Discount"].fillna(0) > 0][["ID", "Total Order Value", "Discount", "Discountedvalue"]].copy()
+        if len(_disc_tbl):
+            _disc_tbl["Discount Given"] = _disc_tbl["Total Order Value"] - _disc_tbl["Discountedvalue"]
+            _disc_tbl = _disc_tbl.sort_values("Discount Given", ascending=False)
+            _disc_disp = pd.DataFrame({
+                "Invoice ID":     _disc_tbl["ID"],
+                "Pre-Discount":   _disc_tbl["Total Order Value"].apply(lambda x: f"GHS {x:,.2f}"),
+                "Discount %":     _disc_tbl["Discount"].apply(lambda x: f"{x:.0f}%"),
+                "Discount Given": _disc_tbl["Discount Given"].apply(lambda x: f"GHS {x:,.2f}"),
+                "Net Invoiced":   _disc_tbl["Discountedvalue"].apply(lambda x: f"GHS {x:,.2f}"),
+            })
+            st.dataframe(_disc_disp, use_container_width=True, hide_index=True)
+            st.caption(f"{len(_disc_tbl)} of {len(inv_wk)} invoices this week had a discount applied, "
+                       f"totaling GHS {_disc_tbl['Discount Given'].sum():,.2f}.")
+        else:
+            st.success("No discounts were given this week.")
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
