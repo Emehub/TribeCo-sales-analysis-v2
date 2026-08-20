@@ -2532,7 +2532,10 @@ elif page == "Weekly Info":
                     f"{len(_best)} months in a row ({_best[0]} to {_best[-1]}) landed within one point of "
                     f"exactly 100% of target. That's an unusual pattern for independently-set targets, worth "
                     f"confirming those months' targets were fixed in advance, not derived from the actuals "
-                    f"afterward. If they were, 'hitting target' those months isn't a real performance signal."))
+                    f"afterward. If they were, 'hitting target' those months isn't a real performance signal.",
+                    "Ask whoever sets monthly targets whether those months' numbers were fixed before the "
+                    "month started. If any were adjusted after seeing early results, flag it as a "
+                    "target-setting process fix, not a result to report as on-target."))
 
         # 2. Weekly attainment swinging wildly even when the month closes near 100%
         if len(_co_target):
@@ -2548,7 +2551,10 @@ elif page == "Weekly Info":
                         f"Over the last {len(_wk_recent)} weeks, attainment ranged from {_wmin:.0f}% to "
                         f"{_wmax:.0f}% of target, even in months that closed near 100%. Revenue is landing "
                         f"unevenly week to week, which makes weekly cash and stock planning harder than the "
-                        f"monthly trend alone suggests."))
+                        f"monthly trend alone suggests.",
+                        "Check whether a small number of large orders are driving the swings. If so, "
+                        "consider staggered restock cycles or standing orders with the largest few "
+                        "customers, so revenue lands more evenly week to week instead of in bursts."))
 
         # 3. AR sitting in the 31-90 day danger zone for the selected week
         if len(_co_ar_detail):
@@ -2558,7 +2564,9 @@ elif page == "Weekly Info":
                 _insights.append(("🕒", "Collections danger zone",
                     f"GHS {_danger_total:,.2f} is currently 31, 90 days overdue as of this week, still "
                     f"realistically collectible, but starting to be at risk of aging into the 90+ bucket. "
-                    f"This is the priority slice of the AR Aging chase list above."))
+                    f"This is the priority slice of the AR Aging chase list above.",
+                    "Work the 31, 90 day invoices in the AR Aging chase list this week, before they roll "
+                    "into the 90+ bucket, where recovery odds drop sharply."))
 
         # 4. Segment tagging coverage limiting how much the Agrovet KPIs really describe
         _agro_tagged_n, _agro_total_n = len(_co_agro_ids), len(rc)
@@ -2567,16 +2575,24 @@ elif page == "Weekly Info":
                 f"Only {_agro_tagged_n} of {_agro_total_n} Ghana retail centres "
                 f"({_agro_tagged_n/_agro_total_n*100:.0f}%) are tagged 'Agrovet' in the system. The "
                 f"Active/Repeat Agrovet figures above only ever describe this tagged subset, tagging the "
-                f"rest would make every segment-level number on this page more reliable."))
+                f"rest would make every segment-level number on this page more reliable.",
+                "Have whoever manages the retail centre records complete Segment Type tagging for the "
+                "untagged accounts. Until then, treat Agrovet-specific figures as a sample, not the full "
+                "customer base."))
 
         if _insights:
-            for _icon, _title, _text in _insights:
+            for _icon, _title, _text, _action in _insights:
                 st.markdown(
                     f'<div style="background:{_T["card_bg"]};backdrop-filter:blur(14px);'
                     f'border:1px solid {_T["card_border"]};border-left:4px solid {BRAND_GOLD};'
                     f'border-radius:12px;padding:14px 18px;margin-bottom:10px">'
                     f'<div style="font-weight:700;color:{_T["text_heading"]};margin-bottom:4px">{_icon} {_title}</div>'
-                    f'<div style="font-size:13px;color:{_T["text_body"]}">{_text}</div></div>',
+                    f'<div style="font-size:13px;color:{_T["text_body"]};margin-bottom:10px">{_text}</div>'
+                    f'<div style="display:flex;gap:8px;padding-top:10px;border-top:1px solid {_T["hr_color"]}">'
+                    f'<span style="font-size:11px;font-weight:700;text-transform:uppercase;'
+                    f'letter-spacing:0.5px;color:{BRAND_GOLD};white-space:nowrap">Suggested action</span>'
+                    f'<span style="font-size:13px;color:{_T["text_heading"]}">{_action}</span></div>'
+                    f'</div>',
                     unsafe_allow_html=True)
         else:
             st.info("No notable patterns flagged for the current data window.")
