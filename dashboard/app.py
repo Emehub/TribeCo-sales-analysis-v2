@@ -2272,6 +2272,11 @@ elif page == "Weekly Info":
         _co_inv_asof["Repaid"] = _co_inv_asof["Repaid"].fillna(0)
         _co_ar_asof = (_co_inv_asof["Discountedvalue"] - _co_inv_asof["Repaid"]).clip(lower=0).sum()
         _co_dso = (_co_ar_asof / _co_sales_90d * 90) if _co_sales_90d else None
+        # Standard customer payment term is 30 days (confirmed from Customerpaymentterms on
+        # invoices with a terms value on file, and matched by computed due dates) -- DSO is
+        # only meaningful against that real benchmark, not a generic trade-credit rule of thumb.
+        _co_terms_days = 30
+        _co_days_beyond_terms = (_co_dso - _co_terms_days) if _co_dso is not None else None
 
         # ── 4. Active / repeat Agrovets ───────────────────────────────────────────
         _co_agro_ids    = set(rc[rc["Segment Type"] == "Agrovet"]["ID"])
@@ -2326,14 +2331,21 @@ elif page == "Weekly Info":
                         f"GHS {_co_collected:,.2f} collected", "#16a34a"), unsafe_allow_html=True)
         with _r1c3:
             st.markdown(kpi_card("DSO", f"{_co_dso:.0f} days" if _co_dso is not None else "N/A",
-                        "Trailing 90-day basis", "#f59e0b"), unsafe_allow_html=True)
+                        (f"vs {_co_terms_days}-day terms" if _co_dso is not None else "Trailing 90-day basis"),
+                        "#f59e0b",
+                        (f"{_co_days_beyond_terms:+.0f}d" if _co_days_beyond_terms is not None else ""),
+                        ("#dc2626" if (_co_days_beyond_terms or 0) > 0 else "#16a34a") if _co_days_beyond_terms is not None else ""),
+                        unsafe_allow_html=True)
             with st.popover("🔎 View formula", use_container_width=True):
                 st.markdown("**DSO = Outstanding AR ÷ Trailing 90-day sales × 90**")
                 st.markdown(
                     f"- Outstanding AR (as of week-end): **GHS {_co_ar_asof:,.2f}**\n"
                     f"- Sales, trailing 90 days: **GHS {_co_sales_90d:,.2f}**\n\n"
                     f"DSO = ({_co_ar_asof:,.2f} ÷ {_co_sales_90d:,.2f}) × 90 = "
-                    f"**{_co_dso:.1f} days**" if _co_dso is not None else "Not enough data to calculate.")
+                    f"**{_co_dso:.1f} days**\n\n"
+                    f"Standard payment terms are **{_co_terms_days} days** -> this week is "
+                    f"**{_co_days_beyond_terms:+.1f} days** {'over' if _co_days_beyond_terms >= 0 else 'under'} terms."
+                    if _co_dso is not None else "Not enough data to calculate.")
         with _r1c4:
             st.markdown(kpi_card("Gross Margin %", f"{_co_margin_pct:.1f}%" if _co_margin_pct is not None else "N/A",
                         f"Based on {_co_coverage_pct:.0f}% of this week's revenue with cost data on file", "#8b5cf6"),
@@ -2405,6 +2417,8 @@ elif page == "Weekly Info":
                 ("Outstanding AR as of week-end", f"GHS {_co_ar_asof:,.2f}"),
                 ("Sales, trailing 90 days",        f"GHS {_co_sales_90d:,.2f}"),
                 ("DSO",                            f"{_co_dso:.1f} days" if _co_dso is not None else "N/A"),
+                ("Standard payment terms",         f"{_co_terms_days} days"),
+                ("Days beyond terms",              f"{_co_days_beyond_terms:+.1f} days" if _co_days_beyond_terms is not None else "N/A"),
             ]), unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
