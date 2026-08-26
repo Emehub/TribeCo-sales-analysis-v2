@@ -794,6 +794,25 @@ def apply_year(df, year, date_col="Created At"):
         return df
     return df[df[date_col].dt.year == year]
 
+def week_label(w):
+    """'YYYY-MM-DD/YYYY-MM-DD' week period -> 'Week N' (ISO week number). Concise, no dates."""
+    try:
+        return f"Week {pd.Period(w, freq='W').start_time.isocalendar()[1]}"
+    except Exception:
+        return w
+
+def month_label(m):
+    """'YYYY-MM' -> short month name, e.g. 'Jan'. Concise, no year/date."""
+    try:
+        return pd.Period(m, freq="M").strftime("%b")
+    except Exception:
+        return m
+
+# Rounded, bevelled bar styling -- a Plotly-native "dimensional" finish (rounded data-ends
+# plus a light top edge) that reads as premium without the value-distortion of true 3D bars.
+def bar_marker(color, line_color="rgba(255,255,255,0.55)"):
+    return dict(color=color, cornerradius=6, line=dict(color=line_color, width=1))
+
 def white_layout(height=300):
     """Transparent chart canvas so the glass card shows through; text/gridlines adapt to THEME."""
     return dict(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
@@ -1341,18 +1360,19 @@ if page == "Overview":
         monthly = inv_y.groupby("Month")["Discountedvalue"].sum().reset_index()
         monthly["prev"] = monthly["Discountedvalue"].shift(1)
         monthly["pct"]  = (((monthly["Discountedvalue"] - monthly["prev"]) / monthly["prev"]).astype(float) * 100).round(1)
+        monthly["Month Label"] = monthly["Month"].apply(month_label)
 
         fig = go.Figure()
-        fig.add_bar(x=monthly["Month"], y=monthly["Discountedvalue"],
-                    marker_color=BRAND_GREEN, name="Revenue (GHS)",
+        fig.add_bar(x=monthly["Month Label"], y=monthly["Discountedvalue"],
+                    marker=bar_marker(BRAND_GREEN), name="Revenue (GHS)",
                     text=monthly["Discountedvalue"].apply(lambda x: f"GHS {x:,.2f}"),
                     textposition="outside", textfont=dict(size=9))
-        fig.add_scatter(x=monthly["Month"], y=monthly["Discountedvalue"],
+        fig.add_scatter(x=monthly["Month Label"], y=monthly["Discountedvalue"],
                         mode="lines+markers", line=dict(color="#f59e0b", width=2.5, dash="dot"),
                         marker=dict(size=6, color="#f59e0b"), name="Trend")
         for _, row in monthly.dropna(subset=["pct"]).iterrows():
             clr = "#16a34a" if row["pct"] >= 0 else "#dc2626"
-            fig.add_annotation(x=row["Month"], y=row["Discountedvalue"],
+            fig.add_annotation(x=row["Month Label"], y=row["Discountedvalue"],
                                text=f"{'+' if row['pct']>=0 else ''}{row['pct']:.0f}%",
                                showarrow=False, yshift=32, font=dict(size=10, color=clr))
         fig.update_layout(**white_layout(300),
@@ -1387,7 +1407,8 @@ if page == "Overview":
         clrs = {"Open":BRAND_GOLD,"Repaid":"#16a34a","Overdue":"#dc2626","Due Soon":"#f59e0b"}
         fig3 = px.bar(rs, x="Status", y="Count", color="Status",
                       color_discrete_map=clrs, text="Count")
-        fig3.update_traces(textposition="outside", textfont=dict(size=11))
+        fig3.update_traces(textposition="outside", textfont=dict(size=11),
+                           marker_cornerradius=6, marker_line=dict(color="rgba(255,255,255,0.55)", width=1))
         fig3.update_layout(**white_layout(240))
         fig3.update_layout(showlegend=False, xaxis=dict(tickangle=0))
         st.plotly_chart(fig3, use_container_width=True, config=CHART_CFG)
@@ -1478,6 +1499,7 @@ if page == "Overview":
     _vax = (_il_v[_il_v["Disease"] != "Other"]
             .groupby(["Month", "Disease"])["Quantity"]
             .sum().reset_index())
+    _vax["Month Label"] = _vax["Month"].apply(month_label)
 
     if len(_vax):
         _disease_order = ["Newcastle", "Gumboro", "Fowlpox", "AI", "PPR", "CBPP", "Other Poultry"]
@@ -1486,11 +1508,11 @@ if page == "Overview":
         col_vax1, col_vax2 = st.columns([3, 2])
         with col_vax1:
             fig_vax = px.bar(
-                _vax, x="Month", y="Quantity", color="Disease",
+                _vax, x="Month Label", y="Quantity", color="Disease",
                 barmode="stack",
                 color_discrete_map=_DISEASE_COLORS,
                 category_orders={"Disease": _diseases_present},
-                labels={"Quantity": "Doses", "Month": ""},
+                labels={"Quantity": "Doses", "Month Label": ""},
                 text_auto=False,
             )
             fig_vax.update_layout(
@@ -1636,6 +1658,7 @@ elif page == "Sales Performance":
                   .reindex(sorted(selected)).fillna(0).reset_index())
         m["Prev"]     = m["Discountedvalue"].shift(1)
         m["Change %"] = (((m["Discountedvalue"] - m["Prev"]) / m["Prev"]).astype(float) * 100).round(1)
+        m["Month Label"] = m["Month"].apply(month_label)
 
         _target_path = f"{DATA}/revenue_target.csv"
         _target = pd.read_csv(_target_path) if os.path.exists(_target_path) else pd.DataFrame(columns=["Month", "Target"])
@@ -1645,14 +1668,14 @@ elif page == "Sales Performance":
 
         with tab_mom:
             fig = go.Figure()
-            fig.add_bar(x=m["Month"], y=m["Discountedvalue"], marker_color=BRAND_GREEN,
+            fig.add_bar(x=m["Month Label"], y=m["Discountedvalue"], marker=bar_marker(BRAND_GREEN),
                         name="Sales (GHS)", text=m["Discountedvalue"].apply(lambda x: f"GHS {x:,.2f}"),
                         textposition="outside", textfont=dict(size=9))
             for _, row in m.dropna(subset=["Change %"]).iterrows():
                 if row["Discountedvalue"] == 0:
                     continue
                 clr = "#16a34a" if row["Change %"] >= 0 else "#dc2626"
-                fig.add_annotation(x=row["Month"], y=row["Discountedvalue"],
+                fig.add_annotation(x=row["Month Label"], y=row["Discountedvalue"],
                                    text=f"{'+' if row['Change %']>=0 else ''}{row['Change %']:.0f}%",
                                    showarrow=False, yshift=30, font=dict(size=10, color=clr))
             fig.update_layout(**white_layout(300))
@@ -1662,12 +1685,12 @@ elif page == "Sales Performance":
         with tab_target:
             if m_t["Target"].notna().any():
                 fig_t = go.Figure()
-                fig_t.add_bar(x=m_t["Month"], y=m_t["Discountedvalue"], marker_color=BRAND_GREEN, name="Actual (GHS)")
-                fig_t.add_bar(x=m_t["Month"], y=m_t["Target"], marker_color="#eab308", name="Target (GHS)")
+                fig_t.add_bar(x=m_t["Month Label"], y=m_t["Discountedvalue"], marker=bar_marker(BRAND_GREEN), name="Actual (GHS)")
+                fig_t.add_bar(x=m_t["Month Label"], y=m_t["Target"], marker=bar_marker("#eab308"), name="Target (GHS)")
                 for _, row in m_t.dropna(subset=["Target"]).iterrows():
                     attain = (row["Discountedvalue"] / row["Target"] * 100) if row["Target"] else 0
                     clr = "#16a34a" if attain >= 100 else "#dc2626"
-                    fig_t.add_annotation(x=row["Month"], y=max(row["Discountedvalue"], row["Target"]),
+                    fig_t.add_annotation(x=row["Month Label"], y=max(row["Discountedvalue"], row["Target"]),
                                        text=f"{attain:.1f}%", showarrow=False, yshift=14,
                                        font=dict(size=10, color=clr))
                 fig_t.update_layout(**white_layout(300))
@@ -1682,9 +1705,10 @@ elif page == "Sales Performance":
     with col2:
         st.markdown(chart_wrap("Weekly Sales Trend"), unsafe_allow_html=True)
         w = inv_f.groupby("Week")["Discountedvalue"].sum().reset_index().tail(16)
+        w["Week Label"] = w["Week"].apply(week_label)
         fig2 = go.Figure()
-        fig2.add_bar(x=w["Week"], y=w["Discountedvalue"], marker_color="#e0e7ff", name="Weekly Sales")
-        fig2.add_scatter(x=w["Week"], y=w["Discountedvalue"],
+        fig2.add_bar(x=w["Week Label"], y=w["Discountedvalue"], marker=bar_marker("#e0e7ff", "rgba(255,255,255,0.9)"), name="Weekly Sales")
+        fig2.add_scatter(x=w["Week Label"], y=w["Discountedvalue"],
                          mode="lines+markers", line=dict(color=BRAND_GREEN, width=2.5),
                          marker=dict(size=5, color=BRAND_GREEN), name="Trend")
         fig2.update_layout(**white_layout(300))
@@ -1803,7 +1827,8 @@ elif page == "Customers":
                      orientation="h", text="Total Value",
                      color="Total Value", color_continuous_scale=["#e3f2e8",BRAND_GREEN])
         fig.update_traces(texttemplate="GHS %{text:,.2f}", textposition="inside",
-                          insidetextanchor="middle", textfont=dict(color="white", size=10))
+                          insidetextanchor="middle", textfont=dict(color="white", size=10),
+                          marker_cornerradius=6)
         fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                           margin=dict(t=10, b=10, l=10, r=10), height=360, font=dict(color=CHART_FONT),
                           coloraxis_showscale=False,
@@ -1830,8 +1855,9 @@ elif page == "Customers":
     rc_dated["Month"] = rc_dated["Created At"].dt.to_period("M").astype(str)
     rc_month = rc_dated[rc_dated["Created At"].dt.year == yr] if yr != "All" else rc_dated
     rc_month_grp = rc_month.groupby(["Month","Segment Type"])["ID"].count().to_frame("Count").reset_index()
+    rc_month_grp["Month Label"] = rc_month_grp["Month"].apply(month_label)
     seg_col_map = {"Provider":BRAND_GREEN,"Agrovet":"#14b8a6","Hatchery":"#f59e0b"}
-    fig3 = px.bar(rc_month_grp, x="Month", y="Count", color="Segment Type",
+    fig3 = px.bar(rc_month_grp, x="Month Label", y="Count", color="Segment Type",
                   color_discrete_map=seg_col_map, barmode="stack", text="Count")
     fig3.update_traces(textposition="inside", textfont=dict(color="white", size=10))
     fig3.update_layout(**white_layout(260), legend=dict(orientation="h", y=-0.3))
@@ -1952,9 +1978,10 @@ elif page == "Payments":
         monthly_col  = rep2.groupby("Month")["Amount"].sum().reset_index()
         monthly_inv  = inv_y.groupby("Month")["Discountedvalue"].sum().reset_index()
         cmp = monthly_inv.merge(monthly_col, on="Month", how="left").fillna(0)
+        cmp["Month Label"] = cmp["Month"].apply(month_label)
         fig2 = go.Figure()
-        fig2.add_bar(x=cmp["Month"], y=cmp["Discountedvalue"], name="Invoiced", marker_color="#e0e7ff")
-        fig2.add_bar(x=cmp["Month"], y=cmp["Amount"],            name="Collected", marker_color=BRAND_GREEN)
+        fig2.add_bar(x=cmp["Month Label"], y=cmp["Discountedvalue"], name="Invoiced", marker=bar_marker("#e0e7ff", "rgba(255,255,255,0.9)"))
+        fig2.add_bar(x=cmp["Month Label"], y=cmp["Amount"],            name="Collected", marker=bar_marker(BRAND_GREEN))
         fig2.update_layout(barmode="overlay", **white_layout(300),
                            legend=dict(orientation="h", y=-0.3))
         st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
@@ -2069,10 +2096,11 @@ elif page == "Weekly Scorecard":
             w_trend = (inv_y.groupby("Week")
                             .agg(Orders=("ID","count"), Sales=("Discountedvalue","sum"))
                             .reset_index().tail(16))
+            w_trend["Week Label"] = w_trend["Week"].apply(week_label)
             fig = go.Figure()
-            fig.add_bar(x=w_trend["Week"], y=w_trend["Sales"],
-                        marker_color="#e0e7ff", name="Sales (GHS)", yaxis="y")
-            fig.add_scatter(x=w_trend["Week"], y=w_trend["Orders"],
+            fig.add_bar(x=w_trend["Week Label"], y=w_trend["Sales"],
+                        marker=bar_marker("#e0e7ff", "rgba(255,255,255,0.9)"), name="Sales (GHS)", yaxis="y")
+            fig.add_scatter(x=w_trend["Week Label"], y=w_trend["Orders"],
                             mode="lines+markers", line=dict(color=BRAND_GREEN, width=2.5),
                             marker=dict(size=6, color=BRAND_GREEN), name="Orders", yaxis="y2")
             fig.update_layout(**white_layout(300))
@@ -2088,13 +2116,14 @@ elif page == "Weekly Scorecard":
                 w_t = (inv_y.groupby("Week")["Discountedvalue"].sum()
                             .reindex(_wk_recent).fillna(0).reset_index())
                 w_t = w_t.merge(_wk_target, on="Week", how="left")
+                w_t["Week Label"] = w_t["Week"].apply(week_label)
                 fig_wt = go.Figure()
-                fig_wt.add_bar(x=w_t["Week"], y=w_t["Discountedvalue"], marker_color=BRAND_GREEN, name="Actual (GHS)")
-                fig_wt.add_bar(x=w_t["Week"], y=w_t["Target"], marker_color="#eab308", name="Target (GHS)")
+                fig_wt.add_bar(x=w_t["Week Label"], y=w_t["Discountedvalue"], marker=bar_marker(BRAND_GREEN), name="Actual (GHS)")
+                fig_wt.add_bar(x=w_t["Week Label"], y=w_t["Target"], marker=bar_marker("#eab308"), name="Target (GHS)")
                 for _, row in w_t.dropna(subset=["Target"]).iterrows():
                     attain = (row["Discountedvalue"] / row["Target"] * 100) if row["Target"] else 0
                     clr = "#16a34a" if attain >= 100 else "#dc2626"
-                    fig_wt.add_annotation(x=row["Week"], y=max(row["Discountedvalue"], row["Target"]),
+                    fig_wt.add_annotation(x=row["Week Label"], y=max(row["Discountedvalue"], row["Target"]),
                                           text=f"{attain:.1f}%", showarrow=False, yshift=12,
                                           font=dict(size=9, color=clr))
                 fig_wt.update_layout(**white_layout(300))
@@ -2111,10 +2140,11 @@ elif page == "Weekly Scorecard":
         ww = (inv_y.groupby("Week")["Discountedvalue"].sum().reset_index().tail(8))
         ww["Prev"]   = ww["Discountedvalue"].shift(1)
         ww["Change"] = ((ww["Discountedvalue"] - ww["Prev"]) / ww["Prev"] * 100).round(1)
+        ww["Week Label"] = ww["Week"].apply(week_label)
         bar_colors   = ["#16a34a" if x >= 0 else "#dc2626" for x in ww["Change"].fillna(0)]
         fig2 = go.Figure(go.Bar(
-            x=ww["Week"], y=ww["Change"].fillna(0),
-            marker_color=bar_colors,
+            x=ww["Week Label"], y=ww["Change"].fillna(0),
+            marker=dict(color=bar_colors, cornerradius=6, line=dict(color="rgba(255,255,255,0.55)", width=1)),
             text=ww["Change"].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else ","),
             textposition="outside"
         ))
@@ -2410,7 +2440,8 @@ elif page == "Weekly Info":
 
             _age_fig = go.Figure(go.Bar(
                 x=_co_bucket_sum["Total"], y=_co_bucket_sum.index, orientation="h",
-                marker_color=[_co_bucket_colors[b] for b in _co_bucket_sum.index],
+                marker=dict(color=[_co_bucket_colors[b] for b in _co_bucket_sum.index], cornerradius=6,
+                           line=dict(color="rgba(255,255,255,0.55)", width=1)),
                 text=[f"GHS {t:,.0f} · {int(n)} invoices" for t, n in zip(_co_bucket_sum["Total"], _co_bucket_sum["Invoices"])],
                 textposition="outside",
             ))
@@ -2461,8 +2492,9 @@ elif page == "Weekly Info":
 
             _sku_fig = go.Figure(go.Bar(
                 x=_sku_tbl["Revenue"], y=_sku_tbl["Sku"], orientation="h",
-                marker_color=_sku_tbl["Margin %"].apply(
+                marker=dict(color=_sku_tbl["Margin %"].apply(
                     lambda m: "#9ca3af" if pd.isna(m) else ("#16a34a" if m >= 25 else ("#eab308" if m >= 15 else "#dc2626"))),
+                    cornerradius=6, line=dict(color="rgba(255,255,255,0.55)", width=1)),
                 text=_sku_tbl["Revenue"].apply(lambda v: f"GHS {v:,.0f}"), textposition="outside",
             ))
             _sku_fig.update_layout(plot_bgcolor="white", paper_bgcolor="white",
@@ -2658,7 +2690,8 @@ elif page == "Reconciliation":
                       color_discrete_map={"Reconciled":"#16a34a","Unreconciled":"#dc2626"},
                       text="Value")
         fig2.update_traces(texttemplate="GHS %{text:,.2f}", textposition="outside",
-                           textfont=dict(size=11))
+                           textfont=dict(size=11),
+                           marker_cornerradius=6, marker_line=dict(color="rgba(255,255,255,0.55)", width=1))
         fig2.update_layout(**white_layout(300))
         fig2.update_layout(showlegend=False, xaxis=dict(tickangle=0))
         st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
@@ -2670,7 +2703,8 @@ elif page == "Reconciliation":
     clrs = {"Open":BRAND_GREEN,"Repaid":"#16a34a","Overdue":"#dc2626","Due Soon":"#f59e0b"}
     fig3 = px.bar(rs, x="Status", y="Count", color="Status",
                   color_discrete_map=clrs, text="Count")
-    fig3.update_traces(textposition="outside", textfont=dict(size=11))
+    fig3.update_traces(textposition="outside", textfont=dict(size=11),
+                       marker_cornerradius=6, marker_line=dict(color="rgba(255,255,255,0.55)", width=1))
     fig3.update_layout(**white_layout(240))
     fig3.update_layout(showlegend=False, xaxis=dict(tickangle=0))
     st.plotly_chart(fig3, use_container_width=True, config=CHART_CFG)
@@ -2784,7 +2818,7 @@ elif page == "Data Quality":
                   for v in df["Completeness"]]
         fig = go.Figure(go.Bar(
             x=df["Completeness"], y=df["Field"], orientation="h",
-            marker_color=colors,
+            marker=dict(color=colors, cornerradius=6),
             text=df["Completeness"].apply(lambda x: f"{x:.0f}%"),
             textposition="inside", insidetextanchor="start",
             textfont=dict(color="white", size=10)
@@ -2979,7 +3013,8 @@ elif page == "Segmentation":
         st.markdown(chart_wrap("Sales by Customer Segment", "Total order value per segment"), unsafe_allow_html=True)
         fig = px.bar(by_segment, x="Segment Type", y="Sales", color="Segment Type",
                      color_discrete_map=seg_colors, text="Sales")
-        fig.update_traces(texttemplate="GHS %{text:,.2f}", textposition="outside", textfont=dict(size=10))
+        fig.update_traces(texttemplate="GHS %{text:,.2f}", textposition="outside", textfont=dict(size=10),
+                          marker_cornerradius=6, marker_line=dict(color="rgba(255,255,255,0.55)", width=1))
         fig.update_layout(**white_layout(300))
         fig.update_layout(showlegend=False, xaxis=dict(tickangle=0))
         st.plotly_chart(fig, use_container_width=True, config=CHART_CFG)
@@ -2990,7 +3025,8 @@ elif page == "Segmentation":
         rpp = by_segment[by_segment["Segment Type"] != "Unclassified"].copy()
         fig2 = px.bar(rpp, x="Segment Type", y="Rev/Purchase", color="Segment Type",
                       color_discrete_map=seg_colors, text="Rev/Purchase")
-        fig2.update_traces(texttemplate="GHS %{text:,.2f}", textposition="outside", textfont=dict(size=11))
+        fig2.update_traces(texttemplate="GHS %{text:,.2f}", textposition="outside", textfont=dict(size=11),
+                           marker_cornerradius=6, marker_line=dict(color="rgba(255,255,255,0.55)", width=1))
         fig2.update_layout(**white_layout(300))
         fig2.update_layout(showlegend=False, xaxis=dict(tickangle=0),
                            yaxis=dict(title="Avg Rev/Purchase (GHS)", gridcolor="#f3f4f6"))
@@ -3129,7 +3165,8 @@ elif page == "Campaigns":
     status_dist.columns = ["Status","Count"]
     fig2 = px.bar(status_dist, x="Status", y="Count", color="Status",
                   color_discrete_map=camp_colors, text="Count")
-    fig2.update_traces(textposition="outside", textfont=dict(size=12))
+    fig2.update_traces(textposition="outside", textfont=dict(size=12),
+                       marker_cornerradius=6, marker_line=dict(color="rgba(255,255,255,0.55)", width=1))
     fig2.update_layout(**white_layout(240))
     fig2.update_layout(showlegend=False, xaxis=dict(tickangle=0))
     st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
@@ -3235,7 +3272,8 @@ elif page == "Historical Analysis":
                         color="Year",
                         color_discrete_sequence=[BRAND_GREEN_DEEP,"#16a34a","#f59e0b"],
                         labels={"Revenue GHS": "Revenue (GHS)"})
-        fig_yr.update_traces(texttemplate="GHS %{y:,.2f}", textposition="outside")
+        fig_yr.update_traces(texttemplate="GHS %{y:,.2f}", textposition="outside",
+                             marker_cornerradius=6, marker_line=dict(color="rgba(255,255,255,0.55)", width=1))
         fig_yr.update_layout(**white_layout(320))
         st.plotly_chart(fig_yr, use_container_width=True, config=CHART_CFG)
         st.markdown("</div>", unsafe_allow_html=True)
@@ -3251,7 +3289,7 @@ elif page == "Historical Analysis":
     fig_mo = px.bar(_mo_rev, x="Month Label", y="Revenue GHS",
                     color_discrete_sequence=[BRAND_GREEN],
                     labels={"Month Label": "", "Revenue GHS": "Revenue (GHS)"})
-    fig_mo.update_traces(marker_opacity=0.85)
+    fig_mo.update_traces(marker_cornerradius=6, marker_line=dict(color="rgba(255,255,255,0.55)", width=1))
     fig_mo.update_layout(**white_layout(300))
     st.plotly_chart(fig_mo, use_container_width=True, config=CHART_CFG)
     st.markdown("</div>", unsafe_allow_html=True)
@@ -3266,6 +3304,7 @@ elif page == "Historical Analysis":
         fig_tp = px.bar(_tp, y="Item Name", x="Revenue GHS", orientation="h",
                         color_discrete_sequence=[BRAND_GREEN],
                         labels={"Item Name": "", "Revenue GHS": "Revenue (GHS)"})
+        fig_tp.update_traces(marker_cornerradius=6, marker_line=dict(color="rgba(255,255,255,0.55)", width=1))
         fig_tp.update_layout(**white_layout(360))
         fig_tp.update_layout(yaxis=dict(autorange="reversed"))
         st.plotly_chart(fig_tp, use_container_width=True, config=CHART_CFG)
@@ -3279,6 +3318,7 @@ elif page == "Historical Analysis":
         fig_tc = px.bar(_tc, y="Customer Name", x="Revenue GHS", orientation="h",
                         color_discrete_sequence=["#16a34a"],
                         labels={"Customer Name": "", "Revenue GHS": "Revenue (GHS)"})
+        fig_tc.update_traces(marker_cornerradius=6, marker_line=dict(color="rgba(255,255,255,0.55)", width=1))
         fig_tc.update_layout(**white_layout(360))
         fig_tc.update_layout(yaxis=dict(autorange="reversed"))
         st.plotly_chart(fig_tc, use_container_width=True, config=CHART_CFG)
@@ -3322,7 +3362,8 @@ elif page == "Historical Analysis":
                    .rename(columns={"Amount Received": "Amount GHS"}))
         fig_pm = px.bar(_pm, x="Mode of Payment", y="Amount GHS", text="Amount GHS",
                         color_discrete_sequence=["#0891b2"])
-        fig_pm.update_traces(texttemplate="GHS %{y:,.2f}", textposition="outside")
+        fig_pm.update_traces(texttemplate="GHS %{y:,.2f}", textposition="outside",
+                             marker_cornerradius=6, marker_line=dict(color="rgba(255,255,255,0.55)", width=1))
         fig_pm.update_layout(**white_layout(280))
         st.plotly_chart(fig_pm, use_container_width=True, config=CHART_CFG)
         st.markdown("</div>", unsafe_allow_html=True)
