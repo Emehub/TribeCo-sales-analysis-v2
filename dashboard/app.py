@@ -864,17 +864,22 @@ def dl_row(excel_sheets, excel_file, pdf_bytes, pdf_file, label="Report"):
 
 # ── PDF chart helpers (matplotlib → PNG bytes) ───────────────────────────────────
 if _PDF_AVAIL:
-    def _bar_png(x, y, title="", color=BRAND_GREEN, ylabel="", figw=8.5, figh=3.0):
+    def _bar_png(x, y, title="", color=BRAND_GREEN, xlabel="", ylabel="", label_fmt="{:,.0f}",
+                figw=8.5, figh=3.0):
         fig, ax = plt.subplots(figsize=(figw, figh))
-        ax.bar(list(x), list(y), color=color, alpha=0.88, zorder=3)
+        bars = ax.bar(list(x), list(y), color=color, alpha=0.88, zorder=3)
+        ax.bar_label(bars, labels=[label_fmt.format(v) for v in y], fontsize=6.5, padding=2, color='#374151')
         if title:
             ax.set_title(title, fontsize=11, fontweight='bold', color='#14532d', pad=6)
+        if xlabel:
+            ax.set_xlabel(xlabel, fontsize=8, color='#6b7280')
         if ylabel:
             ax.set_ylabel(ylabel, fontsize=8, color='#6b7280')
         ax.tick_params(axis='x', rotation=30, labelsize=7)
         ax.tick_params(axis='y', labelsize=7)
         ax.yaxis.grid(True, alpha=0.3, zorder=0)
         ax.set_axisbelow(True)
+        ax.margins(y=0.15)
         for sp in ['top','right']:
             ax.spines[sp].set_visible(False)
         plt.tight_layout(pad=0.4)
@@ -883,15 +888,22 @@ if _PDF_AVAIL:
         plt.close(fig)
         return buf.getvalue()
 
-    def _hbar_png(x, y, title="", color=BRAND_GREEN, figw=8.5, figh=3.2):
+    def _hbar_png(x, y, title="", color=BRAND_GREEN, xlabel="", ylabel="", label_fmt="{:,.0f}",
+                 figw=8.5, figh=3.2):
         fig, ax = plt.subplots(figsize=(figw, figh))
-        ax.barh(list(y), list(x), color=color, alpha=0.88, zorder=3)
+        bars = ax.barh(list(y), list(x), color=color, alpha=0.88, zorder=3)
+        ax.bar_label(bars, labels=[label_fmt.format(v) for v in x], fontsize=6.5, padding=2, color='#374151')
         if title:
             ax.set_title(title, fontsize=11, fontweight='bold', color='#14532d', pad=6)
+        if xlabel:
+            ax.set_xlabel(xlabel, fontsize=8, color='#6b7280')
+        if ylabel:
+            ax.set_ylabel(ylabel, fontsize=8, color='#6b7280')
         ax.tick_params(axis='y', labelsize=7)
         ax.tick_params(axis='x', labelsize=7)
         ax.xaxis.grid(True, alpha=0.3, zorder=0)
         ax.set_axisbelow(True)
+        ax.margins(x=0.15)
         for sp in ['top','right']:
             ax.spines[sp].set_visible(False)
         plt.tight_layout(pad=0.4)
@@ -900,22 +912,30 @@ if _PDF_AVAIL:
         plt.close(fig)
         return buf.getvalue()
 
-    def _grouped_bar_png(df, x_col, bars, title="", colors=None, figw=8.5, figh=3.0):
+    def _grouped_bar_png(df, x_col, bars, title="", colors=None, xlabel="", ylabel="",
+                         label_fmt="{:,.0f}", figw=8.5, figh=3.0):
         _dc = [BRAND_GREEN_DEEP,'#16a34a','#f59e0b','#dc2626']
         x   = range(len(df))
         w   = 0.8 / len(bars)
         fig, ax = plt.subplots(figsize=(figw, figh))
         for i, (col, lbl) in enumerate(bars):
             offset = (i - len(bars)/2 + 0.5) * w
-            ax.bar([xi + offset for xi in x], df[col], w, label=lbl,
-                   color=(colors[i] if colors else _dc[i % 4]), alpha=0.88, zorder=3)
+            b = ax.bar([xi + offset for xi in x], df[col], w, label=lbl,
+                      color=(colors[i] if colors else _dc[i % 4]), alpha=0.88, zorder=3)
+            ax.bar_label(b, labels=[label_fmt.format(v) for v in df[col]], fontsize=5.5, padding=1,
+                        rotation=90, color='#374151')
         ax.set_xticks(list(x))
         ax.set_xticklabels(df[x_col].tolist(), rotation=30, ha='right', fontsize=7)
         if title:
             ax.set_title(title, fontsize=11, fontweight='bold', color='#14532d', pad=6)
+        if xlabel:
+            ax.set_xlabel(xlabel, fontsize=8, color='#6b7280')
+        if ylabel:
+            ax.set_ylabel(ylabel, fontsize=8, color='#6b7280')
         ax.tick_params(axis='y', labelsize=7)
         ax.yaxis.grid(True, alpha=0.3, zorder=0)
         ax.set_axisbelow(True)
+        ax.margins(y=0.2)
         ax.legend(fontsize=7, framealpha=0.7)
         for sp in ['top','right']:
             ax.spines[sp].set_visible(False)
@@ -962,22 +982,26 @@ if _PDF_AVAIL:
         return buf.getvalue()
 
     def _bar_with_threshold_png(x, y, threshold, threshold_label="", title="", colors=None,
-                                ylabel="", figw=8.5, figh=3.0):
+                                xlabel="", ylabel="", label_fmt="{:,.0f}", figw=8.5, figh=3.0):
         fig, ax = plt.subplots(figsize=(figw, figh))
         _colors = colors if colors is not None else ['#1f7a4d'] * len(list(x))
-        ax.bar(list(x), list(y), color=_colors, alpha=0.9, zorder=3)
+        bars = ax.bar(list(x), list(y), color=_colors, alpha=0.9, zorder=3)
+        ax.bar_label(bars, labels=[label_fmt.format(v) for v in y], fontsize=6.5, padding=2, color='#374151')
         ax.axhline(threshold, color='#c9975a', linestyle=':', linewidth=1.6, zorder=4)
         if threshold_label:
             ax.text(-0.4, threshold, threshold_label, fontsize=7,
                    color='#c9975a', va='bottom', ha='left', fontweight='bold')
         if title:
             ax.set_title(title, fontsize=11, fontweight='bold', color='#14532d', pad=6)
+        if xlabel:
+            ax.set_xlabel(xlabel, fontsize=8, color='#6b7280')
         if ylabel:
             ax.set_ylabel(ylabel, fontsize=8, color='#6b7280')
         ax.tick_params(axis='x', rotation=30, labelsize=7)
         ax.tick_params(axis='y', labelsize=7)
         ax.yaxis.grid(True, alpha=0.3, zorder=0)
         ax.set_axisbelow(True)
+        ax.margins(y=0.18)
         for sp in ['top', 'right']:
             ax.spines[sp].set_visible(False)
         plt.tight_layout(pad=0.4)
@@ -1130,15 +1154,7 @@ if _PDF_AVAIL:
             self.ln(12)
 
         def footer(self):
-            if self.page_no() == 1:
-                return
-            self.set_y(-13)
-            self.set_fill_color(*self._BRAND)
-            self.rect(0, self.get_y(), 210, 13, "F")
-            self.set_font("Helvetica", "", 8)
-            self.set_text_color(*self._WHITE)
-            self.set_x(10)
-            self.cell(0, 13, f"Page {self.page_no()}  |  TribeCo Ghana  |  Confidential")
+            pass  # no footer bar -- only section headings carry the brand green
 
         def cover(self, as_of_label):
             self.add_page()
@@ -3013,7 +3029,8 @@ elif page == "YTD Review":
                 pdf.table(["Month", "Revenue", "Target", "Attainment"], _rows, [35, 50, 50, 58])
                 pdf.chart(_grouped_bar_png(_yr_mo, "Month Label",
                     [("Discountedvalue", "Revenue"), ("Target", "Target")],
-                    title="Revenue vs Target", colors=["#1f7a4d", "#eab308"]))
+                    title="Revenue vs Target", colors=["#1f7a4d", "#eab308"],
+                    xlabel="Month", ylabel="GHS", label_fmt="{:,.0f}"))
 
                 pdf.add_page()
                 pdf.section_title("2. Customer and Order Behaviour")
@@ -3024,14 +3041,16 @@ elif page == "YTD Review":
                 pdf.table(["Month", "Active Agrovets", "New", "Repeat", "AOV"], _rows, [30, 40, 25, 30, 68])
                 pdf.chart(_grouped_bar_png(_yr_cust_df, "Month Label",
                     [("New", "New"), ("Repeat", "Repeat")],
-                    title="New vs Repeat Customers", colors=["#c9975a", "#1f7a4d"]))
+                    title="New vs Repeat Customers", colors=["#c9975a", "#1f7a4d"],
+                    xlabel="Month", ylabel="Customers", label_fmt="{:,.0f}"))
                 pdf.sub_title("Repeat-order rate (30-day), by cohort month")
                 _rows = [(month_label(r["Month"]), int(r["CohortSize"]),
                          f"{r['Rate']:.0f}%" if pd.notna(r["Rate"]) else "n/a")
                         for _, r in _yr_cohort_df.iterrows()]
                 pdf.table(["Cohort Month", "New Customers", "Repeat Rate (30d)"], _rows, [50, 60, 73])
                 pdf.chart(_bar_png(_yr_cohort_df["Month Label"], _yr_cohort_df["Rate"].fillna(0),
-                    title="Repeat Rate by Cohort Month (%)", color="#1f7a4d", ylabel="%"))
+                    title="Repeat Rate by Cohort Month", color="#1f7a4d",
+                    xlabel="Cohort Month", ylabel="Repeat Rate (%)", label_fmt="{:.0f}%"))
                 pdf.callout("Small cohorts -- read with caution",
                     "Some monthly cohorts have very few new customers; a rate built on 1-2 people can "
                     "swing from 0% to 100% on a single account.", pdf._AMBER)
@@ -3042,7 +3061,8 @@ elif page == "YTD Review":
                         for _, r in _yr_msku_df.iterrows()]
                 pdf.table(["Month", "Adoption %"], _rows, [90, 103])
                 pdf.chart(_bar_png(_yr_msku_df["Month Label"], _yr_msku_df["Pct"].fillna(0),
-                    title="Multi-SKU Adoption %", color="#1f7a4d", ylabel="%"))
+                    title="Multi-SKU Adoption", color="#1f7a4d",
+                    xlabel="Month", ylabel="Adoption (%)", label_fmt="{:.0f}%"))
 
                 pdf.add_page()
                 pdf.section_title("4. Product Portfolio Mix")
@@ -3074,7 +3094,7 @@ elif page == "YTD Review":
                                   for d in _yr_dso_df["DaysBeyondTerms"].fillna(0)]
                 pdf.chart(_bar_with_threshold_png(_yr_dso_df["Month Label"], _yr_dso_df["DSO"].fillna(0),
                     _yr_terms_days, threshold_label=f"{_yr_terms_days}-day term", title="DSO vs 30-Day Term",
-                    colors=_pdf_dso_colors, ylabel="Days"))
+                    colors=_pdf_dso_colors, xlabel="Month", ylabel="Days", label_fmt="{:.0f}d"))
                 pdf.sub_title("Monthly collections vs. that month's revenue")
                 _rows = [(r["Month Label"], f"GHS {r['Revenue']:,.0f}", f"GHS {r['Collected']:,.0f}",
                          f"{r['Collected']/r['Revenue']*100:.0f}%" if r["Revenue"] else "n/a")
@@ -3082,13 +3102,15 @@ elif page == "YTD Review":
                 pdf.table(["Month", "Revenue", "Collected", "Ratio"], _rows, [30, 55, 55, 53])
                 pdf.chart(_grouped_bar_png(_yr_dso_df, "Month Label",
                     [("Revenue", "Invoiced"), ("Collected", "Collected")],
-                    title="Monthly Collections vs Revenue", colors=["#c7d2fe", "#1f7a4d"]))
+                    title="Monthly Collections vs Revenue", colors=["#c7d2fe", "#1f7a4d"],
+                    xlabel="Month", ylabel="GHS", label_fmt="{:,.0f}"))
                 pdf.sub_title(f"Receivables ageing as of {_yr_as_of_label}")
                 _rows = [(b, f"GHS {r['Total']:,.0f}", int(r["Count"])) for b, r in _yr_aging.iterrows()]
                 pdf.table(["Bucket", "Outstanding", "Invoices"], _rows, [70, 63, 60])
                 if len(_yr_aging):
                     pdf.chart(_hbar_png(_yr_aging["Total"], _yr_aging.index,
-                        title="Receivables Ageing", color="#1f7a4d"))
+                        title="Receivables Ageing", color="#1f7a4d",
+                        xlabel="Outstanding (GHS)", ylabel="Ageing Bucket", label_fmt="GHS {:,.0f}"))
                 pdf.callout("Snapshot only", "This ageing view is a current snapshot; treat it as the "
                             "baseline for tracking the trend going forward.", pdf._AMBER)
 
