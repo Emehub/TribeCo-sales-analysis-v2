@@ -945,6 +945,47 @@ if _PDF_AVAIL:
         plt.close(fig)
         return buf.getvalue()
 
+    def _pie_png(labels, values, colors=None, title="", figw=6.0, figh=4.2):
+        fig, ax = plt.subplots(figsize=(figw, figh))
+        _cols = colors or ['#024b30', '#1f7a4d', '#3fa873', '#c9975a', '#e0b980', '#8a9d5e', '#c7d2c2']
+        wedges, _, autotexts = ax.pie(
+            values, colors=_cols[:len(values)], autopct='%1.0f%%', pctdistance=0.78,
+            wedgeprops=dict(width=0.45, edgecolor='white', linewidth=1.5),
+            textprops=dict(fontsize=8, color='white', fontweight='bold'))
+        if title:
+            ax.set_title(title, fontsize=11, fontweight='bold', color='#14532d', pad=6)
+        ax.legend(wedges, labels, loc='center left', bbox_to_anchor=(1.0, 0.5), fontsize=7, framealpha=0.7)
+        plt.tight_layout(pad=0.4)
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=130, bbox_inches='tight', facecolor='white')
+        plt.close(fig)
+        return buf.getvalue()
+
+    def _bar_with_threshold_png(x, y, threshold, threshold_label="", title="", colors=None,
+                                ylabel="", figw=8.5, figh=3.0):
+        fig, ax = plt.subplots(figsize=(figw, figh))
+        _colors = colors if colors is not None else ['#1f7a4d'] * len(list(x))
+        ax.bar(list(x), list(y), color=_colors, alpha=0.9, zorder=3)
+        ax.axhline(threshold, color='#c9975a', linestyle=':', linewidth=1.6, zorder=4)
+        if threshold_label:
+            ax.text(-0.4, threshold, threshold_label, fontsize=7,
+                   color='#c9975a', va='bottom', ha='left', fontweight='bold')
+        if title:
+            ax.set_title(title, fontsize=11, fontweight='bold', color='#14532d', pad=6)
+        if ylabel:
+            ax.set_ylabel(ylabel, fontsize=8, color='#6b7280')
+        ax.tick_params(axis='x', rotation=30, labelsize=7)
+        ax.tick_params(axis='y', labelsize=7)
+        ax.yaxis.grid(True, alpha=0.3, zorder=0)
+        ax.set_axisbelow(True)
+        for sp in ['top', 'right']:
+            ax.spines[sp].set_visible(False)
+        plt.tight_layout(pad=0.4)
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=130, bbox_inches='tight', facecolor='white')
+        plt.close(fig)
+        return buf.getvalue()
+
     class TribePDF(_FPDF):
         _BRAND = (20, 83, 45)
         _WHITE = (255, 255, 255)
@@ -1051,6 +1092,145 @@ if _PDF_AVAIL:
             self.set_text_color(0, 0, 0)
             self.ln(4)
 
+    class YTDReportPDF(_FPDF):
+        """Narrative report style (cover page, callout boxes, section structure) --
+        distinct from TribePDF's compact per-page KPI/chart/table export."""
+        _BRAND = (2, 75, 48)
+        _ACCENT = (31, 122, 77)
+        _GOLD  = (201, 151, 90)
+        _RED   = (185, 28, 28)
+        _AMBER = (191, 105, 8)
+        _BLACK = (17, 24, 39)
+        _WHITE = (255, 255, 255)
+        _LIGHT = (241, 247, 244)
+
+        def __init__(self):
+            super().__init__(orientation='P', unit='mm', format='A4')
+            self.set_auto_page_break(auto=True, margin=18)
+            self.set_margins(10, 16, 10)
+
+        @staticmethod
+        def _clean(text):
+            return (str(text)
+                .replace("—", "--").replace("–", "-")
+                .replace("’", "'").replace("‘", "'")
+                .replace("“", '"').replace("”", '"')
+                .replace("·", "*").replace("•", "-").replace("…", "...")
+                .replace("÷", "/").replace("×", "x"))
+
+        def header(self):
+            if self.page_no() == 1:
+                return
+            self.set_fill_color(*self._BRAND)
+            self.rect(0, 0, 210, 14, "F")
+            self.set_font("Helvetica", "B", 9)
+            self.set_text_color(*self._WHITE)
+            self.set_xy(10, 3)
+            self.cell(0, 8, self._clean(f"TribeCo Ghana  |  YTD Commercial Review  |  {self.report_month_label} Close"))
+            self.ln(12)
+
+        def footer(self):
+            if self.page_no() == 1:
+                return
+            self.set_y(-13)
+            self.set_fill_color(*self._BRAND)
+            self.rect(0, self.get_y(), 210, 13, "F")
+            self.set_font("Helvetica", "", 8)
+            self.set_text_color(*self._WHITE)
+            self.set_x(10)
+            self.cell(0, 13, f"Page {self.page_no()}  |  TribeCo Ghana  |  Confidential")
+
+        def cover(self, as_of_label):
+            self.add_page()
+            self.set_fill_color(*self._BRAND)
+            self.rect(0, 0, 210, 297, "F")
+            self.set_font("Helvetica", "B", 26)
+            self.set_text_color(*self._WHITE)
+            self.set_xy(20, 88)
+            self.multi_cell(170, 12, "Ghana Commercial Performance", align="C")
+            self.set_font("Helvetica", "B", 18)
+            self.set_text_color(*self._GOLD)
+            self.set_xy(20, 112)
+            self.cell(170, 10, self._clean(f"Year-to-Date Review -- {self.report_month_label} Close"), align="C")
+            self.set_font("Helvetica", "", 10)
+            self.set_text_color(*self._WHITE)
+            self.set_xy(20, 140)
+            self.cell(170, 7, self._clean(f"Covering January - {self.report_month_label} (data as of {as_of_label})"), align="C")
+            self.set_xy(20, 262)
+            self.set_font("Helvetica", "", 8)
+            self.set_text_color(*self._GOLD)
+            self.cell(170, 7, "Confidential  |  Internal Use Only", align="C")
+
+        def section_title(self, text):
+            self.set_fill_color(*self._ACCENT)
+            self.set_text_color(*self._WHITE)
+            self.set_font("Helvetica", "B", 11)
+            self.set_x(10)
+            self.cell(190, 8, self._clean(f"  {text}"), new_x="LMARGIN", new_y="NEXT")
+            self.ln(2)
+
+        def sub_title(self, text):
+            self.set_text_color(*self._BRAND)
+            self.set_font("Helvetica", "B", 10)
+            self.set_x(10)
+            self.cell(190, 6, self._clean(text), new_x="LMARGIN", new_y="NEXT")
+            self.set_draw_color(*self._GOLD)
+            self.set_line_width(0.5)
+            self.line(10, self.get_y(), 75, self.get_y())
+            self.ln(3)
+
+        def body(self, text):
+            self.set_text_color(*self._BLACK)
+            self.set_font("Helvetica", "", 9.5)
+            self.set_x(14)
+            self.multi_cell(183, 5.5, self._clean(text))
+            self.ln(2)
+
+        def callout(self, label, text, color=None):
+            color = color or self._GOLD
+            est_lines = max(1, -(-len(self._clean(text)) // 95))
+            est_height = 5.5 + est_lines * 5 + 3
+            if self.get_y() + est_height > self.page_break_trigger:
+                self.add_page()
+            self.set_fill_color(*self._LIGHT)
+            self.set_x(14)
+            self.set_font("Helvetica", "B", 9)
+            self.set_text_color(*color)
+            self.cell(183, 5.5, self._clean(label), fill=True, new_x="LMARGIN", new_y="NEXT")
+            self.set_x(14)
+            self.set_font("Helvetica", "", 9)
+            self.set_text_color(*self._BLACK)
+            self.multi_cell(183, 5, self._clean(text), fill=True)
+            self.ln(1.5)
+
+        def chart(self, img_bytes, w=183):
+            if self.get_y() > 230:
+                self.add_page()
+            self.set_x(14)
+            self.image(io.BytesIO(img_bytes), x=14, w=w)
+            self.ln(3)
+
+        def table(self, headers, rows, widths):
+            self.set_fill_color(*self._BRAND)
+            self.set_text_color(*self._WHITE)
+            self.set_font("Helvetica", "B", 8.5)
+            self.set_x(14)
+            for h, w in zip(headers, widths):
+                self.cell(w, 6.5, self._clean(f" {h}"), fill=True)
+            self.ln()
+            self.set_font("Helvetica", "", 8.5)
+            for i, row in enumerate(rows):
+                self.set_x(14)
+                if i % 2 == 0:
+                    self.set_fill_color(*self._LIGHT)
+                else:
+                    self.set_fill_color(255, 255, 255)
+                self.set_text_color(*self._BLACK)
+                for val, w in zip(row, widths):
+                    self.cell(w, 6, self._clean(f" {val}"), fill=True, border="B")
+                self.ln()
+            self.ln(2)
+
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────────
 # ── Sidebar nav state ────────────────────────────────────────────────────────────
@@ -1058,7 +1238,7 @@ if "active_page" not in st.session_state:
     st.session_state["active_page"] = "Overview"
 
 NAV_GROUPS = {
-    "Leadership":     ["Weekly Info"],
+    "Leadership":     ["Weekly Info", "YTD Review"],
     "Core Analytics": ["Overview", "Sales Performance"],
     "Business":       ["Customers", "Payments"],
     "Phase 1":        ["Weekly Scorecard", "Reconciliation", "Data Quality"],
@@ -1068,6 +1248,7 @@ NAV_GROUPS = {
 
 NAV_ICONS = {
     "Weekly Info":        "🧭",
+    "YTD Review":         "📊",
     "Overview":            "🏠",
     "Sales Performance":   "📈",
     "Products":            "📦",
@@ -2642,6 +2823,459 @@ elif page == "Weekly Info":
                     unsafe_allow_html=True)
         else:
             st.info("No notable patterns flagged for the current data window.")
+
+
+# ══════════════════════════════════════════════════════════════════════════════════
+# PAGE — YTD REVIEW
+# ══════════════════════════════════════════════════════════════════════════════════
+elif page == "YTD Review":
+    _yr_terms_days = 30
+    _yr_inv = inv_scoped.copy()
+    _yr_months = sorted(_yr_inv["Month"].dropna().unique())
+    _yr_as_of = _yr_inv["Created At"].max()
+    _yr_as_of_label = _yr_as_of.strftime("%d %b %Y") if pd.notna(_yr_as_of) else "N/A"
+    _yr_month_label = month_label(_yr_months[-1]) + " " + _yr_months[-1].split("-")[0] if _yr_months else "N/A"
+
+    def _yr_text(html, muted=True, weight=400, size=13, margin="4px 0 10px"):
+        # Plain st.markdown/st.caption use Streamlit's own fixed (light-theme) text
+        # color regardless of the in-app dark-mode toggle, which goes invisible on
+        # our dark cards -- route this page's prose through theme tokens instead.
+        color = _T["text_muted"] if muted else _T["text_heading"]
+        st.markdown(f'<div style="font-size:{size}px;color:{color};font-weight:{weight};'
+                    f'margin:{margin}">{html}</div>', unsafe_allow_html=True)
+
+    _yr_text(f"Covering January – {_yr_month_label} · data as of {_yr_as_of_label} · "
+             f"refreshes automatically as new data comes in, no manual regeneration needed")
+
+    if not _yr_months:
+        st.info("No invoice data available yet.")
+    else:
+        # ── 1. Revenue vs target ─────────────────────────────────────────────────
+        _yr_mo_target_path = f"{DATA}/revenue_target.csv"
+        _yr_mo_target = (pd.read_csv(_yr_mo_target_path) if os.path.exists(_yr_mo_target_path)
+                         else pd.DataFrame(columns=["Month", "Target"]))
+        _yr_mo = _yr_inv.groupby("Month")["Discountedvalue"].sum().reset_index()
+        _yr_mo = _yr_mo.merge(_yr_mo_target, on="Month", how="left").sort_values("Month")
+        _yr_mo["Attain"] = _yr_mo["Discountedvalue"] / _yr_mo["Target"] * 100
+        _yr_mo["Orders"] = _yr_inv.groupby("Month").size().reindex(_yr_mo["Month"]).values
+        _yr_mo["AOV"] = _yr_mo["Discountedvalue"] / _yr_mo["Orders"]
+        _yr_mo["Month Label"] = _yr_mo["Month"].apply(month_label)
+        _yr_is_partial_month = _yr_months[-1] == _yr_as_of.to_period("M").strftime("%Y-%m")
+
+        # ── 2. Active Agrovets, new vs repeat ────────────────────────────────────
+        _yr_agro_ids = set(rc[rc["Segment Type"] == "Agrovet"]["ID"])
+        _yr_first_order = _yr_inv.groupby("Customer ID")["Created At"].min()
+        _yr_cust_rows = []
+        for m in _yr_months:
+            sub = _yr_inv[_yr_inv["Month"] == m]
+            custs = set(sub["Customer ID"].dropna())
+            active_agro = len(custs & _yr_agro_ids)
+            new_c = sum(1 for c in custs if pd.notna(_yr_first_order.get(c))
+                        and _yr_first_order[c].to_period("M").strftime("%Y-%m") == m)
+            _yr_cust_rows.append(dict(Month=m, Active=len(custs), ActiveAgro=active_agro,
+                                      New=new_c, Repeat=len(custs) - new_c))
+        _yr_cust_df = pd.DataFrame(_yr_cust_rows)
+        _yr_cust_df["Month Label"] = _yr_cust_df["Month"].apply(month_label)
+        _yr_n_customers_ytd = _yr_inv["Customer ID"].nunique()
+
+        # ── 3. Repeat-order-rate cohorts (30-day) ────────────────────────────────
+        _yr_inv_sorted = _yr_inv.sort_values("Created At")
+        _yr_fo = _yr_inv_sorted.groupby("Customer ID")["Created At"].first().rename("first_order")
+        _yr_merged = _yr_inv.merge(_yr_fo, on="Customer ID")
+        _yr_merged["days_gap"] = (_yr_merged["Created At"] - _yr_merged["first_order"]).dt.days
+        _yr_merged["first_month"] = _yr_merged["first_order"].dt.to_period("M").astype(str)
+        _yr_cohort_rows = []
+        for m in _yr_months:
+            cohort_custs = _yr_merged[_yr_merged["first_month"] == m]["Customer ID"].unique()
+            repeaters = _yr_merged[(_yr_merged["Customer ID"].isin(cohort_custs)) &
+                                   (_yr_merged["days_gap"].between(1, 30))]["Customer ID"].nunique()
+            n = len(cohort_custs)
+            _yr_cohort_rows.append(dict(Month=m, CohortSize=n, Rate=(repeaters/n*100 if n else None)))
+        _yr_cohort_df = pd.DataFrame(_yr_cohort_rows)
+        _yr_cohort_df["Month Label"] = _yr_cohort_df["Month"].apply(month_label)
+
+        # ── 4. Multi-SKU adoption trend ──────────────────────────────────────────
+        _yr_il = il[il["Invoice ID"].isin(_yr_inv["ID"])]
+        _yr_sku_per_order = _yr_il.groupby("Invoice ID")["Product ID"].nunique()
+        _yr_inv_lines = _yr_inv[_yr_inv["ID"].isin(_yr_sku_per_order.index)][["ID", "Month"]].copy()
+        _yr_inv_lines["SKUs"] = _yr_inv_lines["ID"].map(_yr_sku_per_order)
+        _yr_msku_rows = []
+        for m in _yr_months:
+            sub = _yr_inv_lines[_yr_inv_lines["Month"] == m]
+            n = len(sub)
+            multi = int((sub["SKUs"] > 1).sum())
+            _yr_msku_rows.append(dict(Month=m, Pct=(multi/n*100 if n else None)))
+        _yr_msku_df = pd.DataFrame(_yr_msku_rows)
+        _yr_msku_df["Month Label"] = _yr_msku_df["Month"].apply(month_label)
+
+        # ── 5. Product mix ────────────────────────────────────────────────────────
+        _yr_il_pm = _yr_il.merge(_yr_inv[["ID", "Month"]], left_on="Invoice ID", right_on="ID", how="left")
+        _yr_il_pm = _yr_il_pm.merge(prod[["ID", "Sku", "Generic Name", "Brand Name"]],
+                                    left_on="Product ID", right_on="ID", how="left", suffixes=("", "_p"))
+        _yr_il_pm["Line Revenue"] = _yr_il_pm["Price"] * _yr_il_pm["Quantity"]
+        _yr_il_pm["Product Name"] = _yr_il_pm["Generic Name"].fillna(_yr_il_pm["Brand Name"]).fillna(_yr_il_pm["Sku"])
+        _yr_by_prod_month = _yr_il_pm.groupby(["Month", "Product Name"])["Line Revenue"].sum().reset_index()
+        _yr_n_products_by_month = _yr_il_pm.groupby("Month")["Product Name"].nunique()
+        _yr_top3_by_month = {}
+        for m in _yr_months:
+            sub = _yr_by_prod_month[_yr_by_prod_month["Month"] == m].sort_values("Line Revenue", ascending=False).head(3)
+            tot = _yr_by_prod_month[_yr_by_prod_month["Month"] == m]["Line Revenue"].sum()
+            _yr_top3_by_month[m] = [(r["Product Name"], r["Line Revenue"]/tot*100 if tot else 0) for _, r in sub.iterrows()]
+        _yr_by_prod_ytd = _yr_il_pm.groupby("Product Name")["Line Revenue"].sum().sort_values(ascending=False)
+        _yr_cost_cov_n, _yr_cost_cov_total = prod["Purchase Price"].notna().sum(), len(prod)
+
+        # ── 6. Collections trend + DSO trend + AR aging ──────────────────────────
+        _yr_coll_by_month = rep_scoped.groupby(rep_scoped["Created At"].dt.to_period("M").astype(str))["Amount"].sum()
+        _yr_dso_rows = []
+        for m in _yr_months:
+            period_end = pd.Period(m, freq="M").end_time.tz_localize("UTC")
+            sales90 = inv_scoped[(inv_scoped["Created At"] > period_end - pd.Timedelta(days=90)) &
+                                 (inv_scoped["Created At"] <= period_end)]["Discountedvalue"].sum()
+            ia = inv_scoped[inv_scoped["Created At"] <= period_end][["ID", "Discountedvalue"]]
+            ra = rep_scoped[rep_scoped["Created At"] <= period_end].groupby("Invoice ID")["Amount"].sum()
+            ia = ia.merge(ra.rename("Repaid"), left_on="ID", right_index=True, how="left")
+            ia["Repaid"] = ia["Repaid"].fillna(0)
+            ar = (ia["Discountedvalue"] - ia["Repaid"]).clip(lower=0).sum()
+            dso = ar / sales90 * 90 if sales90 else None
+            rev = _yr_mo[_yr_mo["Month"] == m]["Discountedvalue"].iloc[0]
+            coll = _yr_coll_by_month.get(m, 0)
+            _yr_dso_rows.append(dict(Month=m, AR=ar, DSO=dso, Revenue=rev, Collected=coll))
+        _yr_dso_df = pd.DataFrame(_yr_dso_rows)
+        _yr_dso_df["Month Label"] = _yr_dso_df["Month"].apply(month_label)
+        _yr_dso_df["DaysBeyondTerms"] = _yr_dso_df["DSO"] - _yr_terms_days
+
+        _yr_ia_now = inv_scoped[["ID", "Discountedvalue", "Due Date"]].copy()
+        _yr_ra_now = rep_scoped.groupby("Invoice ID")["Amount"].sum()
+        _yr_ia_now = _yr_ia_now.merge(_yr_ra_now.rename("Repaid"), left_on="ID", right_index=True, how="left")
+        _yr_ia_now["Repaid"] = _yr_ia_now["Repaid"].fillna(0)
+        _yr_ia_now["Outstanding"] = (_yr_ia_now["Discountedvalue"] - _yr_ia_now["Repaid"]).clip(lower=0)
+        _yr_ia_now = _yr_ia_now[_yr_ia_now["Outstanding"] > 0.01].copy()
+        _yr_ia_now["Days Overdue"] = (_yr_as_of - _yr_ia_now["Due Date"]).dt.days
+        def _yr_bucket(d):
+            if pd.isna(d): return "No due date"
+            if d < 0: return "Not yet due"
+            if d <= 30: return "0–30 days"
+            if d <= 60: return "31–60 days"
+            if d <= 90: return "61–90 days"
+            return "90+ days"
+        _yr_ia_now["Bucket"] = _yr_ia_now["Days Overdue"].apply(_yr_bucket)
+        _yr_bucket_order = ["Not yet due", "0–30 days", "31–60 days", "61–90 days", "90+ days", "No due date"]
+        _yr_aging = (_yr_ia_now.groupby("Bucket")["Outstanding"].agg(Total="sum", Count="count")
+                     .reindex(_yr_bucket_order).dropna(how="all"))
+        _yr_aging = _yr_aging[_yr_aging["Count"].fillna(0) > 0]
+        _yr_total_ar = _yr_ia_now["Outstanding"].sum()
+
+        # ── 7. Concentration ──────────────────────────────────────────────────────
+        _yr_by_cust = _yr_inv.groupby("Customer ID")["Discountedvalue"].sum().sort_values(ascending=False)
+        _yr_top5_pct = _yr_by_cust.head(5).sum() / _yr_by_cust.sum() * 100 if len(_yr_by_cust) else 0
+        _yr_top10_pct = _yr_by_cust.head(10).sum() / _yr_by_cust.sum() * 100 if len(_yr_by_cust) else 0
+
+        # ══════════════════════════════════════════════════════════════════════
+        # ON-SCREEN RENDER
+        # ══════════════════════════════════════════════════════════════════════
+
+        # ── Download ─────────────────────────────────────────────────────────
+        if _PDF_AVAIL:
+            def _build_ytd_pdf():
+                pdf = YTDReportPDF()
+                pdf.report_month_label = _yr_month_label
+                pdf.cover(_yr_as_of_label)
+                pdf.add_page()
+                pdf.section_title("Executive Summary")
+                pdf.body(f"This review covers TribeCo Ghana's commercial performance from January through "
+                         f"{_yr_month_label} (data as of {_yr_as_of_label}"
+                         f"{'; latest month is partial, not yet closed' if _yr_is_partial_month else ''}). "
+                         f"Generated on demand from the live dashboard -- every figure is computed, not estimated.")
+                _last_attain = _yr_mo["Attain"].iloc[-1] if pd.notna(_yr_mo["Attain"].iloc[-1]) else None
+                pdf.callout("Revenue trajectory",
+                    f"Attainment across the year: " +
+                    ", ".join(f"{r['Month Label']} {r['Attain']:.0f}%" for _, r in _yr_mo.iterrows() if pd.notna(r["Attain"])) + ".")
+                _last_dso = _yr_dso_df["DSO"].iloc[-1] if len(_yr_dso_df) else None
+                _last_dbt = _yr_dso_df["DaysBeyondTerms"].iloc[-1] if len(_yr_dso_df) else None
+                if _last_dso is not None:
+                    pdf.callout("Collections speed vs. the 30-day term",
+                        f"Standard terms are {_yr_terms_days} days. Latest DSO is {_last_dso:.0f} days "
+                        f"({_last_dbt:+.0f} days beyond terms). Full month-by-month detail is in Section 5.",
+                        pdf._RED)
+                pdf.callout("Two data coverage gaps to read figures against",
+                    f"Only {_yr_cost_cov_n} of {_yr_cost_cov_total} products "
+                    f"({_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}%) have cost data on file, limiting margin "
+                    f"analysis. Only {len(_yr_agro_ids)} of {len(rc)} Ghana customer records "
+                    f"({len(_yr_agro_ids)/len(rc)*100:.0f}%) are tagged 'Agrovet'.", pdf._AMBER)
+
+                pdf.add_page()
+                pdf.section_title("1. Commercial Performance — Revenue vs Target")
+                _rows = [(r["Month Label"], f"GHS {r['Discountedvalue']:,.0f}",
+                         f"GHS {r['Target']:,.0f}" if pd.notna(r["Target"]) else "n/a",
+                         (f"{r['Attain']:.1f}%" if pd.notna(r["Attain"]) else "n/a") +
+                         (" (partial)" if r["Month"] == _yr_months[-1] and _yr_is_partial_month else ""))
+                        for _, r in _yr_mo.iterrows()]
+                pdf.table(["Month", "Revenue", "Target", "Attainment"], _rows, [35, 50, 50, 58])
+                pdf.chart(_grouped_bar_png(_yr_mo, "Month Label",
+                    [("Discountedvalue", "Revenue"), ("Target", "Target")],
+                    title="Revenue vs Target", colors=["#1f7a4d", "#eab308"]))
+
+                pdf.add_page()
+                pdf.section_title("2. Customer and Order Behaviour")
+                pdf.sub_title("Active Agrovets, new vs. repeat, AOV")
+                _rows = [(month_label(r["Month"]), r["ActiveAgro"], r["New"], r["Repeat"],
+                         f"GHS {_yr_mo[_yr_mo['Month']==r['Month']]['AOV'].iloc[0]:,.0f}")
+                        for _, r in _yr_cust_df.iterrows()]
+                pdf.table(["Month", "Active Agrovets", "New", "Repeat", "AOV"], _rows, [30, 40, 25, 30, 68])
+                pdf.chart(_grouped_bar_png(_yr_cust_df, "Month Label",
+                    [("New", "New"), ("Repeat", "Repeat")],
+                    title="New vs Repeat Customers", colors=["#c9975a", "#1f7a4d"]))
+                pdf.sub_title("Repeat-order rate (30-day), by cohort month")
+                _rows = [(month_label(r["Month"]), int(r["CohortSize"]),
+                         f"{r['Rate']:.0f}%" if pd.notna(r["Rate"]) else "n/a")
+                        for _, r in _yr_cohort_df.iterrows()]
+                pdf.table(["Cohort Month", "New Customers", "Repeat Rate (30d)"], _rows, [50, 60, 73])
+                pdf.chart(_bar_png(_yr_cohort_df["Month Label"], _yr_cohort_df["Rate"].fillna(0),
+                    title="Repeat Rate by Cohort Month (%)", color="#1f7a4d", ylabel="%"))
+                pdf.callout("Small cohorts -- read with caution",
+                    "Some monthly cohorts have very few new customers; a rate built on 1-2 people can "
+                    "swing from 0% to 100% on a single account.", pdf._AMBER)
+
+                pdf.add_page()
+                pdf.section_title("3. Multi-SKU Adoption")
+                _rows = [(r["Month Label"], f"{r['Pct']:.1f}%" if pd.notna(r["Pct"]) else "n/a")
+                        for _, r in _yr_msku_df.iterrows()]
+                pdf.table(["Month", "Adoption %"], _rows, [90, 103])
+                pdf.chart(_bar_png(_yr_msku_df["Month Label"], _yr_msku_df["Pct"].fillna(0),
+                    title="Multi-SKU Adoption %", color="#1f7a4d", ylabel="%"))
+
+                pdf.add_page()
+                pdf.section_title("4. Product Portfolio Mix")
+                _rows = [(month_label(m), int(_yr_n_products_by_month.get(m, 0)),
+                         ", ".join(f"{n} ({p:.0f}%)" for n, p in _yr_top3_by_month.get(m, [])))
+                        for m in _yr_months]
+                pdf.table(["Month", "Distinct Products", "Top 3 by Revenue Share"], _rows, [25, 35, 133])
+                _pdf_top_n = 6
+                _pdf_pie_data = _yr_by_prod_ytd.head(_pdf_top_n)
+                _pdf_other = _yr_by_prod_ytd.iloc[_pdf_top_n:].sum()
+                _pdf_pie_labels = list(_pdf_pie_data.index) + (["Other"] if _pdf_other > 0 else [])
+                _pdf_pie_values = list(_pdf_pie_data.values) + ([_pdf_other] if _pdf_other > 0 else [])
+                pdf.chart(_pie_png(_pdf_pie_labels, _pdf_pie_values, title="YTD Revenue Share by Product"), w=140)
+                pdf.callout("Coverage caveat",
+                    f"Only {_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}% of products have cost data -- "
+                    f"revenue mix above is reliable, margin-by-product would not be.", pdf._AMBER)
+
+                pdf.add_page()
+                pdf.section_title("5. Collections and Receivables")
+                pdf.callout("No collections budget exists", "Figures below are trends, not attainment "
+                            "against a plan.", pdf._AMBER)
+                pdf.sub_title(f"DSO vs. the {_yr_terms_days}-day term, month-end snapshots")
+                _rows = [(r["Month Label"], f"GHS {r['AR']:,.0f}",
+                         f"{r['DSO']:.0f} days" if pd.notna(r["DSO"]) else "n/a",
+                         f"{r['DaysBeyondTerms']:+.0f} days" if pd.notna(r["DaysBeyondTerms"]) else "n/a")
+                        for _, r in _yr_dso_df.iterrows()]
+                pdf.table(["Month-End", "Outstanding AR", "DSO", "Beyond Terms"], _rows, [30, 50, 45, 78])
+                _pdf_dso_colors = ["#dc2626" if (d or 0) > 0 else "#16a34a"
+                                  for d in _yr_dso_df["DaysBeyondTerms"].fillna(0)]
+                pdf.chart(_bar_with_threshold_png(_yr_dso_df["Month Label"], _yr_dso_df["DSO"].fillna(0),
+                    _yr_terms_days, threshold_label=f"{_yr_terms_days}-day term", title="DSO vs 30-Day Term",
+                    colors=_pdf_dso_colors, ylabel="Days"))
+                pdf.sub_title("Monthly collections vs. that month's revenue")
+                _rows = [(r["Month Label"], f"GHS {r['Revenue']:,.0f}", f"GHS {r['Collected']:,.0f}",
+                         f"{r['Collected']/r['Revenue']*100:.0f}%" if r["Revenue"] else "n/a")
+                        for _, r in _yr_dso_df.iterrows()]
+                pdf.table(["Month", "Revenue", "Collected", "Ratio"], _rows, [30, 55, 55, 53])
+                pdf.chart(_grouped_bar_png(_yr_dso_df, "Month Label",
+                    [("Revenue", "Invoiced"), ("Collected", "Collected")],
+                    title="Monthly Collections vs Revenue", colors=["#c7d2fe", "#1f7a4d"]))
+                pdf.sub_title(f"Receivables ageing as of {_yr_as_of_label}")
+                _rows = [(b, f"GHS {r['Total']:,.0f}", int(r["Count"])) for b, r in _yr_aging.iterrows()]
+                pdf.table(["Bucket", "Outstanding", "Invoices"], _rows, [70, 63, 60])
+                if len(_yr_aging):
+                    pdf.chart(_hbar_png(_yr_aging["Total"], _yr_aging.index,
+                        title="Receivables Ageing", color="#1f7a4d"))
+                pdf.callout("Snapshot only", "This ageing view is a current snapshot; treat it as the "
+                            "baseline for tracking the trend going forward.", pdf._AMBER)
+
+                pdf.add_page()
+                pdf.section_title("6. Key Observations")
+                pdf.callout("Customer concentration",
+                    f"Top 5 customers = {_yr_top5_pct:.1f}% of YTD revenue; top 10 = {_yr_top10_pct:.1f}%, "
+                    f"out of {_yr_n_customers_ytd} customers who ordered at all this year.")
+                pdf.callout("Data coverage",
+                    f"Product cost data covers {_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}% of the catalogue; "
+                    f"Agrovet tagging covers {len(_yr_agro_ids)/len(rc)*100:.0f}% of customer records.",
+                    pdf._AMBER)
+                return bytes(pdf.output())
+
+            _yr_pdf_bytes = _build_ytd_pdf()
+            _yr_fname = f"Ghana_YTD_Commercial_Review_{_yr_month_label.replace(' ', '')}.pdf"
+            st.download_button("⬇ Download full report as PDF — ready to share with stakeholders",
+                              data=_yr_pdf_bytes, file_name=_yr_fname, mime="application/pdf",
+                              type="primary", use_container_width=True)
+            _yr_text("This button always reflects the current data — next month, just come back to this "
+                     "page and download again. No need to regenerate anything manually.")
+        else:
+            st.warning("PDF export isn't available in this environment (fpdf2/matplotlib not installed).")
+
+        # ── Executive Summary ────────────────────────────────────────────────────
+        st.markdown(
+            "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
+            "letter-spacing:1px;color:#3fa873;margin:22px 0 6px'>Executive Summary</div>",
+            unsafe_allow_html=True)
+        _yr_summary = [
+            ("🎯", "Revenue trajectory", BRAND_GOLD,
+             f"Attainment: " + ", ".join(f"{r['Month Label']} {r['Attain']:.0f}%"
+                                         for _, r in _yr_mo.iterrows() if pd.notna(r["Attain"]))),
+        ]
+        if len(_yr_dso_df) and pd.notna(_yr_dso_df["DSO"].iloc[-1]):
+            _yr_summary.append(("⏱️", "Collections vs. 30-day terms", "#dc2626",
+                f"Latest DSO is {_yr_dso_df['DSO'].iloc[-1]:.0f} days "
+                f"({_yr_dso_df['DaysBeyondTerms'].iloc[-1]:+.0f} days beyond the standard "
+                f"{_yr_terms_days}-day term)."))
+        _yr_summary.append(("🏷️", "Data coverage gaps", "#bf6908",
+            f"Product cost data covers {_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}% of the catalogue; "
+            f"Agrovet tagging covers {len(_yr_agro_ids)/len(rc)*100:.0f}% of customer records — read "
+            f"margin and Agrovet-specific figures with that in mind."))
+        for _icon, _title, _color, _text in _yr_summary:
+            st.markdown(
+                f'<div style="background:{_T["card_bg"]};backdrop-filter:blur(14px);'
+                f'border:1px solid {_T["card_border"]};border-left:4px solid {_color};'
+                f'border-radius:12px;padding:14px 18px;margin-bottom:10px">'
+                f'<div style="font-weight:700;color:{_T["text_heading"]};margin-bottom:4px">{_icon} {_title}</div>'
+                f'<div style="font-size:13px;color:{_T["text_body"]}">{_text}</div></div>',
+                unsafe_allow_html=True)
+
+        # ── 1. Revenue vs Target ─────────────────────────────────────────────────
+        st.markdown(chart_wrap("1. Commercial Performance — Revenue vs Target",
+                                "Monthly revenue against target, January to date"), unsafe_allow_html=True)
+        _yr_fig1 = go.Figure()
+        _yr_fig1.add_bar(x=_yr_mo["Month Label"], y=_yr_mo["Discountedvalue"], marker=bar_marker(BRAND_GREEN), name="Revenue")
+        _yr_fig1.add_bar(x=_yr_mo["Month Label"], y=_yr_mo["Target"], marker=bar_marker("#eab308"), name="Target")
+        _yr_fig1.update_layout(**white_layout(300))
+        _yr_fig1.update_layout(barmode="group", legend=dict(orientation="h", y=-0.3))
+        st.plotly_chart(_yr_fig1, use_container_width=True, config=CHART_CFG)
+        st.dataframe(pd.DataFrame({
+            "Month": _yr_mo["Month Label"],
+            "Revenue": _yr_mo["Discountedvalue"].apply(lambda x: f"GHS {x:,.2f}"),
+            "Target": _yr_mo["Target"].apply(lambda x: f"GHS {x:,.2f}" if pd.notna(x) else "n/a"),
+            "Attainment": _yr_mo["Attain"].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "n/a"),
+        }), use_container_width=True, hide_index=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── 2. Customer & Order Behaviour ─────────────────────────────────────────
+        st.markdown(chart_wrap("2. Customer and Order Behaviour",
+                                "Active Agrovets, new vs. repeat customers, average order value"), unsafe_allow_html=True)
+        _yr_fig2 = go.Figure()
+        _yr_fig2.add_bar(x=_yr_cust_df["Month Label"], y=_yr_cust_df["New"], marker=bar_marker(BRAND_GOLD), name="New")
+        _yr_fig2.add_bar(x=_yr_cust_df["Month Label"], y=_yr_cust_df["Repeat"], marker=bar_marker(BRAND_GREEN), name="Repeat")
+        _yr_fig2.update_layout(**white_layout(300))
+        _yr_fig2.update_layout(barmode="stack", legend=dict(orientation="h", y=-0.3))
+        st.plotly_chart(_yr_fig2, use_container_width=True, config=CHART_CFG)
+        st.dataframe(pd.DataFrame({
+            "Month": _yr_cust_df["Month Label"], "Active Agrovets": _yr_cust_df["ActiveAgro"],
+            "New": _yr_cust_df["New"], "Repeat": _yr_cust_df["Repeat"],
+            "AOV": _yr_mo.set_index("Month").loc[_yr_cust_df["Month"], "AOV"].apply(lambda x: f"GHS {x:,.0f}").values,
+        }), use_container_width=True, hide_index=True)
+        _yr_text(f"{_yr_n_customers_ytd} distinct customers have ordered at all in 2026.")
+        with st.expander("Repeat-order rate by cohort month (small samples — read with caution)"):
+            st.dataframe(pd.DataFrame({
+                "Cohort Month": _yr_cohort_df["Month"].apply(month_label),
+                "New Customers": _yr_cohort_df["CohortSize"],
+                "Repeat Rate (30d)": _yr_cohort_df["Rate"].apply(lambda x: f"{x:.0f}%" if pd.notna(x) else "n/a"),
+            }), use_container_width=True, hide_index=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── 3. Multi-SKU Adoption ─────────────────────────────────────────────────
+        st.markdown(chart_wrap("3. Multi-SKU Adoption", "Share of orders with 2+ distinct products"), unsafe_allow_html=True)
+        _yr_fig3 = go.Figure(go.Bar(x=_yr_msku_df["Month Label"], y=_yr_msku_df["Pct"], marker=bar_marker(BRAND_GREEN),
+                                    text=_yr_msku_df["Pct"].apply(lambda x: f"{x:.0f}%" if pd.notna(x) else ""),
+                                    textposition="outside"))
+        _yr_fig3.update_layout(**white_layout(280))
+        st.plotly_chart(_yr_fig3, use_container_width=True, config=CHART_CFG)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── 4. Product Portfolio Mix ──────────────────────────────────────────────
+        st.markdown(chart_wrap("4. Product Portfolio Mix", "Share of YTD revenue by product"), unsafe_allow_html=True)
+        _yr_pcol1, _yr_pcol2 = st.columns([2, 3])
+        with _yr_pcol1:
+            _yr_top_n = 6
+            _yr_pie_data = _yr_by_prod_ytd.head(_yr_top_n)
+            _yr_other = _yr_by_prod_ytd.iloc[_yr_top_n:].sum()
+            _yr_pie_labels = list(_yr_pie_data.index) + (["Other"] if _yr_other > 0 else [])
+            _yr_pie_values = list(_yr_pie_data.values) + ([_yr_other] if _yr_other > 0 else [])
+            _yr_pie = go.Figure(go.Pie(labels=_yr_pie_labels, values=_yr_pie_values, hole=0.5,
+                                       marker=dict(colors=[BRAND_GREEN_DEEP, BRAND_GREEN, BRAND_GREEN_LIGHT,
+                                                          BRAND_GOLD, BRAND_GOLD_LIGHT, "#8a9d5e", "#c7d2c2"])))
+            _yr_pie.update_traces(textposition="inside", textinfo="percent")
+            _yr_pie.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                                  margin=dict(t=10, b=10, l=10, r=10), height=280,
+                                  font=dict(family="Inter, sans-serif", size=11, color=CHART_FONT),
+                                  legend=dict(orientation="h", y=-0.15, font=dict(size=9)))
+            st.plotly_chart(_yr_pie, use_container_width=True, config=CHART_CFG)
+        with _yr_pcol2:
+            st.dataframe(pd.DataFrame({
+                "Month": [month_label(m) for m in _yr_months],
+                "Distinct Products": [int(_yr_n_products_by_month.get(m, 0)) for m in _yr_months],
+                "Top 3 by Revenue Share": [", ".join(f"{n} ({p:.0f}%)" for n, p in _yr_top3_by_month.get(m, []))
+                                          for m in _yr_months],
+            }), use_container_width=True, hide_index=True)
+        _yr_text(f"Product revenue mix is reliable (built from actual sale prices). Margin-by-product would "
+                 f"only cover {_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}% of the catalogue with cost data on file.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── 5. Collections and Receivables ────────────────────────────────────────
+        st.markdown(chart_wrap("5. Collections and Receivables",
+                                "No collections budget exists — shown as trends, not attainment"), unsafe_allow_html=True)
+        _yr_col_c1, _yr_col_c2 = st.columns(2)
+        with _yr_col_c1:
+            _yr_text(f"<b>DSO vs. the {_yr_terms_days}-day term</b>", muted=False, size=14, margin="4px 0 8px")
+            _yr_fig5 = go.Figure(go.Bar(
+                x=_yr_dso_df["Month Label"], y=_yr_dso_df["DSO"],
+                marker=dict(color=_yr_dso_df["DaysBeyondTerms"].apply(lambda d: "#dc2626" if d and d > 0 else "#16a34a"),
+                           cornerradius=6, line=dict(color="rgba(255,255,255,0.55)", width=1)),
+                text=_yr_dso_df["DSO"].apply(lambda x: f"{x:.0f}d" if pd.notna(x) else ""), textposition="outside"))
+            _yr_fig5.add_hline(y=_yr_terms_days, line_dash="dot", line_color=BRAND_GOLD,
+                               annotation_text=f"{_yr_terms_days}-day term")
+            _yr_fig5.update_layout(**white_layout(280))
+            st.plotly_chart(_yr_fig5, use_container_width=True, config=CHART_CFG)
+        with _yr_col_c2:
+            _yr_text("<b>Monthly collections vs. that month's revenue</b>", muted=False, size=14, margin="4px 0 8px")
+            _yr_fig6 = go.Figure()
+            _yr_fig6.add_bar(x=_yr_dso_df["Month Label"], y=_yr_dso_df["Revenue"], marker=bar_marker("#e0e7ff", "rgba(255,255,255,0.9)"), name="Invoiced")
+            _yr_fig6.add_bar(x=_yr_dso_df["Month Label"], y=_yr_dso_df["Collected"], marker=bar_marker(BRAND_GREEN), name="Collected")
+            _yr_fig6.update_layout(barmode="overlay", **white_layout(280), legend=dict(orientation="h", y=-0.3))
+            st.plotly_chart(_yr_fig6, use_container_width=True, config=CHART_CFG)
+        st.dataframe(pd.DataFrame({
+            "Month-End": _yr_dso_df["Month Label"],
+            "Outstanding AR": _yr_dso_df["AR"].apply(lambda x: f"GHS {x:,.2f}"),
+            "DSO": _yr_dso_df["DSO"].apply(lambda x: f"{x:.1f} days" if pd.notna(x) else "n/a"),
+            "Beyond Terms": _yr_dso_df["DaysBeyondTerms"].apply(lambda x: f"{x:+.1f} days" if pd.notna(x) else "n/a"),
+        }), use_container_width=True, hide_index=True)
+        _yr_text(f"<b>Receivables ageing as of {_yr_as_of_label}</b> — GHS {_yr_total_ar:,.2f} outstanding",
+                 muted=False, size=14, margin="4px 0 8px")
+        if len(_yr_aging):
+            _yr_age_colors = {"Not yet due": "#94a3b8", "0–30 days": "#16a34a", "31–60 days": "#eab308",
+                              "61–90 days": "#f97316", "90+ days": "#dc2626", "No due date": "#94a3b8"}
+            _yr_fig7 = go.Figure(go.Bar(
+                x=_yr_aging["Total"], y=_yr_aging.index, orientation="h",
+                marker=dict(color=[_yr_age_colors.get(b, "#94a3b8") for b in _yr_aging.index], cornerradius=6,
+                           line=dict(color="rgba(255,255,255,0.55)", width=1)),
+                text=[f"GHS {t:,.0f} · {int(n)} invoices" for t, n in zip(_yr_aging["Total"], _yr_aging["Count"])],
+                textposition="outside"))
+            _yr_fig7.update_layout(plot_bgcolor="white", paper_bgcolor="white",
+                                   margin=dict(t=10, b=10, l=10, r=120), height=max(140, 40*len(_yr_aging)),
+                                   font=dict(family="Inter, sans-serif", size=12),
+                                   xaxis=dict(gridcolor="#f3f4f6", range=[0, _yr_aging["Total"].max()*1.35]))
+            st.plotly_chart(_yr_fig7, use_container_width=True, config=CHART_CFG)
+        _yr_text("This ageing view is a current snapshot, not yet a historical trend — treat it as the "
+                 "baseline for tracking going forward.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── 6. Key Observations ───────────────────────────────────────────────────
+        st.markdown(chart_wrap("6. Key Observations"), unsafe_allow_html=True)
+        _yr_text(f"• <b>Customer concentration:</b> top 5 customers = {_yr_top5_pct:.1f}% of YTD revenue; "
+                 f"top 10 = {_yr_top10_pct:.1f}%, out of {_yr_n_customers_ytd} customers who ordered at all this year.",
+                 muted=False)
+        _yr_text(f"• <b>Data coverage:</b> product cost data covers {_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}% "
+                 f"of the catalogue; Agrovet tagging covers {len(_yr_agro_ids)/len(rc)*100:.0f}% of customer records.",
+                 muted=False)
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
