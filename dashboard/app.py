@@ -2820,8 +2820,13 @@ elif page == "YTD Review":
     _yr_terms_days = 30
     _yr_inv = inv_scoped.copy()
     _yr_months = sorted(_yr_inv["Month"].dropna().unique())
-    _yr_as_of = _yr_inv["Created At"].max()
-    _yr_as_of_label = _yr_as_of.strftime("%d %b %Y") if pd.notna(_yr_as_of) else "N/A"
+    # "As of" is today's real date, not the latest invoice's timestamp -- a YTD report
+    # reads oddly saying "as of 21 Aug" when it's actually being viewed on the 27th, and
+    # AR aging should measure days overdue against today, not against however recently
+    # the last invoice happened to land.
+    _yr_as_of = pd.Timestamp.now(tz="UTC")
+    _yr_as_of_label = _yr_as_of.strftime("%d %b %Y")
+    _yr_latest_invoice = _yr_inv["Created At"].max()
     _yr_month_label = month_label(_yr_months[-1]) + " " + _yr_months[-1].split("-")[0] if _yr_months else "N/A"
 
     def _yr_text(html, muted=True, weight=400, size=13, margin="4px 0 10px"):
@@ -2832,7 +2837,10 @@ elif page == "YTD Review":
         st.markdown(f'<div style="font-size:{size}px;color:{color};font-weight:{weight};'
                     f'margin:{margin}">{html}</div>', unsafe_allow_html=True)
 
-    _yr_text(f"Covering January – {_yr_month_label} · data as of {_yr_as_of_label} · "
+    _yr_lag_days = (_yr_as_of.normalize() - _yr_latest_invoice.normalize()).days if pd.notna(_yr_latest_invoice) else None
+    _yr_lag_note = (f" (latest invoice on file: {_yr_latest_invoice.strftime('%d %b %Y')})"
+                    if _yr_lag_days and _yr_lag_days >= 2 else "")
+    _yr_text(f"Covering January – {_yr_month_label} · data as of {_yr_as_of_label}{_yr_lag_note} · "
              f"refreshes automatically as new data comes in, no manual regeneration needed")
 
     if not _yr_months:
@@ -2971,7 +2979,7 @@ elif page == "YTD Review":
                 pdf.title_block(_yr_as_of_label)
                 pdf.section_title("Executive Summary")
                 pdf.body(f"This review covers TribeCo Ghana's commercial performance from January through "
-                         f"{_yr_month_label} (data as of {_yr_as_of_label}"
+                         f"{_yr_month_label} (data as of {_yr_as_of_label}{_yr_lag_note}"
                          f"{'; latest month is partial, not yet closed' if _yr_is_partial_month else ''}). "
                          f"Generated on demand from the live dashboard -- every figure is computed, not estimated.")
                 _last_attain = _yr_mo["Attain"].iloc[-1] if pd.notna(_yr_mo["Attain"].iloc[-1]) else None
