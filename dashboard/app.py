@@ -1156,24 +1156,25 @@ if _PDF_AVAIL:
         def footer(self):
             pass  # no footer bar -- only section headings carry the brand green
 
-        def cover(self, as_of_label):
-            self.add_page()
+        def title_block(self, as_of_label):
+            """Compact title banner at the top of the first content page -- no
+            separate cover page, no full-page gap before the report actually starts."""
             self.set_fill_color(*self._BRAND)
-            # Bleed 1mm past every edge -- some PDF viewers render a hairline white
-            # sliver on a fill rect drawn flush to the exact page boundary.
-            self.rect(-1, -1, 212, 299, "F")
-            self.set_font("Helvetica", "B", 26)
+            self.rect(0, 0, 210, 40, "F")
+            self.set_font("Helvetica", "B", 19)
             self.set_text_color(*self._WHITE)
-            self.set_xy(20, 36)
-            self.multi_cell(170, 12, "Ghana Commercial Performance", align="C")
-            self.set_font("Helvetica", "B", 18)
+            self.set_xy(10, 7)
+            self.cell(190, 9, "Ghana Commercial Performance", align="C")
+            self.set_font("Helvetica", "B", 13)
             self.set_text_color(*self._GOLD)
-            self.set_xy(20, 60)
-            self.cell(170, 10, self._clean(f"Year-to-Date Review -- {self.report_month_label} Close"), align="C")
-            self.set_font("Helvetica", "", 10)
+            self.set_xy(10, 18)
+            self.cell(190, 8, self._clean(f"Year-to-Date Review -- {self.report_month_label} Close"), align="C")
+            self.set_font("Helvetica", "", 9)
             self.set_text_color(*self._WHITE)
-            self.set_xy(20, 88)
-            self.cell(170, 7, self._clean(f"Covering January - {self.report_month_label} (data as of {as_of_label})"), align="C")
+            self.set_xy(10, 28)
+            self.cell(190, 6, self._clean(f"Covering January - {self.report_month_label} (data as of {as_of_label})"), align="C")
+            self.set_text_color(0, 0, 0)
+            self.set_y(48)
 
         def section_title(self, text):
             self.set_fill_color(*self._ACCENT)
@@ -1225,15 +1226,25 @@ if _PDF_AVAIL:
             self.ln(3)
 
         def table(self, headers, rows, widths):
-            self.set_fill_color(*self._BRAND)
-            self.set_text_color(*self._WHITE)
-            self.set_font("Helvetica", "B", 8.5)
-            self.set_x(14)
-            for h, w in zip(headers, widths):
-                self.cell(w, 6.5, self._clean(f" {h}"), fill=True)
-            self.ln()
+            def _draw_header():
+                self.set_fill_color(*self._BRAND)
+                self.set_text_color(*self._WHITE)
+                self.set_font("Helvetica", "B", 8.5)
+                self.set_x(14)
+                for h, w in zip(headers, widths):
+                    self.cell(w, 6.5, self._clean(f" {h}"), fill=True)
+                self.ln()
+
+            _draw_header()
             self.set_font("Helvetica", "", 8.5)
             for i, row in enumerate(rows):
+                # Leave room for at least this row plus the header it would need on a
+                # fresh page, so a table never strands its column headers on the page
+                # before its data.
+                if self.get_y() > self.page_break_trigger - 6:
+                    self.add_page()
+                    _draw_header()
+                    self.set_font("Helvetica", "", 8.5)
                 self.set_x(14)
                 if i % 2 == 0:
                     self.set_fill_color(*self._LIGHT)
@@ -2993,8 +3004,8 @@ elif page == "YTD Review":
             def _build_ytd_pdf():
                 pdf = YTDReportPDF()
                 pdf.report_month_label = _yr_month_label
-                pdf.cover(_yr_as_of_label)
                 pdf.add_page()
+                pdf.title_block(_yr_as_of_label)
                 pdf.section_title("Executive Summary")
                 pdf.body(f"This review covers TribeCo Ghana's commercial performance from January through "
                          f"{_yr_month_label} (data as of {_yr_as_of_label}"
@@ -3017,7 +3028,6 @@ elif page == "YTD Review":
                     f"analysis. Only {len(_yr_agro_ids)} of {len(rc)} Ghana customer records "
                     f"({len(_yr_agro_ids)/len(rc)*100:.0f}%) are tagged 'Agrovet'.", pdf._AMBER)
 
-                pdf.add_page()
                 pdf.section_title("1. Commercial Performance — Revenue vs Target")
                 _rows = [(r["Month Label"], f"GHS {r['Discountedvalue']:,.0f}",
                          f"GHS {r['Target']:,.0f}" if pd.notna(r["Target"]) else "n/a",
@@ -3030,7 +3040,6 @@ elif page == "YTD Review":
                     title="Revenue vs Target", colors=["#1f7a4d", "#eab308"],
                     xlabel="Month", ylabel="GHS", label_fmt="{:,.0f}"))
 
-                pdf.add_page()
                 pdf.section_title("2. Customer and Order Behaviour")
                 pdf.sub_title("Active Agrovets, new vs. repeat, AOV")
                 _rows = [(month_label(r["Month"]), r["ActiveAgro"], r["New"], r["Repeat"],
@@ -3053,7 +3062,6 @@ elif page == "YTD Review":
                     "Some monthly cohorts have very few new customers; a rate built on 1-2 people can "
                     "swing from 0% to 100% on a single account.", pdf._AMBER)
 
-                pdf.add_page()
                 pdf.section_title("3. Multi-SKU Adoption")
                 _rows = [(r["Month Label"], f"{r['Pct']:.1f}%" if pd.notna(r["Pct"]) else "n/a")
                         for _, r in _yr_msku_df.iterrows()]
@@ -3062,7 +3070,6 @@ elif page == "YTD Review":
                     title="Multi-SKU Adoption", color="#1f7a4d",
                     xlabel="Month", ylabel="Adoption (%)", label_fmt="{:.0f}%"))
 
-                pdf.add_page()
                 pdf.section_title("4. Product Portfolio Mix")
                 _rows = [(month_label(m), int(_yr_n_products_by_month.get(m, 0)),
                          ", ".join(f"{n} ({p:.0f}%)" for n, p in _yr_top3_by_month.get(m, [])))
@@ -3078,7 +3085,6 @@ elif page == "YTD Review":
                     f"Only {_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}% of products have cost data -- "
                     f"revenue mix above is reliable, margin-by-product would not be.", pdf._AMBER)
 
-                pdf.add_page()
                 pdf.section_title("5. Collections and Receivables")
                 pdf.callout("No collections budget exists", "Figures below are trends, not attainment "
                             "against a plan.", pdf._AMBER)
@@ -3112,7 +3118,6 @@ elif page == "YTD Review":
                 pdf.callout("Snapshot only", "This ageing view is a current snapshot; treat it as the "
                             "baseline for tracking the trend going forward.", pdf._AMBER)
 
-                pdf.add_page()
                 pdf.section_title("6. Key Observations")
                 pdf.callout("Customer concentration",
                     f"Top 5 customers = {_yr_top5_pct:.1f}% of YTD revenue; top 10 = {_yr_top10_pct:.1f}%, "
