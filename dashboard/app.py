@@ -2510,20 +2510,12 @@ elif page == "Weekly Info":
         _co_multi_sku_orders  = int((_co_sku_per_order > 1).sum())
         _co_multi_sku_pct     = (_co_multi_sku_orders / _co_orders_with_lines * 100) if _co_orders_with_lines else None
 
-        # ── 6. Gross margin % — coverage-limited to SKUs with cost data on file ──
-        _co_il_cost = _co_il_wk.merge(prod[["ID", "Sku", "Purchase Price"]], left_on="Product ID", right_on="ID", how="left")
+        # Line-item revenue (no cost/margin here -- gross margin is a monthly figure by
+        # agreement, calculated at month-end to properly account for Zipline sales).
+        _co_il_cost = _co_il_wk.merge(prod[["ID", "Sku"]], left_on="Product ID", right_on="ID", how="left")
         _co_il_cost["Line Revenue"] = _co_il_cost["Price"] * _co_il_cost["Quantity"]
-        _co_il_cost["Line Cost"]    = _co_il_cost["Purchase Price"] * _co_il_cost["Quantity"]
-        _co_total_line_rev = _co_il_cost["Line Revenue"].sum()
-        _co_covered         = _co_il_cost.dropna(subset=["Purchase Price"])
-        _co_covered_rev      = _co_covered["Line Revenue"].sum()
-        _co_coverage_pct     = (_co_covered_rev / _co_total_line_rev * 100) if _co_total_line_rev else 0
-        _co_margin_pct = (((_co_covered_rev - _co_covered["Line Cost"].sum()) / _co_covered_rev * 100)
-                          if _co_covered_rev else None)
 
-        _co_cogs = _co_covered["Line Cost"].sum() if len(_co_covered) else 0
-
-        _r1c1, _r1c2, _r1c3, _r1c4 = st.columns(4)
+        _r1c1, _r1c2, _r1c3 = st.columns(3)
         with _r1c1:
             st.markdown(kpi_card("Revenue This Week", f"GHS {_co_revenue:,.2f}",
                         (f"{_co_attain:.1f}% of GHS {_co_target_val:,.2f} target" if _co_target_val is not None
@@ -2552,18 +2544,9 @@ elif page == "Weekly Info":
                     f"Standard payment terms are **{_co_terms_days} days** -> this week is "
                     f"**{_co_days_beyond_terms:+.1f} days** {'over' if _co_days_beyond_terms >= 0 else 'under'} terms."
                     if _co_dso is not None else "Not enough data to calculate.")
-        with _r1c4:
-            st.markdown(kpi_card("Gross Margin %", f"{_co_margin_pct:.1f}%" if _co_margin_pct is not None else "N/A",
-                        f"Based on {_co_coverage_pct:.0f}% of this week's revenue with cost data on file", "#8b5cf6"),
-                        unsafe_allow_html=True)
-            with st.popover("🔎 View formula", use_container_width=True):
-                st.markdown("**Gross Margin % = (Revenue − Cost) ÷ Revenue × 100**")
-                st.markdown(
-                    f"- Revenue with cost data on file: **GHS {_co_covered_rev:,.2f}** "
-                    f"({_co_coverage_pct:.0f}% of this week's revenue)\n"
-                    f"- Cost of goods sold: **GHS {_co_cogs:,.2f}**\n\n"
-                    f"Margin = ({_co_covered_rev:,.2f} − {_co_cogs:,.2f}) ÷ {_co_covered_rev:,.2f} = "
-                    f"**{_co_margin_pct:.1f}%**" if _co_margin_pct is not None else "No cost data for this week.")
+
+        st.caption("Gross margin is excluded from the weekly closeout by agreement — it's calculated "
+                   "at month-end to properly account for Zipline sales, and reported in the monthly review.")
 
         r2 = kpi_card("Active Agrovets", f"{_co_active_agro}",
                       (f"{'+' if _co_agro_delta >= 0 else ''}{_co_agro_delta} vs last week"
@@ -2602,31 +2585,16 @@ elif page == "Weekly Info":
                 f'<span style="font-weight:700;text-align:right;color:{_T["text_heading"]}">{v}</span></div>'
                 for k, v in rows)
 
-        col_m, col_d = st.columns(2)
-        with col_m:
-            st.markdown(chart_wrap("Gross Margin, How It's Calculated",
-                                    f"{_co_coverage_pct:.0f}% of this week's revenue has cost data on file"),
-                        unsafe_allow_html=True)
-            st.markdown(_co_kv_rows([
-                ("Total line revenue (this week)", f"GHS {_co_total_line_rev:,.2f}"),
-                ("Revenue with cost data on file",  f"GHS {_co_covered_rev:,.2f}"),
-                ("Cost of goods sold",              f"GHS {_co_cogs:,.2f}"),
-                ("Gross profit",                    f"GHS {(_co_covered_rev - _co_cogs):,.2f}"),
-                ("Gross margin %",                  f"{_co_margin_pct:.1f}%" if _co_margin_pct is not None else "N/A"),
-            ]), unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        with col_d:
-            st.markdown(chart_wrap("DSO, How It's Calculated", "Outstanding AR ÷ trailing 90-day sales × 90"),
-                        unsafe_allow_html=True)
-            st.markdown(_co_kv_rows([
-                ("Outstanding AR as of week-end", f"GHS {_co_ar_asof:,.2f}"),
-                ("Sales, trailing 90 days",        f"GHS {_co_sales_90d:,.2f}"),
-                ("DSO",                            f"{_co_dso:.1f} days" if _co_dso is not None else "N/A"),
-                ("Standard payment terms",         f"{_co_terms_days} days"),
-                ("Days beyond terms",              f"{_co_days_beyond_terms:+.1f} days" if _co_days_beyond_terms is not None else "N/A"),
-            ]), unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown(chart_wrap("DSO, How It's Calculated", "Outstanding AR ÷ trailing 90-day sales × 90"),
+                    unsafe_allow_html=True)
+        st.markdown(_co_kv_rows([
+            ("Outstanding AR as of week-end", f"GHS {_co_ar_asof:,.2f}"),
+            ("Sales, trailing 90 days",        f"GHS {_co_sales_90d:,.2f}"),
+            ("DSO",                            f"{_co_dso:.1f} days" if _co_dso is not None else "N/A"),
+            ("Standard payment terms",         f"{_co_terms_days} days"),
+            ("Days beyond terms",              f"{_co_days_beyond_terms:+.1f} days" if _co_days_beyond_terms is not None else "N/A"),
+        ]), unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
         # ── AR Aging — turns the DSO number into an actionable chase list ────────
         st.markdown(chart_wrap("AR Aging, Collections Chase List",
@@ -2702,19 +2670,17 @@ elif page == "Weekly Info":
                                 f"{_co_il_cost['Sku'].nunique()} distinct SKUs · "
                                 f"{int(_co_il_cost['Quantity'].sum())} units sold"),
                     unsafe_allow_html=True)
+        # Cost/margin columns intentionally left out here -- gross margin is a monthly
+        # figure by agreement (to properly account for Zipline sales), not weekly.
         _sku_tbl = (_co_il_cost.groupby("Sku").agg(
-            Units=("Quantity", "sum"), Revenue=("Line Revenue", "sum"), Cost=("Line Cost", "sum"),
+            Units=("Quantity", "sum"), Revenue=("Line Revenue", "sum"),
         ).reset_index())
         if len(_sku_tbl):
-            _sku_tbl["Gross Profit"] = _sku_tbl["Revenue"] - _sku_tbl["Cost"]
-            _sku_tbl["Margin %"]     = _sku_tbl["Gross Profit"] / _sku_tbl["Revenue"] * 100
             _sku_tbl = _sku_tbl.sort_values("Revenue", ascending=False)
 
             _sku_fig = go.Figure(go.Bar(
                 x=_sku_tbl["Revenue"], y=_sku_tbl["Sku"], orientation="h",
-                marker=dict(color=_sku_tbl["Margin %"].apply(
-                    lambda m: "#9ca3af" if pd.isna(m) else ("#16a34a" if m >= 25 else ("#eab308" if m >= 15 else "#dc2626"))),
-                    cornerradius=6, line=dict(color="rgba(255,255,255,0.55)", width=1)),
+                marker=bar_marker(BRAND_GREEN),
                 text=_sku_tbl["Revenue"].apply(lambda v: f"GHS {v:,.0f}"), textposition="outside",
             ))
             _sku_fig.update_layout(plot_bgcolor="white", paper_bgcolor="white",
@@ -2725,12 +2691,9 @@ elif page == "Weekly Info":
             st.plotly_chart(_sku_fig, use_container_width=True, config=CHART_CFG)
 
             _sku_disp = pd.DataFrame({
-                "SKU":          _sku_tbl["Sku"],
-                "Units Sold":   _sku_tbl["Units"].astype(int),
-                "Revenue":      _sku_tbl["Revenue"].apply(lambda x: f"GHS {x:,.2f}"),
-                "Cost":         _sku_tbl["Cost"].apply(lambda x: f"GHS {x:,.2f}" if pd.notna(x) else "No cost data"),
-                "Gross Profit": _sku_tbl.apply(lambda r: f"GHS {r['Gross Profit']:,.2f}" if pd.notna(r["Cost"]) else "—", axis=1),
-                "Margin %":     _sku_tbl["Margin %"].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "—"),
+                "SKU":        _sku_tbl["Sku"],
+                "Units Sold": _sku_tbl["Units"].astype(int),
+                "Revenue":    _sku_tbl["Revenue"].apply(lambda x: f"GHS {x:,.2f}"),
             })
             st.dataframe(_sku_disp, use_container_width=True, hide_index=True)
         else:
