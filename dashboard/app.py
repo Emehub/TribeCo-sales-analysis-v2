@@ -2859,15 +2859,28 @@ elif page == "YTD Review":
         _yr_is_partial_month = _yr_months[-1] == _yr_as_of.to_period("M").strftime("%Y-%m")
 
         # ── 2. Active Agrovets, new vs repeat ────────────────────────────────────
+        # inv_scoped (and therefore _yr_inv) only holds 2026-onward rows -- computing
+        # "first order" from it alone would wrongly call every January customer "new"
+        # even if they'd been ordering since 2025. Pull full history just to establish
+        # each customer's true first-ever order date.
+        _yr_full_hist = pd.read_csv(f"{DATA}/invoice.csv")
+        _yr_full_hist["Created At"] = pd.to_datetime(_yr_full_hist["Created At"], errors="coerce")
+        _yr_full_hist = _yr_full_hist[_yr_full_hist["Country Code"] == "GH"].copy()
+        _yr_full_f = pd.Series(True, index=_yr_full_hist.index)
+        if "Order Type" in _yr_full_hist.columns: _yr_full_f &= (_yr_full_hist["Order Type"] == 1)
+        if "Channel" in _yr_full_hist.columns: _yr_full_f &= (_yr_full_hist["Channel"] != "BufferPesa")
+        if "Status" in _yr_full_hist.columns: _yr_full_f &= (_yr_full_hist["Status"] != 5)
+        _yr_full_hist = _yr_full_hist[_yr_full_f].copy()
+        _yr_true_first_order = _yr_full_hist.groupby("Customer ID")["Created At"].min()
+
         _yr_agro_ids = set(rc[rc["Segment Type"] == "Agrovet"]["ID"])
-        _yr_first_order = _yr_inv.groupby("Customer ID")["Created At"].min()
         _yr_cust_rows = []
         for m in _yr_months:
             sub = _yr_inv[_yr_inv["Month"] == m]
             custs = set(sub["Customer ID"].dropna())
             active_agro = len(custs & _yr_agro_ids)
-            new_c = sum(1 for c in custs if pd.notna(_yr_first_order.get(c))
-                        and _yr_first_order[c].to_period("M").strftime("%Y-%m") == m)
+            new_c = sum(1 for c in custs if pd.notna(_yr_true_first_order.get(c))
+                        and _yr_true_first_order[c].to_period("M").strftime("%Y-%m") == m)
             _yr_cust_rows.append(dict(Month=m, Active=len(custs), ActiveAgro=active_agro,
                                       New=new_c, Repeat=len(custs) - new_c))
         _yr_cust_df = pd.DataFrame(_yr_cust_rows)
@@ -2875,8 +2888,7 @@ elif page == "YTD Review":
         _yr_n_customers_ytd = _yr_inv["Customer ID"].nunique()
 
         # ── 3. Repeat-order-rate cohorts (30-day) ────────────────────────────────
-        _yr_inv_sorted = _yr_inv.sort_values("Created At")
-        _yr_fo = _yr_inv_sorted.groupby("Customer ID")["Created At"].first().rename("first_order")
+        _yr_fo = _yr_true_first_order.rename("first_order")
         _yr_merged = _yr_inv.merge(_yr_fo, on="Customer ID")
         _yr_merged["days_gap"] = (_yr_merged["Created At"] - _yr_merged["first_order"]).dt.days
         _yr_merged["first_month"] = _yr_merged["first_order"].dt.to_period("M").astype(str)
