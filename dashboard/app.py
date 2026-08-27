@@ -3130,7 +3130,7 @@ elif page == "YTD Review":
 
             _yr_pdf_bytes = _build_ytd_pdf()
             _yr_fname = f"Ghana_YTD_Commercial_Review_{_yr_month_label.replace(' ', '')}.pdf"
-            st.download_button("⬇ Download full report as PDF — ready to share with stakeholders",
+            st.download_button("⬇ Download Full YTD Report Here for your review",
                               data=_yr_pdf_bytes, file_name=_yr_fname, mime="application/pdf",
                               type="primary", use_container_width=True)
             _yr_text("This button always reflects the current data — next month, just come back to this "
