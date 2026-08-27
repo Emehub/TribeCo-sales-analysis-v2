@@ -1159,23 +1159,21 @@ if _PDF_AVAIL:
         def cover(self, as_of_label):
             self.add_page()
             self.set_fill_color(*self._BRAND)
-            self.rect(0, 0, 210, 297, "F")
+            # Bleed 1mm past every edge -- some PDF viewers render a hairline white
+            # sliver on a fill rect drawn flush to the exact page boundary.
+            self.rect(-1, -1, 212, 299, "F")
             self.set_font("Helvetica", "B", 26)
             self.set_text_color(*self._WHITE)
-            self.set_xy(20, 88)
+            self.set_xy(20, 36)
             self.multi_cell(170, 12, "Ghana Commercial Performance", align="C")
             self.set_font("Helvetica", "B", 18)
             self.set_text_color(*self._GOLD)
-            self.set_xy(20, 112)
+            self.set_xy(20, 60)
             self.cell(170, 10, self._clean(f"Year-to-Date Review -- {self.report_month_label} Close"), align="C")
             self.set_font("Helvetica", "", 10)
             self.set_text_color(*self._WHITE)
-            self.set_xy(20, 140)
+            self.set_xy(20, 88)
             self.cell(170, 7, self._clean(f"Covering January - {self.report_month_label} (data as of {as_of_label})"), align="C")
-            self.set_xy(20, 262)
-            self.set_font("Helvetica", "", 8)
-            self.set_text_color(*self._GOLD)
-            self.cell(170, 7, "Confidential  |  Internal Use Only", align="C")
 
         def section_title(self, text):
             self.set_fill_color(*self._ACCENT)
