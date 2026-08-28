@@ -2785,15 +2785,27 @@ elif page == "Weekly Info":
 
         # 4. Segment tagging coverage limiting how much the Agrovet KPIs really describe
         _agro_tagged_n, _agro_total_n = len(_co_agro_ids), len(rc)
+        _agro_untagged_active_n = rc[rc["Segment Type"].isna() &
+                                     rc["ID"].isin(set(inv_scoped["Customer ID"].dropna()))].shape[0]
         if _agro_total_n and _agro_tagged_n / _agro_total_n < 0.5:
-            _insights.append(("🏷️", "Segment tagging gap",
-                f"Only {_agro_tagged_n} of {_agro_total_n} Ghana retail centres "
-                f"({_agro_tagged_n/_agro_total_n*100:.0f}%) are tagged 'Agrovet' in the system. The "
-                f"Active/Repeat Agrovet figures above only ever describe this tagged subset, tagging the "
-                f"rest would make every segment-level number on this page more reliable.",
-                "Have whoever manages the retail centre records complete Segment Type tagging for the "
-                "untagged accounts. Until then, treat Agrovet-specific figures as a sample, not the full "
-                "customer base."))
+            if _agro_untagged_active_n > 0:
+                _insights.append(("🏷️", "Segment tagging gap -- smaller than it first looks",
+                    f"Only {_agro_tagged_n} of {_agro_total_n} Ghana retail centres "
+                    f"({_agro_tagged_n/_agro_total_n*100:.0f}%) are tagged 'Agrovet' in the system. Most of "
+                    f"the untagged records have never actually ordered, though -- only "
+                    f"{_agro_untagged_active_n} untagged accounts have placed an order this year. Tagging "
+                    f"those specific accounts would close most of the real gap.",
+                    f"Have whoever manages the retail centre records tag the {_agro_untagged_active_n} "
+                    "untagged accounts that have actually ordered -- a short list, not a full registry "
+                    "cleanup. The remaining untagged records appear dormant and can wait."))
+            else:
+                _insights.append(("🏷️", "Segment tagging gap doesn't affect this year's numbers",
+                    f"Only {_agro_tagged_n} of {_agro_total_n} Ghana retail centres "
+                    f"({_agro_tagged_n/_agro_total_n*100:.0f}%) are tagged 'Agrovet', but every customer "
+                    f"who has actually ordered in 2026 is already tagged -- the untagged records are all "
+                    f"dormant accounts with no orders this year.",
+                    "No action needed for current reporting. Worth tagging the dormant records eventually "
+                    "for registry hygiene, but it won't change any Agrovet figure on this page today."))
 
         if _insights:
             for _icon, _title, _text, _action in _insights:
@@ -2931,6 +2943,28 @@ elif page == "YTD Review":
             _yr_top3_by_month[m] = [(r["Product Name"], r["Line Revenue"]/tot*100 if tot else 0) for _, r in sub.iterrows()]
         _yr_by_prod_ytd = _yr_il_pm.groupby("Product Name")["Line Revenue"].sum().sort_values(ascending=False)
         _yr_cost_cov_n, _yr_cost_cov_total = prod["Purchase Price"].notna().sum(), len(prod)
+        # The catalogue-wide % above is dominated by SKUs that have never actually sold --
+        # what matters for margin reliability is coverage among products that generated
+        # real revenue this year.
+        _yr_sold_ids = set(_yr_il_pm["Product ID"].dropna().unique())
+        _yr_cost_cov_sold_total = len(_yr_sold_ids)
+        _yr_cost_cov_sold_n = prod[prod["ID"].isin(_yr_sold_ids) & prod["Purchase Price"].notna()].shape[0]
+        # Same logic for Agrovet tagging -- most untagged records have never ordered at all,
+        # so the real gap is only the untagged accounts that are actually transacting.
+        _yr_ordered_ids = set(_yr_inv["Customer ID"].dropna())
+        _yr_agro_untagged = rc[rc["Segment Type"].isna()]
+        _yr_agro_untagged_active_n = _yr_agro_untagged["ID"].isin(_yr_ordered_ids).sum()
+        _yr_agro_note = (f"only {_yr_agro_untagged_active_n} untagged records have actually ordered this "
+                        f"year -- tagging those would close most of the real gap"
+                        if _yr_agro_untagged_active_n > 0 else
+                        "every customer who has actually ordered this year is already tagged -- the "
+                        "untagged records are all dormant, with no orders this year")
+        _yr_agro_note_short = (f"missing on only {_yr_agro_untagged_active_n} customer records that have "
+                              f"actually ordered, out of {len(rc)} total records on file"
+                              if _yr_agro_untagged_active_n > 0 else
+                              f"not missing on any customer that has actually ordered this year -- all "
+                              f"{len(_yr_agro_untagged)} untagged records are dormant, with no orders "
+                              f"this year")
 
         # ── 6. Collections trend + DSO trend + AR aging ──────────────────────────
         _yr_coll_by_month = rep_scoped.groupby(rep_scoped["Created At"].dt.to_period("M").astype(str))["Amount"].sum()
@@ -3005,11 +3039,14 @@ elif page == "YTD Review":
                         f"Standard terms are {_yr_terms_days} days. Latest DSO is {_last_dso:.0f} days "
                         f"({_last_dbt:+.0f} days beyond terms). Full month-by-month detail is in Section 5.",
                         pdf._RED)
-                pdf.callout("Two data coverage gaps to read figures against",
-                    f"Only {_yr_cost_cov_n} of {_yr_cost_cov_total} products "
-                    f"({_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}%) have cost data on file, limiting margin "
-                    f"analysis. Only {len(_yr_agro_ids)} of {len(rc)} Ghana customer records "
-                    f"({len(_yr_agro_ids)/len(rc)*100:.0f}%) are tagged 'Agrovet'.", pdf._AMBER)
+                pdf.callout("Two data gaps, smaller in practice than they first look",
+                    f"Cost data covers {_yr_cost_cov_n} of {_yr_cost_cov_total} catalogue entries "
+                    f"({_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}%), but most of the catalogue has never "
+                    f"sold -- among the {_yr_cost_cov_sold_total} products actually sold this year, "
+                    f"{_yr_cost_cov_sold_n} have cost data ({_yr_cost_cov_sold_n/_yr_cost_cov_sold_total*100:.0f}%). "
+                    f"Similarly, {len(_yr_agro_ids)} of {len(rc)} Ghana customer records "
+                    f"({len(_yr_agro_ids)/len(rc)*100:.0f}%) are tagged 'Agrovet', but {_yr_agro_note}.",
+                    pdf._AMBER)
 
                 pdf.section_title("1. Commercial Performance — Revenue vs Target")
                 _rows = [(r["Month Label"], f"GHS {r['Discountedvalue']:,.0f}",
@@ -3065,8 +3102,9 @@ elif page == "YTD Review":
                 _pdf_pie_values = list(_pdf_pie_data.values) + ([_pdf_other] if _pdf_other > 0 else [])
                 pdf.chart(_pie_png(_pdf_pie_labels, _pdf_pie_values, title="YTD Revenue Share by Product"), w=140)
                 pdf.callout("Coverage caveat",
-                    f"Only {_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}% of products have cost data -- "
-                    f"revenue mix above is reliable, margin-by-product would not be.", pdf._AMBER)
+                    f"{_yr_cost_cov_sold_n} of the {_yr_cost_cov_sold_total} products actually sold this "
+                    f"year ({_yr_cost_cov_sold_n/_yr_cost_cov_sold_total*100:.0f}%) have cost data -- revenue "
+                    f"mix above is reliable, margin-by-product would only describe part of it.", pdf._AMBER)
 
                 pdf.section_title("5. Collections and Receivables")
                 pdf.callout("No collections budget exists", "Figures below are trends, not attainment "
@@ -3106,8 +3144,9 @@ elif page == "YTD Review":
                     f"Top 5 customers = {_yr_top5_pct:.1f}% of YTD revenue; top 10 = {_yr_top10_pct:.1f}%, "
                     f"out of {_yr_n_customers_ytd} customers who ordered at all this year.")
                 pdf.callout("Data coverage",
-                    f"Product cost data covers {_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}% of the catalogue; "
-                    f"Agrovet tagging covers {len(_yr_agro_ids)/len(rc)*100:.0f}% of customer records.",
+                    f"Cost data covers {_yr_cost_cov_sold_n/_yr_cost_cov_sold_total*100:.0f}% of products "
+                    f"actually sold this year ({_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}% of the full, "
+                    f"mostly-unsold catalogue). Agrovet tagging is {_yr_agro_note_short}.",
                     pdf._AMBER)
                 return bytes(pdf.output())
 
@@ -3136,10 +3175,12 @@ elif page == "YTD Review":
                 f"Latest DSO is {_yr_dso_df['DSO'].iloc[-1]:.0f} days "
                 f"({_yr_dso_df['DaysBeyondTerms'].iloc[-1]:+.0f} days beyond the standard "
                 f"{_yr_terms_days}-day term)."))
-        _yr_summary.append(("🏷️", "Data coverage gaps", "#bf6908",
-            f"Product cost data covers {_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}% of the catalogue; "
-            f"Agrovet tagging covers {len(_yr_agro_ids)/len(rc)*100:.0f}% of customer records — read "
-            f"margin and Agrovet-specific figures with that in mind."))
+        _yr_summary.append(("🏷️", "Two data gaps, smaller in practice than they first look", "#bf6908",
+            f"Cost data covers {_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}% of the full catalogue, but most "
+            f"of it has never sold — among products actually sold this year, coverage is "
+            f"{_yr_cost_cov_sold_n/_yr_cost_cov_sold_total*100:.0f}% ({_yr_cost_cov_sold_n} of "
+            f"{_yr_cost_cov_sold_total}). Similarly, {len(_yr_agro_ids)} of {len(rc)} customer records "
+            f"({len(_yr_agro_ids)/len(rc)*100:.0f}%) are tagged 'Agrovet', but {_yr_agro_note}."))
         for _icon, _title, _color, _text in _yr_summary:
             st.markdown(
                 f'<div style="background:{_T["card_bg"]};backdrop-filter:blur(14px);'
@@ -3224,7 +3265,8 @@ elif page == "YTD Review":
                                           for m in _yr_months],
             }), use_container_width=True, hide_index=True)
         _yr_text(f"Product revenue mix is reliable (built from actual sale prices). Margin-by-product would "
-                 f"only cover {_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}% of the catalogue with cost data on file.")
+                 f"only cover {_yr_cost_cov_sold_n} of the {_yr_cost_cov_sold_total} products actually sold "
+                 f"this year ({_yr_cost_cov_sold_n/_yr_cost_cov_sold_total*100:.0f}%) with cost data on file.")
         st.markdown("</div>", unsafe_allow_html=True)
 
         # ── 5. Collections and Receivables ────────────────────────────────────────
@@ -3280,8 +3322,9 @@ elif page == "YTD Review":
         _yr_text(f"• <b>Customer concentration:</b> top 5 customers = {_yr_top5_pct:.1f}% of YTD revenue; "
                  f"top 10 = {_yr_top10_pct:.1f}%, out of {_yr_n_customers_ytd} customers who ordered at all this year.",
                  muted=False)
-        _yr_text(f"• <b>Data coverage:</b> product cost data covers {_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}% "
-                 f"of the catalogue; Agrovet tagging covers {len(_yr_agro_ids)/len(rc)*100:.0f}% of customer records.",
+        _yr_text(f"• <b>Data coverage:</b> cost data covers {_yr_cost_cov_sold_n/_yr_cost_cov_sold_total*100:.0f}% "
+                 f"of products actually sold this year ({_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}% of the "
+                 f"full, mostly-unsold catalogue). Agrovet tagging is {_yr_agro_note_short}.",
                  muted=False)
         st.markdown("</div>", unsafe_allow_html=True)
 
