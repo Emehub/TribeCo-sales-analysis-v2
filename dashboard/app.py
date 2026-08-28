@@ -3337,11 +3337,10 @@ elif page == "Data Export":
     _de_text = lambda html: st.markdown(
         f'<div style="font-size:13px;color:{_T["text_muted"]};margin:0 0 14px">{html}</div>',
         unsafe_allow_html=True)
-    _de_text("Every core TribeCo table, scoped to Ghana only, in one workbook — one tab per table. "
-             "Regenerates from live data every time you click download, so there's no need to ask for "
-             "a fresh pull.")
+    _de_text("Every core TribeCo table, scoped to Ghana only, in one workbook. "
+             "For easy reference, all data are live from the Metabase.")
 
-    if st.button("🗂️ Prepare Ghana Data Workbook", type="primary", use_container_width=True):
+    if st.button("🗂️ Ghana Raw Data sheet", type="primary", use_container_width=True):
         with st.spinner("Pulling and scoping every table to Ghana..."):
             def _de_load(name):
                 df = pd.read_csv(f"{DATA}/{name}.csv")
