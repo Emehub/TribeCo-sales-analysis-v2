@@ -1263,7 +1263,7 @@ if "active_page" not in st.session_state:
     st.session_state["active_page"] = "Overview"
 
 NAV_GROUPS = {
-    "Leadership":     ["Weekly Info", "YTD Review"],
+    "Leadership":     ["Weekly Info", "YTD Review", "Data Export"],
     "Core Analytics": ["Overview", "Sales Performance"],
     "Business":       ["Customers", "Payments"],
     "Phase 1":        ["Weekly Scorecard", "Reconciliation", "Data Quality"],
@@ -1274,6 +1274,7 @@ NAV_GROUPS = {
 NAV_ICONS = {
     "Weekly Info":        "🧭",
     "YTD Review":         "📊",
+    "Data Export":         "🗂️",
     "Overview":            "🏠",
     "Sales Performance":   "📈",
     "Products":            "📦",
@@ -3327,6 +3328,117 @@ elif page == "YTD Review":
                  f"full, mostly-unsold catalogue). Agrovet tagging is {_yr_agro_note_short}.",
                  muted=False)
         st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════════
+# PAGE — DATA EXPORT
+# ══════════════════════════════════════════════════════════════════════════════════
+elif page == "Data Export":
+    _de_text = lambda html: st.markdown(
+        f'<div style="font-size:13px;color:{_T["text_muted"]};margin:0 0 14px">{html}</div>',
+        unsafe_allow_html=True)
+    _de_text("Every core TribeCo table, scoped to Ghana only, in one workbook — one tab per table. "
+             "Regenerates from live data every time you click download, so there's no need to ask for "
+             "a fresh pull.")
+
+    if st.button("🗂️ Prepare Ghana Data Workbook", type="primary", use_container_width=True):
+        with st.spinner("Pulling and scoping every table to Ghana..."):
+            def _de_load(name):
+                df = pd.read_csv(f"{DATA}/{name}.csv")
+                for col in df.columns:
+                    if col in ("Created At", "Updated At", "Due Date", "Repayment Date", "Completed At",
+                              "Start Date", "End Date", "Expected At", "Paid At"):
+                        df[col] = pd.to_datetime(df[col], errors="coerce")
+                return df
+
+            _de_payment = _de_load("payment")
+            _de_invoice = _de_load("invoice")
+            _de_repayment = _de_load("repayment")
+            _de_rc = _de_load("retail_centre")
+            _de_product = _de_load("product")
+            _de_il = _de_load("invoice_line")
+            _de_ir = _de_load("inventory_request")
+            _de_ibv = _de_load("inventory_balances_view")
+            _de_camp = _de_load("preorder_campaign")
+            _de_irf = _de_load("inventory_request_fulfillment")
+
+            _de_invoice_gh = _de_invoice[_de_invoice["Country Code"] == "GH"].copy()
+            _de_repayment_gh = _de_repayment[_de_repayment["Country Code"] == "GH"].copy()
+            _de_rc_gh = _de_rc[_de_rc["Country Code"] == "GH"].copy()
+            _de_ir_gh = _de_ir[_de_ir["Country Code"] == "GH"].copy()
+
+            _de_gh_invoice_ids = set(_de_invoice_gh["ID"].dropna())
+            _de_gh_rc_ids = set(_de_rc_gh["ID"].dropna())
+            _de_gh_request_ids = set(_de_ir_gh["ID"].dropna())
+
+            _de_il_gh = _de_il[_de_il["Invoice ID"].isin(_de_gh_invoice_ids)].copy()
+            _de_ibv_gh = _de_ibv[_de_ibv["Retail Centre ID"].isin(_de_gh_rc_ids)].copy()
+            _de_irf_gh = _de_irf[_de_irf["Request ID"].isin(_de_gh_request_ids)].copy()
+            _de_gh_sold_product_ids = set(_de_il_gh["Product ID"].dropna())
+            _de_product_gh = _de_product[_de_product["ID"].isin(_de_gh_sold_product_ids)].copy()
+
+            # Flag which rows actually feed the dashboard's own KPIs (a narrower slice
+            # than "all Ghana" -- excludes cancelled invoices, non-standard order types,
+            # and the BufferPesa channel).
+            _de_invoice_gh["Included in Dashboard KPIs"] = (
+                (_de_invoice_gh["Order Type"] == 1) &
+                (_de_invoice_gh["Channel"] != "BufferPesa") &
+                (_de_invoice_gh["Status"] != 5))
+            _de_qualifying_ids = set(_de_invoice_gh[_de_invoice_gh["Included in Dashboard KPIs"]]["ID"])
+            _de_repayment_gh["Included in Dashboard KPIs"] = _de_repayment_gh["Invoice ID"].isin(_de_qualifying_ids)
+            _de_il_gh["Included in Dashboard KPIs"] = _de_il_gh["Invoice ID"].isin(_de_qualifying_ids)
+
+            _de_readme = pd.DataFrame([
+                ("Generated", pd.Timestamp.now().strftime("%d %b %Y %H:%M")),
+                ("", ""),
+                ("Sheet", "Ghana scoping applied"),
+                ("Invoice", f"Country Code = GH ({len(_de_invoice_gh)} of {len(_de_invoice)} rows). "
+                            f"'Included in Dashboard KPIs' column flags the narrower "
+                            f"{_de_invoice_gh['Included in Dashboard KPIs'].sum()}-row slice the dashboard "
+                            f"itself reports on (excludes cancelled invoices, non-standard order types, "
+                            f"and BufferPesa-channel orders)."),
+                ("Repayment", f"Country Code = GH ({len(_de_repayment_gh)} of {len(_de_repayment)} rows). "
+                              f"Same 'Included in Dashboard KPIs' flag, based on whether its invoice "
+                              f"qualifies."),
+                ("Retail Centre", f"Country Code = GH ({len(_de_rc_gh)} of {len(_de_rc)} rows)"),
+                ("Invoice Line", f"Invoice ID belongs to a GH invoice ({len(_de_il_gh)} of {len(_de_il)} rows)"),
+                ("Inventory Request", f"Country Code = GH ({len(_de_ir_gh)} of {len(_de_ir)} rows)"),
+                ("Inventory Balances", f"Retail Centre ID belongs to a GH retail centre "
+                                       f"({len(_de_ibv_gh)} of {len(_de_ibv)} rows)"),
+                ("Inventory Fulfillment", f"Request ID belongs to a GH inventory request "
+                                          f"({len(_de_irf_gh)} of {len(_de_irf)} rows)"),
+                ("Product", f"Product ID has actually sold on a GH invoice ({len(_de_product_gh)} of "
+                            f"{len(_de_product)} rows). NOTE: the catalogue's own 'Country' field mixes "
+                            f"manufacturing origin (e.g. CN, NL) with market codes and isn't reliable for "
+                            f"Ghana/Kenya scoping, so this sheet is scoped by actual Ghana sales instead."),
+                ("Payment", f"NOT scoped -- no country field and no reliable link to Ghana records. "
+                            f"Included in full ({len(_de_payment)} rows). Treat as a mixed GH/KE table."),
+                ("Preorder Campaign", f"NOT scoped -- no country field and only {len(_de_camp)} rows "
+                                      f"total. Included in full."),
+            ], columns=["Item", "Detail"])
+
+            _de_sheets = {
+                "README": _de_readme,
+                "Invoice": _de_invoice_gh,
+                "Repayment": _de_repayment_gh,
+                "Retail Centre": _de_rc_gh,
+                "Invoice Line": _de_il_gh,
+                "Inventory Request": _de_ir_gh,
+                "Inventory Balances": _de_ibv_gh,
+                "Inventory Fulfillment": _de_irf_gh,
+                "Product": _de_product_gh,
+                "Payment (unfiltered)": _de_payment,
+                "Preorder Campaign (unfiltered)": _de_camp,
+            }
+            st.session_state["_de_workbook"] = make_excel(_de_sheets)
+            st.session_state["_de_fname"] = f"TribeCo_Ghana_Data_{pd.Timestamp.now().strftime('%Y-%m-%d')}.xlsx"
+
+    if "_de_workbook" in st.session_state:
+        st.success("Workbook ready.")
+        st.download_button("⬇ Download Ghana Data Workbook", data=st.session_state["_de_workbook"],
+                          file_name=st.session_state["_de_fname"],
+                          mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                          type="primary", use_container_width=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
