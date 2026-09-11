@@ -2956,14 +2956,14 @@ elif page == "YTD Review":
         _yr_agro_untagged = rc[rc["Segment Type"].isna()]
         _yr_agro_untagged_active_n = _yr_agro_untagged["ID"].isin(_yr_ordered_ids).sum()
         _yr_agro_note = (f"only {_yr_agro_untagged_active_n} untagged records have actually ordered this "
-                        f"year -- tagging those would close most of the real gap"
+                        f"year, tagging those would close most of the real gap"
                         if _yr_agro_untagged_active_n > 0 else
-                        "every customer who has actually ordered this year is already tagged -- the "
+                        "every customer who has actually ordered this year is already tagged, the "
                         "untagged records are all dormant, with no orders this year")
         _yr_agro_note_short = (f"missing on only {_yr_agro_untagged_active_n} customer records that have "
                               f"actually ordered, out of {len(rc)} total records on file"
                               if _yr_agro_untagged_active_n > 0 else
-                              f"not missing on any customer that has actually ordered this year -- all "
+                              f"not missing on any customer that has actually ordered this year, all "
                               f"{len(_yr_agro_untagged)} untagged records are dormant, with no orders "
                               f"this year")
 
@@ -3028,7 +3028,7 @@ elif page == "YTD Review":
                 pdf.body(f"This review covers TribeCo Ghana's commercial performance from January through "
                          f"{_yr_month_label} (data as of {_yr_as_of_label}{_yr_lag_note}"
                          f"{'; latest month is partial, not yet closed' if _yr_is_partial_month else ''}). "
-                         f"Generated on demand from the live dashboard -- every figure is computed, not estimated.")
+                         f"Generated on demand from the live dashboard, every figure is computed, not estimated.")
                 _last_attain = _yr_mo["Attain"].iloc[-1] if pd.notna(_yr_mo["Attain"].iloc[-1]) else None
                 pdf.callout("Revenue trajectory",
                     f"Attainment across the year: " +
@@ -3043,13 +3043,13 @@ elif page == "YTD Review":
                 pdf.callout("Two data gaps, smaller in practice than they first look",
                     f"Cost data covers {_yr_cost_cov_n} of {_yr_cost_cov_total} catalogue entries "
                     f"({_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}%), but most of the catalogue has never "
-                    f"sold -- among the {_yr_cost_cov_sold_total} products actually sold this year, "
+                    f"sold, among the {_yr_cost_cov_sold_total} products actually sold this year, "
                     f"{_yr_cost_cov_sold_n} have cost data ({_yr_cost_cov_sold_n/_yr_cost_cov_sold_total*100:.0f}%). "
                     f"Similarly, {len(_yr_agro_ids)} of {len(rc)} Ghana customer records "
                     f"({len(_yr_agro_ids)/len(rc)*100:.0f}%) are tagged 'Agrovet', but {_yr_agro_note}.",
                     pdf._AMBER)
 
-                pdf.section_title("1. Commercial Performance — Revenue vs Target")
+                pdf.section_title("1. Commercial Performance, Revenue vs Target")
                 _rows = [(r["Month Label"], f"GHS {r['Discountedvalue']:,.0f}",
                          f"GHS {r['Target']:,.0f}" if pd.notna(r["Target"]) else "n/a",
                          (f"{r['Attain']:.1f}%" if pd.notna(r["Attain"]) else "n/a") +
@@ -3079,7 +3079,7 @@ elif page == "YTD Review":
                 pdf.chart(_bar_png(_yr_cohort_df["Month Label"], _yr_cohort_df["Rate"].fillna(0),
                     title="Repeat Rate by Cohort Month", color="#1f7a4d",
                     xlabel="Cohort Month", ylabel="Repeat Rate (%)", label_fmt="{:.0f}%"))
-                pdf.callout("Small cohorts -- read with caution",
+                pdf.callout("Small cohorts, read with caution",
                     "Some monthly cohorts have very few new customers; a rate built on 1-2 people can "
                     "swing from 0% to 100% on a single account.", pdf._AMBER)
 
@@ -3104,7 +3104,7 @@ elif page == "YTD Review":
                 pdf.chart(_pie_png(_pdf_pie_labels, _pdf_pie_values, title="YTD Revenue Share by Product"), w=140)
                 pdf.callout("Coverage caveat",
                     f"{_yr_cost_cov_sold_n} of the {_yr_cost_cov_sold_total} products actually sold this "
-                    f"year ({_yr_cost_cov_sold_n/_yr_cost_cov_sold_total*100:.0f}%) have cost data -- revenue "
+                    f"year ({_yr_cost_cov_sold_n/_yr_cost_cov_sold_total*100:.0f}%) have cost data, revenue "
                     f"mix above is reliable, margin-by-product would only describe part of it.", pdf._AMBER)
 
                 pdf.section_title("5. Collections and Receivables")
@@ -3116,11 +3116,9 @@ elif page == "YTD Review":
                          f"{r['DaysBeyondTerms']:+.0f} days" if pd.notna(r["DaysBeyondTerms"]) else "n/a")
                         for _, r in _yr_dso_df.iterrows()]
                 pdf.table(["Month-End", "Outstanding AR", "DSO", "Beyond Terms"], _rows, [30, 50, 45, 78])
-                _pdf_dso_colors = ["#dc2626" if (d or 0) > 0 else "#16a34a"
-                                  for d in _yr_dso_df["DaysBeyondTerms"].fillna(0)]
                 pdf.chart(_bar_with_threshold_png(_yr_dso_df["Month Label"], _yr_dso_df["DSO"].fillna(0),
                     _yr_terms_days, threshold_label=f"{_yr_terms_days}-day term", title="DSO vs 30-Day Term",
-                    colors=_pdf_dso_colors, xlabel="Month", ylabel="Days", label_fmt="{:.0f}d"))
+                    xlabel="Month", ylabel="Days", label_fmt="{:.0f}d"))
                 pdf.sub_title("Monthly collections vs. that month's revenue")
                 _rows = [(r["Month Label"], f"GHS {r['Revenue']:,.0f}", f"GHS {r['Collected']:,.0f}",
                          f"{r['Collected']/r['Revenue']*100:.0f}%" if r["Revenue"] else "n/a")
@@ -3156,7 +3154,7 @@ elif page == "YTD Review":
             st.download_button("⬇ Download Full YTD Report Here for your review",
                               data=_yr_pdf_bytes, file_name=_yr_fname, mime="application/pdf",
                               type="primary", use_container_width=True)
-            _yr_text("This button always reflects the current data — next month, just come back to this "
+            _yr_text("This button always reflects the current data, next month, just come back to this "
                      "page and download again. No need to regenerate anything manually.")
         else:
             st.warning("PDF export isn't available in this environment (fpdf2/matplotlib not installed).")
@@ -3178,7 +3176,7 @@ elif page == "YTD Review":
                 f"{_yr_terms_days}-day term)."))
         _yr_summary.append(("🏷️", "Two data gaps, smaller in practice than they first look", "#bf6908",
             f"Cost data covers {_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}% of the full catalogue, but most "
-            f"of it has never sold — among products actually sold this year, coverage is "
+            f"of it has never sold, among products actually sold this year, coverage is "
             f"{_yr_cost_cov_sold_n/_yr_cost_cov_sold_total*100:.0f}% ({_yr_cost_cov_sold_n} of "
             f"{_yr_cost_cov_sold_total}). Similarly, {len(_yr_agro_ids)} of {len(rc)} customer records "
             f"({len(_yr_agro_ids)/len(rc)*100:.0f}%) are tagged 'Agrovet', but {_yr_agro_note}."))
@@ -3192,7 +3190,7 @@ elif page == "YTD Review":
                 unsafe_allow_html=True)
 
         # ── 1. Revenue vs Target ─────────────────────────────────────────────────
-        st.markdown(chart_wrap("1. Commercial Performance — Revenue vs Target",
+        st.markdown(chart_wrap("1. Commercial Performance, Revenue vs Target",
                                 "Monthly revenue against target, January to date"), unsafe_allow_html=True)
         _yr_fig1 = go.Figure()
         _yr_fig1.add_bar(x=_yr_mo["Month Label"], y=_yr_mo["Discountedvalue"], marker=bar_marker(BRAND_GREEN), name="Revenue")
@@ -3223,7 +3221,7 @@ elif page == "YTD Review":
             "AOV": _yr_mo.set_index("Month").loc[_yr_cust_df["Month"], "AOV"].apply(lambda x: f"GHS {x:,.0f}").values,
         }), use_container_width=True, hide_index=True)
         _yr_text(f"{_yr_n_customers_ytd} distinct customers have ordered at all in 2026.")
-        with st.expander("Repeat-order rate by cohort month (small samples — read with caution)"):
+        with st.expander("Repeat-order rate by cohort month (small samples, read with caution)"):
             st.dataframe(pd.DataFrame({
                 "Cohort Month": _yr_cohort_df["Month"].apply(month_label),
                 "New Customers": _yr_cohort_df["CohortSize"],
@@ -3272,14 +3270,13 @@ elif page == "YTD Review":
 
         # ── 5. Collections and Receivables ────────────────────────────────────────
         st.markdown(chart_wrap("5. Collections and Receivables",
-                                "No collections budget exists — shown as trends, not attainment"), unsafe_allow_html=True)
+                                "No collections budget exists, shown as trends, not attainment"), unsafe_allow_html=True)
         _yr_col_c1, _yr_col_c2 = st.columns(2)
         with _yr_col_c1:
             _yr_text(f"<b>DSO vs. the {_yr_terms_days}-day term</b>", muted=False, size=14, margin="4px 0 8px")
             _yr_fig5 = go.Figure(go.Bar(
                 x=_yr_dso_df["Month Label"], y=_yr_dso_df["DSO"],
-                marker=dict(color=_yr_dso_df["DaysBeyondTerms"].apply(lambda d: "#dc2626" if d and d > 0 else "#16a34a"),
-                           cornerradius=6, line=dict(color="rgba(255,255,255,0.55)", width=1)),
+                marker=bar_marker(BRAND_GREEN),
                 text=_yr_dso_df["DSO"].apply(lambda x: f"{x:.0f}d" if pd.notna(x) else ""), textposition="outside"))
             _yr_fig5.add_hline(y=_yr_terms_days, line_dash="dot", line_color=BRAND_GOLD,
                                annotation_text=f"{_yr_terms_days}-day term")
@@ -3298,7 +3295,7 @@ elif page == "YTD Review":
             "DSO": _yr_dso_df["DSO"].apply(lambda x: f"{x:.1f} days" if pd.notna(x) else "n/a"),
             "Beyond Terms": _yr_dso_df["DaysBeyondTerms"].apply(lambda x: f"{x:+.1f} days" if pd.notna(x) else "n/a"),
         }), use_container_width=True, hide_index=True)
-        _yr_text(f"<b>Receivables ageing as of {_yr_as_of_label}</b> — GHS {_yr_total_ar:,.2f} outstanding",
+        _yr_text(f"<b>Receivables ageing as of {_yr_as_of_label}</b>, GHS {_yr_total_ar:,.2f} outstanding",
                  muted=False, size=14, margin="4px 0 8px")
         if len(_yr_aging):
             _yr_age_colors = {"Not yet due": "#94a3b8", "0–30 days": "#16a34a", "31–60 days": "#eab308",
@@ -3314,7 +3311,7 @@ elif page == "YTD Review":
                                    font=dict(family="Inter, sans-serif", size=12),
                                    xaxis=dict(gridcolor="#f3f4f6", range=[0, _yr_aging["Total"].max()*1.35]))
             st.plotly_chart(_yr_fig7, use_container_width=True, config=CHART_CFG)
-        _yr_text("This ageing view is a current snapshot, not yet a historical trend — treat it as the "
+        _yr_text("This ageing view is a current snapshot, not yet a historical trend, treat it as the "
                  "baseline for tracking going forward.")
         st.markdown("</div>", unsafe_allow_html=True)
 
