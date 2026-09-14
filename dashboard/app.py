@@ -2072,6 +2072,25 @@ elif page == "Customers":
     st.plotly_chart(fig3, use_container_width=True, config=CHART_CFG)
     st.markdown("</div>", unsafe_allow_html=True)
 
+    def _extract_region(val):
+        try:
+            import json
+            return json.loads(val).get("Region", "")
+        except Exception:
+            return val
+
+    st.markdown(chart_wrap(f"New Customers Onboarded in {yr}",
+                           "Agrovets & Providers signed this year, for review"), unsafe_allow_html=True)
+    new_cust_df = new_partners_y.copy()
+    new_cust_df["Region"] = new_cust_df["Customer Address"].apply(_extract_region)
+    new_cust_df = new_cust_df.sort_values("Created At", ascending=True)
+    new_cust_df["Created At"] = new_cust_df["Created At"].dt.strftime("%d %b %Y")
+    new_cust_df = new_cust_df.rename(columns={"Phone Number": "Phone", "Created At": "Date Joined"})
+    new_cust_df = new_cust_df[["Name", "Segment Type", "Region", "Phone", "Date Joined"]].reset_index(drop=True)
+    new_cust_df.index = pd.RangeIndex(1, len(new_cust_df) + 1)
+    st.dataframe(new_cust_df, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
     st.markdown(chart_wrap("Customer Leaderboard"), unsafe_allow_html=True)
     lb = top_cust.copy()
     lb.index = pd.RangeIndex(1, len(lb)+1)
@@ -2084,12 +2103,6 @@ elif page == "Customers":
         "Name", "Segment Type", "Customer Address",
         "Phone Number", "Created At"
     ]].copy()
-    def _extract_region(val):
-        try:
-            import json
-            return json.loads(val).get("Region", "")
-        except Exception:
-            return val
     dir_df["Region"] = dir_df["Customer Address"].apply(_extract_region)
     dir_df = dir_df.drop(columns=["Customer Address"])
     dir_df["Created At"] = pd.to_datetime(dir_df["Created At"], errors="coerce")
@@ -2112,6 +2125,7 @@ elif page == "Customers":
     _cust_sheets = {
         "Customer Revenue":    _cust_revenue,
         "Active Directory":    dir_df.reset_index(drop=True),
+        "New Customers":       new_cust_df.reset_index(drop=True),
         "Registrations":       rc_month_grp,
     }
     _cust_pdf = None
