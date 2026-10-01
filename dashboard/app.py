@@ -13,6 +13,9 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import warnings
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # sibling modules, however the app is launched
+import credit_collections_report as ccr
 warnings.filterwarnings("ignore")
 try:
     import matplotlib
@@ -1269,7 +1272,7 @@ if "active_page" not in st.session_state:
     st.session_state["active_page"] = "Overview"
 
 NAV_GROUPS = {
-    "Leadership":     ["Weekly Info", "YTD Review", "Data Export"],
+    "Leadership":     ["Weekly Info", "YTD Review", "Credit & Collections", "Data Export"],
     "Core Analytics": ["Overview", "Sales Performance"],
     "Business":       ["Customers", "Payments"],
     "Phase 1":        ["Weekly Scorecard", "Reconciliation", "Data Quality"],
@@ -1280,6 +1283,7 @@ NAV_GROUPS = {
 NAV_ICONS = {
     "Weekly Info":        "🧭",
     "YTD Review":         "📊",
+    "Credit & Collections": "🧾",
     "Data Export":         "🗂️",
     "Overview":            "🏠",
     "Sales Performance":   "📈",
@@ -3357,6 +3361,112 @@ elif page == "YTD Review":
 # ══════════════════════════════════════════════════════════════════════════════════
 # PAGE — DATA EXPORT
 # ══════════════════════════════════════════════════════════════════════════════════
+elif page == "Credit & Collections":
+    _cc_text = lambda html: st.markdown(
+        f'<div style="font-size:13px;color:{_T["text_muted"]};margin:0 0 14px">{html}</div>',
+        unsafe_allow_html=True)
+    _cc_text("The Sales Credit & Collections Performance workbook, rebuilt from live Metabase data: "
+             "invoice aging, receipt detail, customer credit matrix and monthly performance. Choose the "
+             "invoice period and the collections cut-off, then download the workbook to review.")
+
+    # Defaults: year-to-date invoices up to the last complete month, collections up to the
+    # latest repayment on file -- the same closed-period approach as the original workbook.
+    _cc_latest_inv = ccr._to_naive_date(inv_scoped["Created At"]).max()
+    _cc_rep_dates  = ccr._to_naive_date(rep_scoped["Repayment Date"]).dropna()
+    _cc_latest_rep = min(_cc_rep_dates.max(), pd.Timestamp.now().normalize()) if len(_cc_rep_dates) else _cc_latest_inv
+    _cc_def_end    = (_cc_latest_inv + pd.offsets.MonthEnd(0) if _cc_latest_inv.is_month_end
+                      else _cc_latest_inv.replace(day=1) - pd.Timedelta(days=1))
+    _cc_c1, _cc_c2, _cc_c3 = st.columns(3)
+    with _cc_c1:
+        _cc_start = st.date_input("Invoices from", _cc_latest_inv.replace(month=1, day=1).date(), key="cc_start")
+    with _cc_c2:
+        _cc_end = st.date_input("Invoices to", _cc_def_end.date(), key="cc_end")
+    with _cc_c3:
+        _cc_cutoff = st.date_input("Collections cut-off", _cc_latest_rep.date(), key="cc_cutoff")
+
+    if _cc_end < _cc_start:
+        st.warning("'Invoices to' must be on or after 'Invoices from'.")
+        st.stop()
+
+    _cc = ccr.prepare_data(inv_scoped, rep_scoped, rc, ir, _cc_start, _cc_end, _cc_cutoff, DSO_TERMS_DAYS)
+    _cc_s = ccr.summary(_cc)
+    _cc_label = ccr.period_label(_cc["start"], _cc["end"])
+
+    if not _cc_s["invoice_count"]:
+        st.info("No invoices in the selected period.")
+        st.stop()
+
+    st.download_button(
+        "⬇ Download Sales Credit & Collections workbook (.xlsx)",
+        data=ccr.build_workbook(_cc),
+        file_name=f"Sales_Credit_and_Collections_Performance_{_cc_label.replace(' ', '')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        type="primary", use_container_width=True)
+    _cc_text(f"{_cc_s['invoice_count']} invoices issued {_cc_label}; collections through "
+             f"{_cc['cutoff']:%d %b %Y}. Every summary figure in the workbook is a live Excel formula "
+             f"over its Invoice Aging and Receipt Detail sheets.")
+
+    _cc_row1 = kpi_card("Invoice Value", f"GHS {_cc_s['invoice_value']:,.2f}",
+                        f"{_cc_s['invoice_count']} invoices", BRAND_GREEN) + \
+               kpi_card("Collections to Cut-off", f"GHS {_cc_s['collections']:,.2f}",
+                        "Allocated by invoice number", "#16a34a") + \
+               kpi_card("Collection Rate", f"{_cc_s['collection_rate']*100:.1f}%",
+                        "Collections ÷ invoice value", "#14b8a6")
+    _cc_row2 = kpi_card("Gross Outstanding", f"GHS {_cc_s['gross_outstanding']:,.2f}",
+                        "Positive invoice balances", "#f59e0b") + \
+               kpi_card("Overdue Balance", f"GHS {_cc_s['overdue']:,.2f}",
+                        f"Past the {DSO_TERMS_DAYS}-day due date at cut-off", "#dc2626") + \
+               kpi_card("Credit Customers", f"{_cc_s['credit_customers']}",
+                        "Customers with credit invoices", "#3b82f6")
+    st.markdown(kpi_grid(_cc_row1, max_cols=3), unsafe_allow_html=True)
+    st.markdown(kpi_grid(_cc_row2, max_cols=3), unsafe_allow_html=True)
+
+    _cc_inv = _cc["invoices"]
+    _cc_a, _cc_b = st.columns(2)
+    with _cc_a:
+        st.markdown(chart_wrap("Aging of Gross Outstanding", f"As of {_cc['cutoff']:%d %b %Y}"),
+                    unsafe_allow_html=True)
+        _cc_age = (_cc_inv.groupby("Aging Bucket")["Gross Outstanding"].agg(["size", "sum"])
+                   .reindex(ccr.AGING_ORDER).fillna(0))
+        _cc_age_tot = _cc_age["sum"].sum()
+        st.dataframe(pd.DataFrame({
+            "Aging Bucket": _cc_age.index,
+            "Invoices": _cc_age["size"].astype(int).values,
+            "Balance": _cc_age["sum"].apply(lambda x: f"GHS {x:,.2f}").values,
+            "Share": (_cc_age["sum"] / _cc_age_tot * 100 if _cc_age_tot else _cc_age["sum"] * 0)
+                     .apply(lambda x: f"{x:.1f}%").values,
+        }), use_container_width=True, hide_index=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    with _cc_b:
+        st.markdown(chart_wrap("Portfolio Status", "Invoices by payment status"), unsafe_allow_html=True)
+        _cc_st = (_cc_inv.groupby("Status").agg(n=("Invoice Number", "size"), val=("Invoice Total", "sum"),
+                                                 out=("Gross Outstanding", "sum"))
+                  .reindex(ccr.STATUS_ORDER).fillna(0))
+        st.dataframe(pd.DataFrame({
+            "Status": _cc_st.index,
+            "Invoices": _cc_st["n"].astype(int).values,
+            "Invoice Value": _cc_st["val"].apply(lambda x: f"GHS {x:,.2f}").values,
+            "Outstanding": _cc_st["out"].apply(lambda x: f"GHS {x:,.2f}").values,
+        }), use_container_width=True, hide_index=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown(chart_wrap("Top Credit Exposures", "Largest credit customers in the period"),
+                unsafe_allow_html=True)
+    _cc_top = _cc["customers"].head(10)
+    st.dataframe(pd.DataFrame({
+        "Customer": _cc_top["Customer Name"],
+        "Credit Issued": _cc_top["Credit Issued"].apply(lambda x: f"GHS {x:,.2f}"),
+        "Collections": _cc_top["Collections"].apply(lambda x: f"GHS {x:,.2f}"),
+        "Outstanding": _cc_top["Gross Outstanding"].apply(lambda x: f"GHS {x:,.2f}"),
+        "Collection Rate": (_cc_top["Collection Rate"] * 100).apply(lambda x: f"{x:.1f}%"),
+        "Overdue": _cc_top["Overdue Balance"].apply(lambda x: f"GHS {x:,.2f}"),
+        "Risk Flag": _cc_top["Risk Flag"],
+    }), use_container_width=True, hide_index=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.caption("Built from Metabase only. An invoice counts as Credit when Metabase records payment terms "
+               "on it (every invoice this year carries 30-day terms), so Credit Issued matches total "
+               "invoice value. Sales Zone isn't held in Metabase and is left blank in the workbook.")
+
 elif page == "Data Export":
     _de_text = lambda html: st.markdown(
         f'<div style="font-size:13px;color:{_T["text_muted"]};margin:0 0 14px">{html}</div>',
