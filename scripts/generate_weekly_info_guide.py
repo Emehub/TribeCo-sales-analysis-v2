@@ -242,8 +242,9 @@ pdf.table_row(("Sales, trailing 28 days (20 Jul - 16 Aug 2026)", 70), ("GHS 642,
 pdf.table_row(("DSO", 70), ("(1,824,083.50 / 642,207.50) x 28 = 79.5 days", 113))
 pdf.ln(3)
 pdf.body(
-    "DSO is then compared against the standard 28-day payment term: 79.5 - 28 = +51.5 days beyond "
-    "terms. A positive number means customers are, on average, paying slower than agreed."
+    "DSO is then compared against the standard 30-day payment term given to credit customers: "
+    "79.5 - 30 = +49.5 days beyond terms. A positive number means customers are, on average, paying "
+    "slower than agreed."
 )
 pdf.body(
     "A common mistake: using each invoice's running 'total repaid' field for the 'outstanding' side "
