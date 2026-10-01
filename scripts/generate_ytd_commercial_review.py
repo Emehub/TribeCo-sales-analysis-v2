@@ -24,6 +24,11 @@ WHITE  = (255, 255, 255)
 LIGHT  = (241, 247, 244)
 AMBER  = (191, 105, 8)
 
+# DSO = Outstanding AR / sales in the trailing DSO_WINDOW_DAYS x DSO_WINDOW_DAYS,
+# benchmarked against the standard customer payment term. Keep in sync with dashboard/app.py.
+DSO_WINDOW_DAYS     = 28
+STANDARD_TERMS_DAYS = 28
+
 MONTH_ABBR = {"01":"Jan","02":"Feb","03":"Mar","04":"Apr","05":"May","06":"Jun",
               "07":"Jul","08":"Aug","09":"Sep","10":"Oct","11":"Nov","12":"Dec"}
 
@@ -139,20 +144,38 @@ for m in months:
 # 6. Collections trend + DSO trend
 coll_by_month = rep.groupby("Month")["Amount"].sum()
 dso_rows = []
+data_end = max(inv["Created At"].max(), rep["Created At"].max())
 for m in months:
     period_end = pd.Period(m, freq="M").end_time.tz_localize("UTC")
-    sales90 = inv[(inv["Created At"] > period_end - pd.Timedelta(days=90)) &
-                  (inv["Created At"] <= period_end)]["Discountedvalue"].sum()
+    # Partial month: count the window back from the last data point, not month-end,
+    # or the empty days shrink the sales base and inflate DSO.
+    dso_asof = min(period_end, data_end)
+    sales_win = inv[(inv["Created At"] > dso_asof - pd.Timedelta(days=DSO_WINDOW_DAYS)) &
+                    (inv["Created At"] <= period_end)]["Discountedvalue"].sum()
     ia = inv[inv["Created At"] <= period_end][["ID", "Discountedvalue"]]
     ra = rep[rep["Created At"] <= period_end].groupby("Invoice ID")["Amount"].sum()
     ia = ia.merge(ra.rename("Repaid"), left_on="ID", right_index=True, how="left")
     ia["Repaid"] = ia["Repaid"].fillna(0)
     ar = (ia["Discountedvalue"] - ia["Repaid"]).clip(lower=0).sum()
-    dso = ar / sales90 * 90 if sales90 else None
+    dso = ar / sales_win * DSO_WINDOW_DAYS if sales_win else None
     rev = inv_yr[inv_yr["Month"] == m]["Discountedvalue"].sum()
     coll = coll_by_month.get(m, 0)
-    dso_rows.append(dict(Month=m, AR=ar, Sales90d=sales90, DSO=dso, Revenue=rev, Collected=coll))
+    dso_rows.append(dict(Month=m, AR=ar, SalesWindow=sales_win, DSO=dso, Revenue=rev, Collected=coll))
 dso_df = pd.DataFrame(dso_rows)
+dso_df["BeyondTerms"] = dso_df["DSO"] - STANDARD_TERMS_DAYS
+
+# DSO ranges quoted in the narrative -- Q1 vs. April onward, when payment behaviour shifted.
+def _rng(series, fmt="{:.0f}"):
+    s = series.dropna()
+    lo, hi = fmt.format(s.min()), fmt.format(s.max())
+    return lo if lo == hi else f"{lo} to {hi}"
+_dso_q1    = dso_df[dso_df["Month"] <= "2026-03"]
+_dso_later = dso_df[dso_df["Month"] >= "2026-04"]
+dso_q1_rng,    dbt_q1_rng    = _rng(_dso_q1["DSO"]),    _rng(_dso_q1["BeyondTerms"], "{:+.0f}")
+dso_later_rng, dbt_later_rng = _rng(_dso_later["DSO"]), _rng(_dso_later["BeyondTerms"], "{:+.0f}")
+n_later_over = int((_dso_later["BeyondTerms"] > 0).sum())
+n_months_over, n_months = int((dso_df["BeyondTerms"] > 0).sum()), int(dso_df["DSO"].notna().sum())
+later_multiple = _rng(_dso_later["DSO"] / STANDARD_TERMS_DAYS, "{:.1f}")
 
 ytd_revenue    = inv_yr["Discountedvalue"].sum()
 ytd_collected  = rep[rep["Created At"].dt.year == 2026]["Amount"].sum()
@@ -313,10 +336,11 @@ pdf.callout("Revenue trajectory has flattened after a strong start",
     f"exactly 100% of target for four straight months -- worth confirming those targets were fixed "
     f"before each month started, not set from the actuals afterward. August is tracking at "
     f"{mo[mo['Month']=='2026-08']['Attain'].iloc[0]:.0f}% with the month still in progress.", ACCENT)
-pdf.callout("Customers are taking 3-4x their agreed payment window, and it's getting worse",
-    f"Standard terms are 30 days. DSO ran 34-51 days through Q1 (already 4-21 days over terms), then "
-    f"jumped to 73-112 days from April onward -- 43-82 days beyond terms, sustained for five straight "
-    f"months. This is the review's single most material finding.", RED)
+pdf.callout(f"From April, customers are taking {later_multiple}x their agreed payment window",
+    f"Standard terms are {STANDARD_TERMS_DAYS} days. DSO ({DSO_WINDOW_DAYS}-day sales basis) ran "
+    f"{dso_q1_rng} days through Q1 ({dbt_q1_rng} days vs. terms), then {dso_later_rng} days from April "
+    f"onward ({dbt_later_rng} days vs. terms), over terms in {n_later_over} of {len(_dso_later)} months "
+    f"since. This is the review's single most material finding.", RED)
 pdf.callout("Multi-SKU adoption is a genuine, sustained improvement",
     f"Orders with 2+ distinct products rose from ~42-51% in Q1 to ~55-60% from May onward -- a real "
     f"trend, not noise.", ACCENT)
@@ -409,31 +433,35 @@ pdf.callout("No collections budget exists for 2026",
     "Unlike revenue, there is no formal collections target to measure against. The figures below are "
     "reported as trends in their own right, not as attainment against a plan.", AMBER)
 
-STANDARD_TERMS_DAYS = 30
 _terms_n, _terms_total = inv["Customerpaymentterms"].notna().sum(), len(inv)
-_terms_pct = (inv["Customerpaymentterms"] == 30).sum() / _terms_n * 100 if _terms_n else 0
 _no_terms_n = _terms_total - _terms_n
-pdf.callout("Standard payment terms: 30 days",
-    f"Customers are given {STANDARD_TERMS_DAYS} days from invoice to pay in full -- every invoice "
-    f"with a payment-terms value on file ({_terms_n} of {_terms_total}) is set to exactly 30 days, "
-    f"and computed due dates confirm it (median 29 days). The remaining {_no_terms_n} invoices "
-    f"({_no_terms_n/_terms_total*100:.0f}%) have no terms value recorded and instead carry a much "
-    f"shorter 2-day due window -- likely a different order type; DSO below is benchmarked against the "
-    f"30-day term that applies to the large majority of business.", ACCENT)
+_terms_on_file = inv["Customerpaymentterms"].dropna().mode()
+_terms_on_file = int(_terms_on_file.iloc[0]) if len(_terms_on_file) else None
+pdf.callout(f"Standard payment terms: {STANDARD_TERMS_DAYS} days",
+    f"DSO below is benchmarked against the {STANDARD_TERMS_DAYS}-day standard term, and measured on a "
+    f"trailing {DSO_WINDOW_DAYS}-day sales basis: DSO = Outstanding AR / sales in the last "
+    f"{DSO_WINDOW_DAYS} days x {DSO_WINDOW_DAYS}. "
+    + (f"Note: invoices with a payment-terms value on file ({_terms_n} of {_terms_total}) still record "
+       f"{_terms_on_file} days, so invoice due dates and the ageing buckets below follow that value. "
+       if _terms_on_file is not None and _terms_on_file != STANDARD_TERMS_DAYS else "")
+    + f"The remaining {_no_terms_n} invoices ({_no_terms_n/_terms_total*100:.0f}%) have no terms value "
+    f"recorded and carry a much shorter 2-day due window -- likely a different order type.", ACCENT)
 
-pdf.sub_title("Days Sales Outstanding (DSO) vs. the 30-day term, month-end snapshots")
+pdf.sub_title(f"Days Sales Outstanding (DSO) vs. the {STANDARD_TERMS_DAYS}-day term, month-end snapshots")
 rows = [(mo_short(r["Month"]), f"GHS {r['AR']:,.0f}",
          f"{r['DSO']:.0f} days" if pd.notna(r["DSO"]) else "n/a",
-         f"+{r['DSO']-STANDARD_TERMS_DAYS:.0f} days" if pd.notna(r["DSO"]) else "n/a")
+         f"{r['BeyondTerms']:+.0f} days" if pd.notna(r["DSO"]) else "n/a")
         for _, r in dso_df.iterrows()]
-pdf.table(["Month-End", "Outstanding AR", "DSO", "Days Beyond 30-Day Terms"], rows, [30, 50, 45, 78])
-pdf.callout("Every month this year has run over terms -- and the overrun has widened sharply",
-    "Even Q1, the best period, was already 4-21 days past the agreed 30-day term (34-51 day DSO). "
-    "From April the overrun jumped to 43-82 days beyond terms (73-112 day DSO) and has stayed there "
-    "for five straight months. In practical terms: customers who are supposed to clear their balance "
-    "in one month are now taking three to four times that long, consistently, not as an occasional "
-    "exception. This is the single most material finding in this review -- it directly funds the "
-    "growing AR balance and is a structural collections problem, not a seasonal or one-off dip.",
+pdf.table(["Month-End", "Outstanding AR", "DSO", f"Days vs. {STANDARD_TERMS_DAYS}-Day Terms"],
+          rows, [30, 50, 45, 78])
+pdf.callout(f"Over terms in {n_months_over} of {n_months} months -- and the overrun widened from April",
+    f"Q1 DSO ran {dso_q1_rng} days ({dbt_q1_rng} days vs. the {STANDARD_TERMS_DAYS}-day term). From "
+    f"April it ran {dso_later_rng} days ({dbt_later_rng} days vs. terms) -- customers who are supposed "
+    f"to clear their balance within {STANDARD_TERMS_DAYS} days are taking {later_multiple}x that long. "
+    f"This is the single most material finding in this review -- it directly funds the growing AR "
+    f"balance and is a structural collections problem, not a one-off dip. Note that a "
+    f"{DSO_WINDOW_DAYS}-day sales basis reacts quickly to a single slow or busy month, so read the "
+    f"trend across several months rather than any one snapshot.",
     RED)
 pdf.ln(2)
 pdf.sub_title("Monthly collections vs. that month's revenue")
@@ -466,11 +494,11 @@ pdf.callout("1. Customer base is concentrated",
     f"{top10_pct:.1f}%, out of only {n_customers_ytd} customers who ordered at all this year. Losing "
     f"any one or two of the largest accounts would materially move the revenue line.")
 pdf.callout("2. DSO and revenue trajectory shifted at the same point -- April",
-    "Both the revenue attainment pattern (Q1 strong, Apr-Jul flat at target) and DSO-vs-terms overrun "
-    "(4-21 days over in Q1, 43-82 days over from April) inflect at the same month. Terms themselves "
-    "did not change -- 30 days has been standard all year -- so the shift is in customer payment "
-    "behaviour, not the agreement. Worth investigating together with customer mix or order size "
-    "changes around April rather than as two separate issues.")
+    f"Both the revenue attainment pattern (Q1 strong, Apr-Jul flat at target) and DSO vs. terms "
+    f"({dbt_q1_rng} days in Q1, {dbt_later_rng} days from April) inflect at the same month. The "
+    f"benchmark is the same {STANDARD_TERMS_DAYS}-day term for every month, so the shift is in customer "
+    f"payment behaviour, not the agreement. Worth investigating together with customer mix or order "
+    f"size changes around April rather than as two separate issues.")
 pdf.callout("3. Growth this year is coming from existing customers, not new ones",
     "With active customer count flat and new-customer cohorts consistently small, YTD revenue growth "
     "is being driven by existing accounts ordering more often and in larger, more varied baskets "

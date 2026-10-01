@@ -169,7 +169,7 @@ pdf.body(
     "All figures are scoped to Ghana (GH) invoices only, excluding cancelled orders and BufferPesa "
     "channel orders -- the same scoping used everywhere else in the dashboard. Weeks run Monday to "
     "Sunday. Selecting a week filters every calculation on the page to that seven-day window, except "
-    "where a metric is explicitly built on a longer trailing window (DSO uses 90 days of sales, "
+    "where a metric is explicitly built on a longer trailing window (DSO uses 28 days of sales, "
     "explained below) -- that's called out wherever it applies."
 )
 
@@ -224,21 +224,27 @@ pdf.body(
     "cash is coming in faster."
 )
 pdf.formula_box(
-    "DSO = (Outstanding AR as of week-end / Sales in the trailing 90 days) x 90",
+    "DSO = (Outstanding AR as of week-end / Sales in the trailing 28 days) x 28",
     "Outstanding AR as of week-end: for every invoice created on or before that week's end date, "
     "subtract whatever had actually been paid against it by that same date (later payments don't "
     "count -- they hadn't happened yet at that point in time). Add up what's left over, unpaid, "
     "across every invoice.\n\n"
-    "Sales, trailing 90 days: total revenue invoiced in the 90 days immediately before and including "
-    "the week-end date -- a rolling window, not a fixed month or quarter. A single week's sales is "
-    "too small and volatile a number to divide by, so 90 days smooths that out."
+    "Sales, trailing 28 days: total revenue invoiced in the 28 days immediately before and including "
+    "the week-end date -- a rolling four-week window, not a calendar month. A single week's sales is "
+    "too small and volatile a number to divide by, so four weeks smooths that out. If the data stops "
+    "part-way through the selected week, the 28 days are counted back from the last day of data "
+    "instead, so empty days don't shrink the sales figure and inflate DSO."
 )
 pdf.sub_title("Worked example -- Week 33 (week-end 16 Aug 2026)")
 pdf.table_header(("Component", 70), ("Value", 113))
-pdf.table_row(("Outstanding AR as of 16 Aug 2026", 70), ("GHS 1,832,109.00", 113))
-pdf.table_row(("Sales, trailing 90 days (18 May - 16 Aug 2026)", 70), ("GHS 1,584,745.00", 113))
-pdf.table_row(("DSO", 70), ("(1,832,109.00 / 1,584,745.00) x 90 = 104.0 days", 113))
+pdf.table_row(("Outstanding AR as of 16 Aug 2026", 70), ("GHS 1,824,083.50", 113))
+pdf.table_row(("Sales, trailing 28 days (20 Jul - 16 Aug 2026)", 70), ("GHS 642,207.50", 113))
+pdf.table_row(("DSO", 70), ("(1,824,083.50 / 642,207.50) x 28 = 79.5 days", 113))
 pdf.ln(3)
+pdf.body(
+    "DSO is then compared against the standard 28-day payment term: 79.5 - 28 = +51.5 days beyond "
+    "terms. A positive number means customers are, on average, paying slower than agreed."
+)
 pdf.body(
     "A common mistake: using each invoice's running 'total repaid' field for the 'outstanding' side "
     "of this formula. That field reflects payments received right up to today, not up to the week "
@@ -398,7 +404,7 @@ terms = [
     ("Discountedvalue", "The invoice field used throughout the dashboard as 'Revenue' -- the amount actually billed after any discount."),
     ("Total Order Value", "An invoice's pre-discount, list-price total -- before any discount is subtracted."),
     ("Week-end", "The Sunday that closes out the selected Monday-to-Sunday week."),
-    ("Trailing 90 days", "A rolling 90-day look-back window ending on a given date, not a fixed calendar period like a month or quarter."),
+    ("Trailing 28 days", "A rolling 28-day (four-week) look-back window ending on a given date, not a fixed calendar period like a month."),
     ("Attainment", "Actual revenue as a percentage of target -- 100% means the target was hit exactly."),
     ("Aging bucket", "A group of overdue invoices bounded by how many days overdue they are, e.g. '31-60 days overdue'."),
 ]

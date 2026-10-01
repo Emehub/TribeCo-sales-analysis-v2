@@ -33,6 +33,12 @@ st.set_page_config(
 DATA      = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 CHART_CFG = {"displayModeBar": False}
 
+# DSO settings, shared by the Weekly Info and YTD Review pages.
+# DSO = Outstanding AR ÷ sales in the trailing DSO_WINDOW_DAYS × DSO_WINDOW_DAYS,
+# benchmarked against the standard customer payment term (DSO_TERMS_DAYS).
+DSO_WINDOW_DAYS = 28
+DSO_TERMS_DAYS  = 28
+
 # ── Device preview switcher ───────────────────────────────────────────────────────
 # Streamlit has no client-side way to fake a viewport width, so "previewing" a device
 # means rendering the app a second time inside an iframe of that exact pixel width —
@@ -2478,13 +2484,16 @@ elif page == "Weekly Info":
         _co_collected = rep_wk["Amount"].sum()
         _co_collection_pct = (_co_collected / _co_revenue * 100) if _co_revenue else 0
 
-        # ── 3. DSO — outstanding AR as of week-end over trailing 90-day sales ────
+        # ── 3. DSO — outstanding AR as of week-end over trailing-window sales ────
         # "Outstanding" on inv_scoped is a running total repaid AS OF NOW, not as of
         # week-end — using it here would let repayments received *after* the selected
         # week silently reduce a balance we're claiming to measure at an earlier date.
         # Rebuild the repaid amount per invoice from repayment-level dates instead, so
         # only money actually received by week-end counts.
-        _co_sales_90d = inv_scoped[(inv_scoped["Created At"] > _co_wk_end - pd.Timedelta(days=90)) &
+        # If data stops mid-week, count the window back from the last data point rather
+        # than week-end -- otherwise empty days shrink the sales base and inflate DSO.
+        _co_dso_asof = min(_co_wk_end, max(inv_scoped["Created At"].max(), rep_scoped["Created At"].max()))
+        _co_sales_win = inv_scoped[(inv_scoped["Created At"] > _co_dso_asof - pd.Timedelta(days=DSO_WINDOW_DAYS)) &
                                     (inv_scoped["Created At"] <= _co_wk_end)]["Discountedvalue"].sum()
         _co_inv_asof = inv_scoped[inv_scoped["Created At"] <= _co_wk_end][["ID", "Discountedvalue"]]
         _co_repaid_asof = (rep_scoped[rep_scoped["Created At"] <= _co_wk_end]
@@ -2492,11 +2501,10 @@ elif page == "Weekly Info":
         _co_inv_asof = _co_inv_asof.merge(_co_repaid_asof.rename("Repaid"), left_on="ID", right_index=True, how="left")
         _co_inv_asof["Repaid"] = _co_inv_asof["Repaid"].fillna(0)
         _co_ar_asof = (_co_inv_asof["Discountedvalue"] - _co_inv_asof["Repaid"]).clip(lower=0).sum()
-        _co_dso = (_co_ar_asof / _co_sales_90d * 90) if _co_sales_90d else None
-        # Standard customer payment term is 30 days (confirmed from Customerpaymentterms on
-        # invoices with a terms value on file, and matched by computed due dates) -- DSO is
-        # only meaningful against that real benchmark, not a generic trade-credit rule of thumb.
-        _co_terms_days = 30
+        _co_dso = (_co_ar_asof / _co_sales_win * DSO_WINDOW_DAYS) if _co_sales_win else None
+        # DSO is only meaningful against the real standard payment term (DSO_TERMS_DAYS),
+        # not a generic trade-credit rule of thumb.
+        _co_terms_days = DSO_TERMS_DAYS
         _co_days_beyond_terms = (_co_dso - _co_terms_days) if _co_dso is not None else None
 
         # ── 4. Active / repeat Agrovets ───────────────────────────────────────────
@@ -2544,17 +2552,17 @@ elif page == "Weekly Info":
                         f"GHS {_co_collected:,.2f} collected", "#16a34a"), unsafe_allow_html=True)
         with _r1c3:
             st.markdown(kpi_card("DSO", f"{_co_dso:.0f} days" if _co_dso is not None else "N/A",
-                        (f"vs {_co_terms_days}-day terms" if _co_dso is not None else "Trailing 90-day basis"),
+                        (f"vs {_co_terms_days}-day terms" if _co_dso is not None else f"Trailing {DSO_WINDOW_DAYS}-day basis"),
                         "#f59e0b",
                         (f"{_co_days_beyond_terms:+.0f}d" if _co_days_beyond_terms is not None else ""),
                         ("#dc2626" if (_co_days_beyond_terms or 0) > 0 else "#16a34a") if _co_days_beyond_terms is not None else ""),
                         unsafe_allow_html=True)
             with st.popover("🔎 View formula", use_container_width=True):
-                st.markdown("**DSO = Outstanding AR ÷ Trailing 90-day sales × 90**")
+                st.markdown(f"**DSO = Outstanding AR ÷ Trailing {DSO_WINDOW_DAYS}-day sales × {DSO_WINDOW_DAYS}**")
                 st.markdown(
                     f"- Outstanding AR (as of week-end): **GHS {_co_ar_asof:,.2f}**\n"
-                    f"- Sales, trailing 90 days: **GHS {_co_sales_90d:,.2f}**\n\n"
-                    f"DSO = ({_co_ar_asof:,.2f} ÷ {_co_sales_90d:,.2f}) × 90 = "
+                    f"- Sales, trailing {DSO_WINDOW_DAYS} days: **GHS {_co_sales_win:,.2f}**\n\n"
+                    f"DSO = ({_co_ar_asof:,.2f} ÷ {_co_sales_win:,.2f}) × {DSO_WINDOW_DAYS} = "
                     f"**{_co_dso:.1f} days**\n\n"
                     f"Standard payment terms are **{_co_terms_days} days** -> this week is "
                     f"**{_co_days_beyond_terms:+.1f} days** {'over' if _co_days_beyond_terms >= 0 else 'under'} terms."
@@ -2600,11 +2608,12 @@ elif page == "Weekly Info":
                 f'<span style="font-weight:700;text-align:right;color:{_T["text_heading"]}">{v}</span></div>'
                 for k, v in rows)
 
-        st.markdown(chart_wrap("DSO, How It's Calculated", "Outstanding AR ÷ trailing 90-day sales × 90"),
+        st.markdown(chart_wrap("DSO, How It's Calculated",
+                               f"Outstanding AR ÷ trailing {DSO_WINDOW_DAYS}-day sales × {DSO_WINDOW_DAYS}"),
                     unsafe_allow_html=True)
         st.markdown(_co_kv_rows([
             ("Outstanding AR as of week-end", f"GHS {_co_ar_asof:,.2f}"),
-            ("Sales, trailing 90 days",        f"GHS {_co_sales_90d:,.2f}"),
+            (f"Sales, trailing {DSO_WINDOW_DAYS} days", f"GHS {_co_sales_win:,.2f}"),
             ("DSO",                            f"{_co_dso:.1f} days" if _co_dso is not None else "N/A"),
             ("Standard payment terms",         f"{_co_terms_days} days"),
             ("Days beyond terms",              f"{_co_days_beyond_terms:+.1f} days" if _co_days_beyond_terms is not None else "N/A"),
@@ -2844,7 +2853,7 @@ elif page == "Weekly Info":
 # PAGE — YTD REVIEW
 # ══════════════════════════════════════════════════════════════════════════════════
 elif page == "YTD Review":
-    _yr_terms_days = 30
+    _yr_terms_days = DSO_TERMS_DAYS
     _yr_inv = inv_scoped.copy()
     _yr_months = sorted(_yr_inv["Month"].dropna().unique())
     # "As of" is today's real date, not the latest invoice's timestamp -- a YTD report
@@ -2984,16 +2993,20 @@ elif page == "YTD Review":
         # ── 6. Collections trend + DSO trend + AR aging ──────────────────────────
         _yr_coll_by_month = rep_scoped.groupby(rep_scoped["Created At"].dt.to_period("M").astype(str))["Amount"].sum()
         _yr_dso_rows = []
+        _yr_data_end = max(inv_scoped["Created At"].max(), rep_scoped["Created At"].max())
         for m in _yr_months:
             period_end = pd.Period(m, freq="M").end_time.tz_localize("UTC")
-            sales90 = inv_scoped[(inv_scoped["Created At"] > period_end - pd.Timedelta(days=90)) &
+            # Partial month: count the window back from the last data point, not month-end,
+            # or the empty days shrink the sales base and inflate DSO.
+            dso_asof = min(period_end, _yr_data_end)
+            sales_win = inv_scoped[(inv_scoped["Created At"] > dso_asof - pd.Timedelta(days=DSO_WINDOW_DAYS)) &
                                  (inv_scoped["Created At"] <= period_end)]["Discountedvalue"].sum()
             ia = inv_scoped[inv_scoped["Created At"] <= period_end][["ID", "Discountedvalue"]]
             ra = rep_scoped[rep_scoped["Created At"] <= period_end].groupby("Invoice ID")["Amount"].sum()
             ia = ia.merge(ra.rename("Repaid"), left_on="ID", right_index=True, how="left")
             ia["Repaid"] = ia["Repaid"].fillna(0)
             ar = (ia["Discountedvalue"] - ia["Repaid"]).clip(lower=0).sum()
-            dso = ar / sales90 * 90 if sales90 else None
+            dso = ar / sales_win * DSO_WINDOW_DAYS if sales_win else None
             rev = _yr_mo[_yr_mo["Month"] == m]["Discountedvalue"].iloc[0]
             coll = _yr_coll_by_month.get(m, 0)
             _yr_dso_rows.append(dict(Month=m, AR=ar, DSO=dso, Revenue=rev, Collected=coll))
@@ -3050,7 +3063,7 @@ elif page == "YTD Review":
                 _last_dso = _yr_dso_df["DSO"].iloc[-1] if len(_yr_dso_df) else None
                 _last_dbt = _yr_dso_df["DaysBeyondTerms"].iloc[-1] if len(_yr_dso_df) else None
                 if _last_dso is not None:
-                    pdf.callout("Collections speed vs. the 30-day term",
+                    pdf.callout(f"Collections speed vs. the {_yr_terms_days}-day term",
                         f"Standard terms are {_yr_terms_days} days. Latest DSO is {_last_dso:.0f} days "
                         f"({_last_dbt:+.0f} days beyond terms). Full month-by-month detail is in Section 5.",
                         pdf._RED)
@@ -3131,7 +3144,7 @@ elif page == "YTD Review":
                         for _, r in _yr_dso_df.iterrows()]
                 pdf.table(["Month-End", "Outstanding AR", "DSO", "Beyond Terms"], _rows, [30, 50, 45, 78])
                 pdf.chart(_bar_with_threshold_png(_yr_dso_df["Month Label"], _yr_dso_df["DSO"].fillna(0),
-                    _yr_terms_days, threshold_label=f"{_yr_terms_days}-day term", title="DSO vs 30-Day Term",
+                    _yr_terms_days, threshold_label=f"{_yr_terms_days}-day term", title=f"DSO vs {_yr_terms_days}-Day Term",
                     xlabel="Month", ylabel="Days", label_fmt="{:.0f}d"))
                 pdf.sub_title("Monthly collections vs. that month's revenue")
                 _rows = [(r["Month Label"], f"GHS {r['Revenue']:,.0f}", f"GHS {r['Collected']:,.0f}",
@@ -3184,7 +3197,7 @@ elif page == "YTD Review":
                                          for _, r in _yr_mo.iterrows() if pd.notna(r["Attain"]))),
         ]
         if len(_yr_dso_df) and pd.notna(_yr_dso_df["DSO"].iloc[-1]):
-            _yr_summary.append(("⏱️", "Collections vs. 30-day terms", "#dc2626",
+            _yr_summary.append(("⏱️", f"Collections vs. {_yr_terms_days}-day terms", "#dc2626",
                 f"Latest DSO is {_yr_dso_df['DSO'].iloc[-1]:.0f} days "
                 f"({_yr_dso_df['DaysBeyondTerms'].iloc[-1]:+.0f} days beyond the standard "
                 f"{_yr_terms_days}-day term)."))
