@@ -27,7 +27,7 @@ AMBER  = (191, 105, 8)
 # DSO = Outstanding AR / sales in the trailing DSO_WINDOW_DAYS x DSO_WINDOW_DAYS,
 # benchmarked against the standard customer payment term. Keep in sync with dashboard/app.py.
 DSO_WINDOW_DAYS     = 28
-STANDARD_TERMS_DAYS = 30   # credit customers have 30 days to pay
+STANDARD_TERMS_DAYS = 28   # standard payment term
 
 MONTH_ABBR = {"01":"Jan","02":"Feb","03":"Mar","04":"Apr","05":"May","06":"Jun",
               "07":"Jul","08":"Aug","09":"Sep","10":"Oct","11":"Nov","12":"Dec"}

@@ -40,7 +40,7 @@ CHART_CFG = {"displayModeBar": False}
 # DSO = Outstanding AR ÷ sales in the trailing DSO_WINDOW_DAYS × DSO_WINDOW_DAYS,
 # benchmarked against the standard customer payment term (DSO_TERMS_DAYS).
 DSO_WINDOW_DAYS = 28
-DSO_TERMS_DAYS  = 30   # credit customers have 30 days to pay (matches Customerpaymentterms on invoices)
+DSO_TERMS_DAYS  = 28   # standard payment term (Metabase invoices still record 30 in Customerpaymentterms)
 
 # ── Device preview switcher ───────────────────────────────────────────────────────
 # Streamlit has no client-side way to fake a viewport width, so "previewing" a device
