@@ -3428,8 +3428,82 @@ elif page == "Quarterly Review":
         [[m] + [fmt(_qr_s.loc[m, q]) for q in _qr_quarters] + [_qr_change(m)] for m, fmt in _QR_ROWS],
         columns=["Metric"] + [f"Q{q}" for q in _qr_quarters] + [f"Q{_qr_q} vs Q{_qr_q-1}" if _qr_q > 1 else "Change"])
 
+    _qr_trends = qrv.trend_lines(_qr)
+    _qr_ql = [f"Q{q}" for q in _qr_quarters]
+    _qr_row = lambda m: [float(_qr_s.loc[m, q]) for q in _qr_quarters]
+
     # ── PDF ──────────────────────────────────────────────────────────────────────
     if _PDF_AVAIL:
+        def _qr_trend_png():
+            """Six small panels, one per trend theme, Q1 to the selected quarter."""
+            fig, axes = plt.subplots(2, 3, figsize=(10.5, 6.0))
+            x = list(range(len(_qr_ql)))
+            G, Au, Rd, Gy = "#1f7a4d", "#c9975a", "#b91c1c", "#9ca3af"
+            w = 0.35
+
+            def _style(ax, title, fmt=None):
+                ax.set_title(title, fontsize=9.5, fontweight="bold", color="#14532d", pad=5)
+                ax.set_xticks(x)
+                ax.set_xticklabels(_qr_ql, fontsize=8)
+                ax.tick_params(axis="y", labelsize=7)
+                ax.yaxis.grid(True, alpha=0.3, zorder=0)
+                ax.set_axisbelow(True)
+                for sp in ("top", "right"):
+                    ax.spines[sp].set_visible(False)
+                ax.margins(y=0.22)
+                if fmt:
+                    ax.yaxis.set_major_formatter(plt.FuncFormatter(fmt))
+
+            k = lambda v, _=None: f"{v/1e3:,.0f}k"
+            ax = axes[0, 0]
+            b = ax.bar(x, _qr_row("Revenue"), color=G, alpha=.9, zorder=3, width=.55)
+            ax.scatter(x, _qr_row("Target"), color=Au, marker="_", s=900, linewidths=3, zorder=4, label="Target")
+            ax.bar_label(b, labels=[f"{a:.0f}%" for a in _qr_row("Attainment %")], fontsize=7.5,
+                         label_type="center", color="white", fontweight="bold")
+            ax.legend(fontsize=6.5, loc="upper center", bbox_to_anchor=(0.5, -0.1), ncol=2, frameon=False)
+            _style(ax, "Revenue vs Target (GHS)", k)
+
+            ax = axes[0, 1]
+            b = ax.bar(x, _qr_row("Orders"), color=G, alpha=.9, zorder=3, width=.55)
+            ax.bar_label(b, labels=[f"{o:.0f}\nAOV {a/1e3:.1f}k" for o, a in zip(_qr_row("Orders"), _qr_row("AOV"))],
+                         fontsize=6.5, padding=2)
+            _style(ax, "Orders (with average order value)")
+
+            ax = axes[0, 2]
+            b1 = ax.bar([i - w/2 for i in x], _qr_row("Active customers"), w, color=G, alpha=.9, zorder=3, label="Active")
+            b2 = ax.bar([i + w/2 for i in x], _qr_row("New customers"), w, color=Au, alpha=.9, zorder=3, label="New")
+            ax.bar_label(b1, fontsize=6.5, padding=1, fmt="%.0f")
+            ax.bar_label(b2, fontsize=6.5, padding=1, fmt="%.0f")
+            ax.legend(fontsize=6.5, loc="upper center", bbox_to_anchor=(0.5, -0.1), ncol=2, frameon=False)
+            _style(ax, "Customers")
+
+            ax = axes[1, 0]
+            ax.bar([i - w/2 for i in x], _qr_row("Revenue"), w, color=Gy, alpha=.7, zorder=3, label="Revenue")
+            b2 = ax.bar([i + w/2 for i in x], _qr_row("Collections"), w, color=G, alpha=.9, zorder=3, label="Collected")
+            ax.bar_label(b2, labels=[f"{c:.0f}%" for c in _qr_row("Collection ratio %")], fontsize=7, padding=1)
+            ax.legend(fontsize=6.5, loc="upper center", bbox_to_anchor=(0.5, -0.1), ncol=2, frameon=False)
+            _style(ax, "Collections vs Revenue (GHS)", k)
+
+            ax = axes[1, 1]
+            b = ax.bar(x, _qr_row("AR at quarter end"), color=Rd, alpha=.75, zorder=3, width=.55)
+            ax.bar_label(b, labels=[f"DSO {d:.0f}d" for d in _qr_row("DSO at quarter end")], fontsize=7, padding=2)
+            _style(ax, f"Receivables at Quarter End (DSO vs {DSO_TERMS_DAYS}d term)", k)
+
+            ax = axes[1, 2]
+            for m, c, lbl in (("Multi-SKU %", G, "Multi-SKU orders"), ("Top-5 share %", Au, "Top-5 customer share")):
+                ax.plot(x, _qr_row(m), marker="o", color=c, lw=2, zorder=3, label=lbl)
+                for xi, v in zip(x, _qr_row(m)):
+                    ax.annotate(f"{v:.0f}%", (xi, v), textcoords="offset points", xytext=(0, 6),
+                                ha="center", fontsize=6.5)
+            ax.legend(fontsize=6.5, loc="upper center", bbox_to_anchor=(0.5, -0.1), ncol=2, frameon=False)
+            _style(ax, "Mix and Concentration (%)")
+
+            plt.tight_layout(pad=0.6, h_pad=1.2)
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png", dpi=140, bbox_inches="tight", facecolor="white")
+            plt.close(fig)
+            return buf.getvalue()
+
         class _QRPdf(YTDReportPDF):
             def header(self):
                 if self.page_no() == 1:
@@ -3511,14 +3585,14 @@ elif page == "Quarterly Review":
             pdf.section_title("3. Behind target / needs attention")
             pdf.bullets(_qr_behind or ["Nothing materially behind target this quarter."], pdf._RED)
 
-            pdf.section_title(f"4. Quarterly trends, Q1 to Q{_qr_q}")
+            pdf.add_page()
+            pdf.section_title(f"4. Quarter-by-quarter trends, Q1 to Q{_qr_q}")
+            pdf.chart(_qr_trend_png())
+            for title, text in _qr_trends:
+                pdf.callout(title, text, pdf._ACCENT)
+            pdf.sub_title(f"Quarterly scorecard, Q1 to Q{_qr_q}")
             pdf.table(list(_qr_table.columns), _qr_table.values.tolist(),
                       [48] + [int(110 / len(_qr_quarters))] * len(_qr_quarters) + [25])
-            pdf.chart(_bar_with_threshold_png([f"Q{q}" for q in _qr_quarters],
-                                              [_qr_s.loc["DSO at quarter end", q] for q in _qr_quarters],
-                                              DSO_TERMS_DAYS, threshold_label=f"{DSO_TERMS_DAYS}-day term",
-                                              title="DSO at Quarter End", xlabel="Quarter", ylabel="Days",
-                                              label_fmt="{:.0f}d", figh=2.6))
 
             d = _qr["drivers"]
             pdf.section_title("5. Drivers")
@@ -3602,6 +3676,43 @@ elif page == "Quarterly Review":
     with _qr_c2:
         _qr_box("Behind target / needs attention", _qr_behind, "#dc2626")
     _qr_box(f"Suggested focus for {_qr_next}", _qr_focus, BRAND_GOLD)
+
+    st.markdown(chart_wrap(f"Quarter-by-Quarter Trends, Q1 to Q{_qr_q}", "How each part of the business moved across the year"),
+                unsafe_allow_html=True)
+    from plotly.subplots import make_subplots as _qr_subplots
+    _qr_tf = _qr_subplots(rows=2, cols=3, vertical_spacing=0.2, horizontal_spacing=0.07, subplot_titles=(
+        "Revenue vs Target", "Orders (with AOV)", "Customers (active / new)",
+        "Collections vs Revenue", f"Receivables (DSO vs {DSO_TERMS_DAYS}d)", "Multi-SKU & Top-5 share %"))
+    _qr_tf.add_bar(x=_qr_ql, y=_qr_row("Revenue"), marker_color=BRAND_GREEN, name="Revenue", row=1, col=1,
+                   text=[f"{a:.0f}%" for a in _qr_row("Attainment %")], textposition="outside")
+    _qr_tf.add_scatter(x=_qr_ql, y=_qr_row("Target"), mode="markers", name="Target", row=1, col=1,
+                       marker=dict(symbol="line-ew-open", size=26, color=BRAND_GOLD, line=dict(width=3)))
+    _qr_tf.add_bar(x=_qr_ql, y=_qr_row("Orders"), marker_color=BRAND_GREEN, name="Orders", row=1, col=2,
+                   text=[f"{o:.0f} · AOV {a/1e3:.1f}k" for o, a in zip(_qr_row("Orders"), _qr_row("AOV"))],
+                   textposition="outside")
+    _qr_tf.add_bar(x=_qr_ql, y=_qr_row("Active customers"), marker_color=BRAND_GREEN, name="Active", row=1, col=3,
+                   text=[f"{v:.0f}" for v in _qr_row("Active customers")], textposition="outside")
+    _qr_tf.add_bar(x=_qr_ql, y=_qr_row("New customers"), marker_color=BRAND_GOLD, name="New", row=1, col=3,
+                   text=[f"{v:.0f}" for v in _qr_row("New customers")], textposition="outside")
+    _qr_tf.add_bar(x=_qr_ql, y=_qr_row("Revenue"), marker_color="#9ca3af", name="Invoiced", row=2, col=1)
+    _qr_tf.add_bar(x=_qr_ql, y=_qr_row("Collections"), marker_color=BRAND_GREEN, name="Collected", row=2, col=1,
+                   text=[f"{c:.0f}%" for c in _qr_row("Collection ratio %")], textposition="outside")
+    _qr_tf.add_bar(x=_qr_ql, y=_qr_row("AR at quarter end"), marker_color="#dc2626", name="Receivables", row=2, col=2,
+                   text=[f"DSO {d:.0f}d" for d in _qr_row("DSO at quarter end")], textposition="outside")
+    _qr_tf.add_scatter(x=_qr_ql, y=_qr_row("Multi-SKU %"), mode="lines+markers+text", name="Multi-SKU %",
+                       line=dict(color=BRAND_GREEN), text=[f"{v:.0f}%" for v in _qr_row("Multi-SKU %")],
+                       textposition="top center", row=2, col=3)
+    _qr_tf.add_scatter(x=_qr_ql, y=_qr_row("Top-5 share %"), mode="lines+markers+text", name="Top-5 share %",
+                       line=dict(color=BRAND_GOLD), text=[f"{v:.0f}%" for v in _qr_row("Top-5 share %")],
+                       textposition="bottom center", row=2, col=3)
+    _qr_tf.update_layout(**white_layout(560))
+    _qr_tf.update_layout(showlegend=False, barmode="group", margin=dict(t=40, b=30, l=10, r=10))
+    _qr_tf.update_annotations(font_size=12)
+    _qr_tf.update_yaxes(rangemode="tozero")
+    st.plotly_chart(_qr_tf, use_container_width=True, config=CHART_CFG)
+    for _t, _x in _qr_trends:
+        st.markdown(f"**{_t}.** {_x}")
+    st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown(chart_wrap(f"Quarterly Scorecard, Q1 to Q{_qr_q}", "Revenue has targets; everything else is a trend"),
                 unsafe_allow_html=True)

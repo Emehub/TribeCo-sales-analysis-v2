@@ -268,3 +268,76 @@ def data_gaps(r):
                  f"calculated at month-end (Zipline costs) and product cost data is incomplete."))
     gaps.append(("Data freshness", f"Figures use data up to {f['data_end']:%d %b %Y %H:%M}."))
     return gaps
+
+
+
+def _shape(vals, labels):
+    """Plain-language description of how a series moved across quarters."""
+    v = list(vals)
+    if len(v) < 2:
+        return "only one quarter so far"
+    diffs = np.diff(v)
+    if all(d > 0 for d in diffs):
+        word = "rose every quarter"
+    elif all(d < 0 for d in diffs):
+        word = "fell every quarter"
+    else:
+        i_max, i_min = int(np.argmax(v)), int(np.argmin(v))
+        if 0 < i_max < len(v) - 1:
+            word = f"peaked in {labels[i_max]}, then eased"
+        elif 0 < i_min < len(v) - 1:
+            word = f"dipped in {labels[i_min]}, then recovered"
+        else:
+            word = "moved unevenly"
+    if v[0] and not np.isnan(v[0]):
+        word += f"; {labels[0]} to {labels[-1]} {(v[-1] / v[0] - 1) * 100:+.0f}%"
+    return word
+
+
+def trend_lines(r):
+    """One sentence per theme describing the quarter-by-quarter trajectory."""
+    s = r["score"]
+    qs = list(s.columns)
+    L = [f"Q{q}" for q in qs]
+    row = lambda m: [float(s.loc[m, q]) for q in qs]
+    arrow = lambda vals, fmt: " -> ".join(fmt(x) for x in vals)
+    money = lambda x: f"{x/1e6:.2f}M" if abs(x) >= 1e6 else f"{x/1e3:,.0f}k"
+    pct = lambda x: f"{x:.0f}%"
+    rev, att, aov = row("Revenue"), row("Attainment %"), row("AOV")
+    new, act = row("New customers"), row("Active customers")
+    ratio, ar = row("Collection ratio %"), row("AR at quarter end")
+
+    rev_txt = (f"Revenue {arrow(rev, money)}, attainment {arrow(att, pct)}. Revenue {_shape(rev, L)}. ")
+    rev_txt += ("Every quarter met target, but the margin over target narrowed after Q1."
+                if min(att) >= 100 and len(att) > 1 and att[0] > max(att[1:]) + 5 else
+                "Every quarter met target." if min(att) >= 100 else
+                f"Below target in {', '.join(l for l, a in zip(L, att) if a < 100)}.")
+
+    basket_stable = (max(aov) - min(aov)) / np.mean(aov) < 0.15
+    ord_txt = (f"Orders {arrow(row('Orders'), lambda x: f'{x:.0f}')} ({_shape(row('Orders'), L)}). Average order "
+               f"GHS {arrow(aov, lambda x: f'{x:,.0f}')}, typical (median) order GHS "
+               f"{arrow(row('Median order'), lambda x: f'{x:,.0f}')}. ")
+    ord_txt += ("Basket size is broadly stable, so revenue moves with order volume." if basket_stable else
+                "Basket size has shifted materially, so revenue changes reflect order size as well as volume.")
+
+    cust_txt = (f"Active customers {arrow(act, lambda x: f'{x:.0f}')}; new customers "
+                f"{arrow(new, lambda x: f'{x:.0f}')} ({_shape(new, L)}).")
+    if new[-1] < 0.25 * act[-1]:
+        cust_txt += " Most activity now comes from existing accounts rather than new ones."
+
+    coll_txt = (f"Cash collected GHS {arrow(row('Collections'), money)}, equal to {arrow(ratio, pct)} of each "
+                f"quarter's revenue; the ratio {_shape(ratio, L)}.")
+    if max(ratio) < 100:
+        coll_txt += " It has stayed below 100% every quarter, so receivables keep building."
+
+    ar_txt = (f"Receivables at quarter end GHS {arrow(ar, money)}; DSO "
+              f"{arrow(row('DSO at quarter end'), lambda x: f'{x:.0f}d')} against a {r['terms_days']}-day term; "
+              f"share past terms {arrow(row('AR past terms %'), pct)}. Receivables {_shape(ar, L)}.")
+    if all(d > 0 for d in np.diff(ar)) and len(ar) > 1:
+        ar_txt += " This is the clearest worsening trend of the year."
+
+    mix_txt = (f"Multi-SKU orders {arrow(row('Multi-SKU %'), pct)} ({_shape(row('Multi-SKU %'), L)}). "
+               f"Top-5 customer share {arrow(row('Top-5 share %'), pct)} ({_shape(row('Top-5 share %'), L)}).")
+
+    return [("Revenue vs target", rev_txt), ("Orders and basket size", ord_txt), ("Customers", cust_txt),
+            ("Collections", coll_txt), ("Receivables and DSO", ar_txt), ("Mix and concentration", mix_txt)]
