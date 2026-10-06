@@ -17,6 +17,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # sibling modules, however the app is launched
 import credit_collections_report as ccr
 import quarterly_review as qrv
+import qr_charts as qrc
 warnings.filterwarnings("ignore")
 try:
     import matplotlib
@@ -3369,9 +3370,9 @@ elif page == "Quarterly Review":
     _qr_text = lambda html, size=13, muted=True, margin="0 0 14px": st.markdown(
         f'<div style="font-size:{size}px;color:{_T["text_muted"] if muted else _T["text_heading"]};'
         f'margin:{margin}">{html}</div>', unsafe_allow_html=True)
-    _qr_text("Quarter performance against the annual goals: quarterly and YTD actuals vs target, "
-             "key trends, where we are ahead or behind, drivers, suggested focus for next quarter, and "
-             "the data gaps to validate. Download it as a PDF for the management meeting.")
+    _qr_text("Management review of a completed quarter: the quarter's own performance first, then the "
+             "year to date against the annual goal, quarter-by-quarter trends, suggested focus and the data "
+             "gaps to validate. Download it as a PDF for the management meeting.")
 
     # Completed quarters only (a quarter counts once data runs past its last day).
     _qr_latest = max(ccr._to_naive_date(inv_scoped["Created At"]).max(),
@@ -3390,29 +3391,89 @@ elif page == "Quarterly Review":
     if "Order Type" in _qr_hist.columns: _qr_hf &= (_qr_hist["Order Type"] == 1)
     if "Channel" in _qr_hist.columns: _qr_hf &= (_qr_hist["Channel"] != "BufferPesa")
     if "Status" in _qr_hist.columns: _qr_hf &= (_qr_hist["Status"] != 5)
-    _qr_targets = pd.read_csv(f"{DATA}/revenue_target.csv")
-    _qr = qrv.build(inv_scoped, rep_scoped, _qr_hist[_qr_hf], rc, il, prod, _qr_targets,
-                    _qr_year, _qr_q, window_days=DSO_WINDOW_DAYS, terms_days=DSO_TERMS_DAYS)
-    _qr_ahead, _qr_behind, _qr_focus = qrv.insights(_qr)
+    _qr = qrv.build(inv_scoped, rep_scoped, _qr_hist[_qr_hf], rc, il, prod,
+                    pd.read_csv(f"{DATA}/revenue_target.csv"), _qr_year, _qr_q,
+                    window_days=DSO_WINDOW_DAYS, terms_days=DSO_TERMS_DAYS)
+    _qr_qa, _qr_qb, _qr_ytdp, _qr_focus = qrv.insights(_qr)
     _qr_gaps = qrv.data_gaps(_qr)
+    _qr_trends = qrv.trend_lines(_qr)
     _qr_s, _qr_y = _qr["score"], _qr["ytd"]
     _qr_cur = _qr_s[_qr_q]
     _qr_prev = _qr_s[_qr_q - 1] if _qr_q > 1 else None
-    _qr_label = f"Q{_qr_q} {_qr_year}"
+    _qr_ql, _qr_label = f"Q{_qr_q}", f"Q{_qr_q} {_qr_year}"
     _qr_next = f"Q{_qr_q + 1}" if _qr_q < 4 else f"Q1 {_qr_year + 1}"
-    _qr_mo = _qr["monthly"].copy()
-    _qr_mo["Label"] = _qr_mo["Month"].apply(month_label)
+    _qr_d = _qr["drivers"]
 
-    # Scorecard rows shown on screen and in the PDF: (metric, formatter, is the higher value better)
     _qr_money = lambda v: f"GHS {v:,.0f}" if pd.notna(v) else "n/a"
-    _qr_pctf  = lambda v: f"{v:.1f}%" if pd.notna(v) else "n/a"
-    _qr_int   = lambda v: f"{int(v):,}" if pd.notna(v) else "n/a"
-    _qr_days  = lambda v: f"{v:.0f} days" if pd.notna(v) else "n/a"
+    _qr_pctf = lambda v: f"{v:.1f}%" if pd.notna(v) else "n/a"
+    _qr_int = lambda v: f"{int(v):,}" if pd.notna(v) else "n/a"
+    _qr_days = lambda v: f"{v:.0f} days" if pd.notna(v) else "n/a"
+
+    def _qr_vs(metric, fmt="pct"):
+        """Change vs the previous quarter, as short text."""
+        if _qr_prev is None or pd.isna(_qr_prev[metric]):
+            return ""
+        d = _qr_cur[metric] - _qr_prev[metric]
+        if fmt == "pts":
+            return f"{d:+.1f} pts vs Q{_qr_q-1}"
+        if fmt == "days":
+            return f"{d:+.0f} days vs Q{_qr_q-1}"
+        if fmt == "abs":
+            return f"{d:+,.0f} vs Q{_qr_q-1}"
+        return f"{d / _qr_prev[metric] * 100:+.1f}% vs Q{_qr_q-1}" if _qr_prev[metric] else ""
+
+    # Headline tiles: (label, value, sub-line, accent colour)
+    _qr_q_tiles = [
+        (f"{_qr_ql} revenue", _qr_money(_qr_cur["Revenue"]),
+         f"{_qr_cur['Attainment %']:.1f}% of {_qr_money(_qr_cur['Target'])} target",
+         "#16a34a" if _qr_cur["Attainment %"] >= 100 else "#dc2626"),
+        ("Orders / average order", f"{_qr_int(_qr_cur['Orders'])} / {_qr_money(_qr_cur['AOV'])}",
+         _qr_vs("Orders"), BRAND_GREEN),
+        ("Active customers", f"{_qr_int(_qr_cur['Active customers'])}",
+         f"{_qr_int(_qr_cur['New customers'])} new; {_qr_vs('Active customers', 'abs')}", "#14b8a6"),
+        ("Cash collected", _qr_money(_qr_cur["Collections"]),
+         f"{_qr_cur['Collection ratio %']:.0f}% of {_qr_ql} revenue", "#0f766e"),
+        ("Receivables at quarter end", _qr_money(_qr_cur["AR at quarter end"]),
+         f"{_qr_cur['AR past terms %']:.0f}% past terms; {_qr_vs('AR at quarter end')}", "#f59e0b"),
+        ("DSO at quarter end", _qr_days(_qr_cur["DSO at quarter end"]),
+         f"{_qr_cur['DSO at quarter end'] - DSO_TERMS_DAYS:+.0f} days vs {DSO_TERMS_DAYS}-day term",
+         "#dc2626" if _qr_cur["DSO at quarter end"] > DSO_TERMS_DAYS else "#16a34a"),
+    ]
+    _qr_y_tiles = [
+        ("YTD revenue", _qr_money(_qr_y["revenue"]),
+         f"{_qr_y['attainment']:.1f}% of {_qr_money(_qr_y['target'])} YTD target",
+         "#16a34a" if _qr_y["attainment"] >= 100 else "#dc2626"),
+        ("Annual goal reached", f"{_qr_y['annual_pct']:.1f}%",
+         f"of {_qr_money(_qr_y['annual_target'])}", BRAND_GOLD),
+        ("Still needed this year", _qr_money(_qr_y["remaining"]),
+         f"{_qr_y['needed_pct_of_rest_target']:.0f}% of remaining targets" if _qr_y["months_left"] else "year complete",
+         BRAND_GREEN),
+        ("Projected year-end", _qr_money(_qr_y["projected"]),
+         f"{_qr_y['projected_pct']:.0f}% of goal at {_qr_ql} run-rate", "#16a34a" if _qr_y["projected_pct"] >= 100 else "#dc2626"),
+        ("Months on target", f"{_qr_y['months_on_target']} of {_qr_y['months_done']}",
+         "months at or above monthly target", "#14b8a6"),
+        ("YTD cash collected", _qr_money(_qr_y["collections"]),
+         f"{_qr_y['collection_ratio']:.0f}% of YTD revenue", "#0f766e"),
+    ]
+
+    _q_on = int((_qr["monthly"].query("Q == @_qr_q")["Attainment %"] >= 100).sum())
+    _qr_headline = (
+        f"{_qr_label} delivered {_qr_money(_qr_cur['Revenue'])}, {_qr_cur['Attainment %']:.1f}% of target, with "
+        f"{_q_on} of 3 months on or above target"
+        + (f"; revenue was {abs(_qr_cur['Revenue']/_qr_prev['Revenue']-1)*100:.0f}% "
+           f"{'below' if _qr_cur['Revenue'] < _qr_prev['Revenue'] else 'above'} Q{_qr_q-1}, against a target that was "
+           f"{abs(_qr_cur['Target']/_qr_prev['Target']-1)*100:.0f}% "
+           f"{'lower' if _qr_cur['Target'] < _qr_prev['Target'] else 'higher'}" if _qr_prev is not None else "")
+        + f". Cash collected covered {_qr_cur['Collection ratio %']:.0f}% of the quarter's sales, and receivables "
+          f"ended at {_qr_money(_qr_cur['AR at quarter end'])} (DSO {_qr_cur['DSO at quarter end']:.0f} days vs a "
+          f"{DSO_TERMS_DAYS}-day term): sales are on plan, cash conversion is the issue.")
+
     _QR_ROWS = [("Revenue", _qr_money), ("Target", _qr_money), ("Attainment %", _qr_pctf),
                 ("Orders", _qr_int), ("AOV", _qr_money), ("Median order", _qr_money),
                 ("Active customers", _qr_int), ("New customers", _qr_int), ("Multi-SKU %", _qr_pctf),
                 ("Top-5 share %", _qr_pctf), ("Collections", _qr_money), ("Collection ratio %", _qr_pctf),
                 ("AR at quarter end", _qr_money), ("AR past terms %", _qr_pctf), ("DSO at quarter end", _qr_days)]
+    _qr_quarters = list(_qr_s.columns)
 
     def _qr_change(metric):
         if _qr_prev is None or pd.isna(_qr_prev[metric]) or pd.isna(_qr_cur[metric]):
@@ -3423,85 +3484,41 @@ elif page == "Quarterly Review":
             return f"{_qr_cur[metric] - _qr_prev[metric]:+.0f} days"
         return f"{(_qr_cur[metric] / _qr_prev[metric] - 1) * 100:+.1f}%" if _qr_prev[metric] else "n/a"
 
-    _qr_quarters = list(_qr_s.columns)
     _qr_table = pd.DataFrame(
         [[m] + [fmt(_qr_s.loc[m, q]) for q in _qr_quarters] + [_qr_change(m)] for m, fmt in _QR_ROWS],
-        columns=["Metric"] + [f"Q{q}" for q in _qr_quarters] + [f"Q{_qr_q} vs Q{_qr_q-1}" if _qr_q > 1 else "Change"])
+        columns=["Metric"] + [f"Q{q}" for q in _qr_quarters] + ([f"Q{_qr_q} vs Q{_qr_q-1}"] if _qr_q > 1 else ["Change"]))
 
-    _qr_trends = qrv.trend_lines(_qr)
-    _qr_ql = [f"Q{q}" for q in _qr_quarters]
-    _qr_row = lambda m: [float(_qr_s.loc[m, q]) for q in _qr_quarters]
+    # Charts (shared by page and PDF)
+    _qr_c = {
+        "months": qrc.quarter_months(_qr), "bridge": qrc.bridge(_qr), "mix": qrc.mix_compare(_qr),
+        "aging": qrc.aging(_qr), "cum": qrc.cumulative(_qr), "matt": qrc.monthly_attainment(_qr),
+        "trends": qrc.trends(_qr, DSO_TERMS_DAYS),
+    }
+    _qr_movers = None
+    if "customers" in _qr_d:
+        _m = _qr_d["customers"]
+        _qr_movers = pd.concat([_m.head(5), _m.tail(5).iloc[::-1]])
+        _qr_movers = _qr_movers[_qr_movers["Change"] != 0]
+    _qr_cust_note = ""
+    if "bridge" in _qr_d:
+        _b = _qr_d["bridge"]
+        _start, _end = _b[0][1], _b[-1][1]
+        _dec = sum(v for n, v, k in _b if k == "delta" and v < 0 and n != "Stopped ordering")
+        _top3 = sum(v for n, v, k in _b[1:4] if k == "delta" and v < 0 and n not in ("Other lower spend", "Stopped ordering"))
+        _lost = next((v for n, v, k in _b if n == "Stopped ordering"), 0)
+        _grow = next((v for n, v, k in _b if n == "Higher spend, existing"), 0)
+        _new = next((v for n, v, k in _b if n == "New / returning"), 0)
+        _qr_cust_note = (
+            f"Revenue {'fell' if _end < _start else 'rose'} GHS {abs(_end - _start):,.0f} from Q{_qr_q-1}. "
+            f"Existing customers spending less took off GHS {abs(_dec):,.0f} (the three largest decliners alone "
+            f"GHS {abs(_top3):,.0f}, {abs(_top3) / abs(_dec) * 100 if _dec else 0:.0f}% of it) and customers who "
+            f"stopped ordering GHS {abs(_lost):,.0f}; customers spending more added GHS {_grow:,.0f} and new or "
+            f"returning customers GHS {_new:,.0f}. {_qr_d['retained']} customers ordered in both quarters, "
+            f"{_qr_d['gained']} only in Q{_qr_q}, {len(_qr_d['lapsed'])} only in Q{_qr_q-1}.")
 
     # ── PDF ──────────────────────────────────────────────────────────────────────
     if _PDF_AVAIL:
-        def _qr_trend_png():
-            """Six small line charts, one per trend theme, Q1 to the selected quarter."""
-            fig, axes = plt.subplots(2, 3, figsize=(10.5, 6.0))
-            x = list(range(len(_qr_ql)))
-            G, Au, Rd, Gy = "#1f7a4d", "#c9975a", "#b91c1c", "#6b7280"
-            k = lambda v, _=None: f"{v/1e3:,.0f}k"
-
-            def _line(ax, metric, color, label, labels=None, below=False, dash="-"):
-                ys = _qr_row(metric)
-                ax.plot(x, ys, marker="o", markersize=5, color=color, lw=2.2, ls=dash, zorder=3, label=label)
-                for xi, yv, t in zip(x, ys, labels or [None] * len(ys)):
-                    ax.annotate(t if t is not None else "", (xi, yv), textcoords="offset points",
-                                xytext=(0, -12 if below else 7), ha="center", va="top" if below else "bottom",
-                                fontsize=6.5, color="#374151")
-
-            def _style(ax, title, fmt=None, legend=True):
-                ax.set_title(title, fontsize=9.5, fontweight="bold", color="#14532d", pad=5)
-                ax.set_xticks(x)
-                ax.set_xticklabels(_qr_ql, fontsize=8)
-                ax.set_xlim(-0.3, len(x) - 0.7)
-                ax.tick_params(axis="y", labelsize=7)
-                ax.yaxis.grid(True, alpha=0.3, zorder=0)
-                ax.set_axisbelow(True)
-                for sp in ("top", "right"):
-                    ax.spines[sp].set_visible(False)
-                top = max(max(l.get_ydata()) for l in ax.get_lines())
-                ax.set_ylim(0, top * 1.32)
-                if fmt:
-                    ax.yaxis.set_major_formatter(plt.FuncFormatter(fmt))
-                if legend:
-                    ax.legend(fontsize=6.5, loc="upper center", bbox_to_anchor=(0.5, -0.1), ncol=2, frameon=False)
-
-            ax = axes[0, 0]
-            _line(ax, "Revenue", G, "Actual", [f"{a:.0f}%" for a in _qr_row("Attainment %")])
-            _line(ax, "Target", Au, "Target", below=True, dash="--")
-            _style(ax, "Revenue vs Target (GHS)", k)
-
-            ax = axes[0, 1]
-            _line(ax, "Orders", G, "Orders",
-                  [f"{o:.0f}\nAOV {a/1e3:.1f}k" for o, a in zip(_qr_row("Orders"), _qr_row("AOV"))])
-            _style(ax, "Orders (with average order value)", legend=False)
-
-            ax = axes[0, 2]
-            _line(ax, "Active customers", G, "Active", [f"{v:.0f}" for v in _qr_row("Active customers")])
-            _line(ax, "New customers", Au, "New", [f"{v:.0f}" for v in _qr_row("New customers")])
-            _style(ax, "Customers")
-
-            ax = axes[1, 0]
-            _line(ax, "Revenue", Gy, "Invoiced", dash="--")
-            _line(ax, "Collections", G, "Collected", [f"{c:.0f}%" for c in _qr_row("Collection ratio %")], below=True)
-            _style(ax, "Collections vs Revenue (GHS)", k)
-
-            ax = axes[1, 1]
-            _line(ax, "AR at quarter end", Rd, "Receivables",
-                  [f"{k(v)}\nDSO {d:.0f}d" for v, d in zip(_qr_row("AR at quarter end"), _qr_row("DSO at quarter end"))])
-            _style(ax, f"Receivables at Quarter End (DSO vs {DSO_TERMS_DAYS}d term)", k, legend=False)
-
-            ax = axes[1, 2]
-            _line(ax, "Multi-SKU %", G, "Multi-SKU orders", [f"{v:.0f}%" for v in _qr_row("Multi-SKU %")])
-            _line(ax, "Top-5 share %", Au, "Top-5 customer share", [f"{v:.0f}%" for v in _qr_row("Top-5 share %")],
-                  below=True)
-            _style(ax, "Mix and Concentration (%)")
-
-            plt.tight_layout(pad=0.6, h_pad=1.4)
-            buf = io.BytesIO()
-            fig.savefig(buf, format="png", dpi=140, bbox_inches="tight", facecolor="white")
-            plt.close(fig)
-            return buf.getvalue()
+        from PIL import Image as _QRImage
 
         class _QRPdf(YTDReportPDF):
             def header(self):
@@ -3512,26 +3529,114 @@ elif page == "Quarterly Review":
                 self.set_font("Helvetica", "B", 9)
                 self.set_text_color(*self._WHITE)
                 self.set_xy(10, 3)
-                self.cell(0, 8, self._clean(f"TribeCo Ghana  |  {_qr_label} Performance Review vs Annual Goals"))
+                self.cell(0, 8, self._clean(f"TribeCo Ghana  |  {_qr_label} Performance Review  |  {self.part}"))
                 self.ln(12)
 
             def title_block(self, as_of_label):
                 self.set_fill_color(*self._BRAND)
-                self.rect(0, 0, 210, 40, "F")
-                self.set_font("Helvetica", "B", 19)
+                self.rect(0, 0, 210, 34, "F")
+                self.set_font("Helvetica", "B", 18)
                 self.set_text_color(*self._WHITE)
-                self.set_xy(10, 7)
+                self.set_xy(10, 6)
                 self.cell(190, 9, "Ghana Commercial Performance", align="C")
-                self.set_font("Helvetica", "B", 13)
+                self.set_font("Helvetica", "B", 12)
                 self.set_text_color(*self._GOLD)
-                self.set_xy(10, 18)
-                self.cell(190, 8, self._clean(f"{_qr_label} Review vs Annual Goals"), align="C")
-                self.set_font("Helvetica", "", 9)
+                self.set_xy(10, 16)
+                self.cell(190, 7, self._clean(f"{_qr_label} Review and Year-to-Date vs Annual Goals"), align="C")
+                self.set_font("Helvetica", "", 8.5)
                 self.set_text_color(*self._WHITE)
-                self.set_xy(10, 28)
-                self.cell(190, 6, self._clean(f"Prepared for the management meeting (data as of {as_of_label})"), align="C")
+                self.set_xy(10, 24)
+                self.cell(190, 6, self._clean(f"Prepared for the management meeting  |  data as of {as_of_label}"), align="C")
                 self.set_text_color(0, 0, 0)
-                self.set_y(48)
+                self.set_y(39)
+
+            def sub_title(self, text):
+                if self.get_y() > self.page_break_trigger - 45:   # keep a heading with its content
+                    self.add_page()
+                super().sub_title(text)
+
+            @staticmethod
+            def _rgb(h):
+                h = h.lstrip("#")
+                return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+            def tiles(self, items, cols=3):
+                gap, h = 3.5, 17
+                w = (183 - gap * (cols - 1)) / cols
+                y0 = self.get_y()
+                for i, (label, value, sub, color) in enumerate(items):
+                    x, y = 14 + (i % cols) * (w + gap), y0 + (i // cols) * (h + gap)
+                    self.set_fill_color(*self._LIGHT)
+                    self.rect(x, y, w, h, "F")
+                    self.set_fill_color(*self._rgb(color))
+                    self.rect(x, y, 1.4, h, "F")
+                    self.set_xy(x + 3.5, y + 1.6)
+                    self.set_font("Helvetica", "B", 7)
+                    self.set_text_color(107, 114, 128)
+                    self.cell(w - 5, 3.5, self._clean(label.upper()))
+                    self.set_xy(x + 3.5, y + 5.6)
+                    self.set_font("Helvetica", "B", 12.5)
+                    self.set_text_color(*self._BLACK)
+                    self.cell(w - 5, 6, self._clean(value))
+                    self.set_xy(x + 3.5, y + 12)
+                    self.set_font("Helvetica", "", 7.2)
+                    self.set_text_color(*self._rgb(color))
+                    self.cell(w - 5, 3.5, self._clean(sub))
+                rows = -(-len(items) // cols)
+                self.set_y(y0 + rows * (h + gap) + 1)
+
+            def progress(self, value, goal, marker, label):
+                y = self.get_y()
+                x, w, h = 14, 183, 6
+                self.set_font("Helvetica", "B", 8)
+                self.set_text_color(*self._BRAND)
+                self.set_xy(x, y)
+                self.cell(w, 4, self._clean(label))
+                y += 5
+                self.set_fill_color(229, 231, 235)
+                self.rect(x, y, w, h, "F")
+                self.set_fill_color(*self._ACCENT)
+                self.rect(x, y, w * min(value / goal, 1), h, "F")
+                mx = x + w * min(marker / goal, 1)
+                self.set_draw_color(*self._GOLD)
+                self.set_line_width(0.9)
+                self.line(mx, y - 1.2, mx, y + h + 1.2)
+                self.set_font("Helvetica", "B", 7.5)
+                self.set_text_color(*self._WHITE)
+                self.set_xy(x + 2, y + 0.8)
+                self.cell(60, 4.4, self._clean(f"{value/goal*100:.1f}% of annual goal"))
+                self.set_text_color(*self._GOLD)
+                self.set_xy(mx - 40, y + h + 1.2)
+                self.cell(80, 3.5, self._clean(f"YTD target {marker/goal*100:.0f}%"), align="C")
+                self.set_y(y + h + 6)
+
+            def _img_h(self, img, w):
+                im = _QRImage.open(io.BytesIO(img))
+                return w * im.height / im.width
+
+            def chart(self, img, w=183):
+                if img is None:
+                    return
+                h = self._img_h(img, w)
+                if self.get_y() + h > self.page_break_trigger:
+                    self.add_page()
+                self.image(io.BytesIO(img), x=14 + (183 - w) / 2, y=self.get_y(), w=w)
+                self.set_y(self.get_y() + h + 2.5)
+
+            def chart_pair(self, a, b):
+                imgs = [i for i in (a, b) if i is not None]
+                if len(imgs) < 2:
+                    for i in imgs:
+                        self.chart(i, w=120)
+                    return
+                w = 89.5
+                h = max(self._img_h(a, w), self._img_h(b, w))
+                if self.get_y() + h > self.page_break_trigger:
+                    self.add_page()
+                y = self.get_y()
+                self.image(io.BytesIO(a), x=14, y=y, w=w)
+                self.image(io.BytesIO(b), x=14 + w + 4, y=y, w=w)
+                self.set_y(y + h + 2.5)
 
             def bullets(self, items, color=None):
                 for it in items:
@@ -3540,86 +3645,69 @@ elif page == "Quarterly Review":
                     self.set_x(14)
                     self.set_font("Helvetica", "B", 9.5)
                     self.set_text_color(*(color or self._ACCENT))
-                    self.cell(5, 5.2, "-")
-                    self.set_font("Helvetica", "", 9.5)
+                    self.cell(5, 5, "-")
+                    self.set_font("Helvetica", "", 9)
                     self.set_text_color(*self._BLACK)
-                    self.multi_cell(178, 5.2, self._clean(it))
-                    self.ln(0.8)
-                self.ln(1.5)
+                    self.multi_cell(178, 4.8, self._clean(it))
+                    self.ln(0.6)
+                self.ln(1.2)
 
         def _qr_build_pdf():
             pdf = _QRPdf()
+            tone = {"good": pdf._ACCENT, "bad": pdf._RED, "neutral": pdf._GOLD}
+
+            # Pages 1-2: the quarter on its own
+            pdf.part = f"{_qr_ql} analysis"
             pdf.add_page()
             pdf.title_block(f"{_qr['flags']['data_end']:%d %b %Y}")
+            pdf.section_title(f"1. {_qr_label} at a glance")
+            pdf.tiles(_qr_q_tiles)
+            pdf.callout("Headline", _qr_headline, pdf._ACCENT)
+            pdf.chart(_qr_c["months"])
+            pdf.section_title(f"2. {_qr_ql}: what went well")
+            pdf.bullets(_qr_qa or ["Nothing materially ahead of plan this quarter."], pdf._ACCENT)
+            pdf.section_title(f"3. {_qr_ql}: what needs attention")
+            pdf.bullets(_qr_qb or ["Nothing materially behind plan this quarter."], pdf._RED)
+            if _qr_c["bridge"] is not None or _qr_c["mix"] is not None:
+                pdf.section_title(f"4. {_qr_ql} drivers")
+                pdf.chart(_qr_c["bridge"])
+                if _qr_cust_note:
+                    pdf.body(_qr_cust_note)
+                pdf.chart_pair(_qr_c["mix"], _qr_c["aging"])
+                if _qr_movers is not None and len(_qr_movers):
+                    pdf.sub_title(f"Largest customer movements, Q{_qr_q-1} to {_qr_ql}")
+                    pdf.table(["Customer", f"Q{_qr_q-1}", _qr_ql, "Change"],
+                              [(n[:38], _qr_money(r.Prev), _qr_money(r.Curr), f"{r.Change:+,.0f}")
+                               for n, r in _qr_movers.iterrows()], [80, 35, 35, 33])
 
-            pdf.section_title("1. Where we stand")
-            rows = [(f"{_qr_label} revenue vs quarterly target", _qr_money(_qr_cur["Revenue"]),
-                     _qr_money(_qr_cur["Target"]), _qr_pctf(_qr_cur["Attainment %"])),
-                    ("YTD revenue vs YTD target", _qr_money(_qr_y["revenue"]), _qr_money(_qr_y["target"]),
-                     _qr_pctf(_qr_y["attainment"])),
-                    ("YTD revenue vs annual goal", _qr_money(_qr_y["revenue"]), _qr_money(_qr_y["annual_target"]),
-                     _qr_pctf(_qr_y["annual_pct"]))]
-            if _qr_y["months_left"]:
-                rows.append((f"Still needed for annual goal", _qr_money(_qr_y["remaining"]),
-                             _qr_money(_qr_y["rest_target"]), f"{_qr_y['needed_pct_of_rest_target']:.0f}% of rest"))
-            pdf.table(["Measure", "Actual", "Target / Goal", "Attainment"], rows, [76, 37, 37, 33])
-            pdf.callout("Headline",
-                        f"{_qr_label} revenue finished at {_qr_cur['Attainment %']:.1f}% of target and the year is "
-                        f"{_qr_y['annual_pct']:.0f}% of the way to the GHS {_qr_y['annual_target']:,.0f} annual goal "
-                        f"after Q{_qr_q}. "
-                        + (f"At the {_qr_label.split()[0]} run-rate the year lands near GHS {_qr_y['projected']:,.0f} "
-                           f"({_qr_y['projected_pct']:.0f}% of goal). " if _qr_y["months_left"] else "")
-                        + (f"The main risk is cash, not sales: receivables reached GHS {_qr_cur['AR at quarter end']:,.0f} "
-                           f"with DSO at {_qr_cur['DSO at quarter end']:.0f} days against a {DSO_TERMS_DAYS}-day term."
-                           if _qr_prev is not None and _qr_cur['AR at quarter end'] > _qr_prev['AR at quarter end'] else ""),
-                        pdf._ACCENT)
-            _done = _qr_mo.dropna(subset=["Revenue"])
-            pdf.chart(_grouped_bar_png(_done.assign(Label=_done["Label"]), "Label",
-                                       [("Revenue", "Actual"), ("Target", "Target")],
-                                       title="Monthly Revenue vs Target", colors=[BRAND_GREEN_DEEP, BRAND_GOLD],
-                                       xlabel="Month", ylabel="GHS"))
-
-            pdf.section_title("2. Ahead of target / going well")
-            pdf.bullets(_qr_ahead or ["Nothing materially ahead of target this quarter."], pdf._ACCENT)
-            pdf.section_title("3. Behind target / needs attention")
-            pdf.bullets(_qr_behind or ["Nothing materially behind target this quarter."], pdf._RED)
-
+            # Page 3 onward: year to date
+            pdf.part = "Year to date"
             pdf.add_page()
-            pdf.section_title(f"4. Quarter-by-quarter trends, Q1 to Q{_qr_q}")
-            pdf.chart(_qr_trend_png())
+            pdf.section_title(f"5. Year to date vs the annual goal (Jan - {_qr['monthly'].dropna(subset=['Revenue'])['Label'].iloc[-1]} {_qr_year})")
+            pdf.tiles(_qr_y_tiles)
+            pdf.progress(_qr_y["revenue"], _qr_y["annual_target"], _qr_y["target"],
+                         f"Progress to the GHS {_qr_y['annual_target']:,.0f} annual goal")
+            pdf.chart(_qr_c["cum"])
+            pdf.chart(_qr_c["matt"])
+            for lbl, txt, t in _qr_ytdp:
+                pdf.callout(lbl, txt, tone[t])
+
+            pdf.section_title(f"6. Quarter-by-quarter trends, Q1 to {_qr_ql}")
+            pdf.chart(_qr_c["trends"])
             for title, text in _qr_trends:
                 pdf.callout(title, text, pdf._ACCENT)
-            pdf.sub_title(f"Quarterly scorecard, Q1 to Q{_qr_q}")
+            pdf.sub_title(f"Quarterly scorecard, Q1 to {_qr_ql}")
             pdf.table(list(_qr_table.columns), _qr_table.values.tolist(),
                       [48] + [int(110 / len(_qr_quarters))] * len(_qr_quarters) + [25])
-
-            d = _qr["drivers"]
-            pdf.section_title("5. Drivers")
-            if "customers" in d:
-                c = d["customers"]
-                movers = pd.concat([c.head(5), c.tail(5).iloc[::-1]])
-                movers = movers[movers["Change"] != 0]
-                pdf.sub_title(f"Largest customer movements, Q{_qr_q-1} to Q{_qr_q}")
-                pdf.table(["Customer", f"Q{_qr_q-1}", f"Q{_qr_q}", "Change"],
-                          [(n[:38], _qr_money(r.Prev), _qr_money(r.Curr), f"{r.Change:+,.0f}") for n, r in movers.iterrows()],
-                          [80, 35, 35, 33])
-                pdf.body(f"{d['retained']} customers ordered in both quarters, {d['gained']} ordered in Q{_qr_q} but "
-                         f"not Q{_qr_q-1}"
-                         + (f"; {len(d['lapsed'])} stopped ordering (" + ", ".join(f"{n} GHS {v:,.0f}" for n, v in d['lapsed'][:4]) + ")."
-                            if d["lapsed"] else "."))
-            if len(d["products"]):
-                pdf.sub_title(f"Product mix, Q{_qr_q} (share of line revenue)")
-                pdf.body(", ".join(f"{p} {v:.0f}%" for p, v in d["products"].head(6).items()) + ".")
-
-            pdf.section_title(f"6. Suggested focus for {_qr_next}")
+            pdf.section_title(f"7. Suggested focus for {_qr_next}")
             pdf.bullets(_qr_focus, pdf._GOLD)
-
-            pdf.section_title("7. Data gaps and figures to validate")
+            pdf.section_title("8. Data gaps and figures to validate")
             for title, text in _qr_gaps:
                 pdf.callout(title, text, pdf._AMBER)
             pdf.body("Method: revenue = invoiced value after discount (Ghana FBC orders, excluding cancelled and "
                      "BufferPesa). Collections dated by actual payment date. DSO = receivables at quarter end / "
-                     f"last {DSO_WINDOW_DAYS} days of sales x {DSO_WINDOW_DAYS}. Generated live from Metabase.")
+                     f"last {DSO_WINDOW_DAYS} days of sales x {DSO_WINDOW_DAYS}. Projection = YTD revenue + "
+                     f"{_qr_ql} monthly run-rate x months left. Generated live from Metabase.")
             return bytes(pdf.output())
 
         st.download_button(f"⬇ Download {_qr_label} Review (PDF) for management",
@@ -3630,111 +3718,70 @@ elif page == "Quarterly Review":
         st.warning("PDF export isn't available in this environment (fpdf2/matplotlib not installed).")
 
     # ── On-screen ────────────────────────────────────────────────────────────────
-    _qr_r1 = kpi_card(f"{_qr_label} Revenue", _qr_money(_qr_cur["Revenue"]),
-                      f"vs target {_qr_money(_qr_cur['Target'])}", BRAND_GREEN,
-                      _qr_pctf(_qr_cur["Attainment %"]),
-                      "#16a34a" if _qr_cur["Attainment %"] >= 100 else "#dc2626") + \
-             kpi_card("YTD Revenue", _qr_money(_qr_y["revenue"]), f"vs YTD target {_qr_money(_qr_y['target'])}",
-                      "#14b8a6", _qr_pctf(_qr_y["attainment"]),
-                      "#16a34a" if _qr_y["attainment"] >= 100 else "#dc2626") + \
-             kpi_card("Annual Goal Progress", f"{_qr_y['annual_pct']:.1f}%",
-                      f"of {_qr_money(_qr_y['annual_target'])}; {_qr_money(_qr_y['remaining'])} to go", BRAND_GOLD)
-    _qr_r2 = kpi_card(f"{_qr_label} Collections", _qr_money(_qr_cur["Collections"]),
-                      f"{_qr_cur['Collection ratio %']:.0f}% of quarter revenue", "#16a34a") + \
-             kpi_card("Receivables at Quarter End", _qr_money(_qr_cur["AR at quarter end"]),
-                      f"{_qr_cur['AR past terms %']:.0f}% past the {DSO_TERMS_DAYS}-day term", "#f59e0b") + \
-             kpi_card("DSO at Quarter End", _qr_days(_qr_cur["DSO at quarter end"]),
-                      f"vs {DSO_TERMS_DAYS}-day term", "#dc2626",
-                      f"{_qr_cur['DSO at quarter end'] - DSO_TERMS_DAYS:+.0f}d",
-                      "#dc2626" if _qr_cur["DSO at quarter end"] > DSO_TERMS_DAYS else "#16a34a")
-    st.markdown(kpi_grid(_qr_r1, max_cols=3), unsafe_allow_html=True)
-    st.markdown(kpi_grid(_qr_r2, max_cols=3), unsafe_allow_html=True)
+    def _qr_part(title, sub):
+        st.markdown(f'<div style="margin:26px 0 10px;padding:10px 16px;border-radius:10px;'
+                    f'background:{BRAND_GREEN_DEEP};color:white"><div style="font-size:17px;font-weight:800">'
+                    f'{title}</div><div style="font-size:12px;opacity:.8">{sub}</div></div>',
+                    unsafe_allow_html=True)
 
-    st.markdown(chart_wrap("Monthly Revenue vs Target", f"{_qr_year} actuals to {_qr_label}, with the remaining months' targets"),
-                unsafe_allow_html=True)
-    _qr_fig = go.Figure()
-    _qr_fig.add_bar(x=_qr_mo["Label"], y=_qr_mo["Revenue"], name="Actual", marker=bar_marker(BRAND_GREEN),
-                    text=_qr_mo["Attainment %"].apply(lambda v: f"{v:.0f}%" if pd.notna(v) else ""),
-                    textposition="outside")
-    _qr_fig.add_scatter(x=_qr_mo["Label"], y=_qr_mo["Target"], name="Target", mode="lines+markers",
-                        line=dict(color=BRAND_GOLD, dash="dot", width=2))
-    _qr_fig.update_layout(**white_layout(320), legend=dict(orientation="h", y=-0.2))
-    st.plotly_chart(_qr_fig, use_container_width=True, config=CHART_CFG)
-    st.markdown("</div>", unsafe_allow_html=True)
+    def _qr_cards(items):
+        html = "".join(kpi_card(l, v, s, c) for l, v, s, c in items)
+        st.markdown(kpi_grid(html, max_cols=3), unsafe_allow_html=True)
 
     def _qr_box(title, items, color):
         body = "".join(f'<li style="margin:0 0 6px">{i}</li>' for i in items) or "<li>None this quarter.</li>"
         st.markdown(f'<div style="border-left:4px solid {color};padding:10px 14px;margin:6px 0 14px;'
-                    f'background:{_T.get("card_bg", "transparent")};border-radius:8px">'
-                    f'<div style="font-weight:700;color:{color};margin-bottom:6px">{title}</div>'
+                    f'border-radius:8px"><div style="font-weight:700;color:{color};margin-bottom:6px">{title}</div>'
                     f'<ul style="margin:0;padding-left:18px;font-size:13px;color:{_T["text_heading"]}">{body}</ul></div>',
                     unsafe_allow_html=True)
+
+    def _qr_img(img):
+        if img is not None:
+            st.image(img, use_container_width=True)
+
+    _qr_part(f"{_qr_label} analysis", "How the quarter itself performed")
+    _qr_cards(_qr_q_tiles)
+    st.info(_qr_headline)
+    _qr_img(_qr_c["months"])
     _qr_c1, _qr_c2 = st.columns(2)
     with _qr_c1:
-        _qr_box("Ahead of target / going well", _qr_ahead, "#16a34a")
+        _qr_box("What went well", _qr_qa, "#16a34a")
     with _qr_c2:
-        _qr_box("Behind target / needs attention", _qr_behind, "#dc2626")
-    _qr_box(f"Suggested focus for {_qr_next}", _qr_focus, BRAND_GOLD)
+        _qr_box("What needs attention", _qr_qb, "#dc2626")
+    _qr_img(_qr_c["bridge"])
+    if _qr_cust_note:
+        _qr_text(_qr_cust_note)
+    _qr_c3, _qr_c4 = st.columns(2)
+    with _qr_c3:
+        _qr_img(_qr_c["mix"])
+    with _qr_c4:
+        _qr_img(_qr_c["aging"])
+    if _qr_movers is not None and len(_qr_movers):
+        with st.expander(f"Largest customer movements, Q{_qr_q-1} to {_qr_ql}"):
+            st.dataframe(pd.DataFrame({
+                "Customer": _qr_movers.index,
+                f"Q{_qr_q-1}": _qr_movers["Prev"].apply(_qr_money).values,
+                _qr_ql: _qr_movers["Curr"].apply(_qr_money).values,
+                "Change": _qr_movers["Change"].apply(lambda v: f"{v:+,.0f}").values,
+            }), use_container_width=True, hide_index=True)
 
-    st.markdown(chart_wrap(f"Quarter-by-Quarter Trends, Q1 to Q{_qr_q}", "How each part of the business moved across the year"),
-                unsafe_allow_html=True)
-    from plotly.subplots import make_subplots as _qr_subplots
-    _qr_tf = _qr_subplots(rows=2, cols=3, vertical_spacing=0.22, horizontal_spacing=0.07, subplot_titles=(
-        "Revenue vs Target", "Orders (with AOV)", "Customers (active / new)",
-        "Collections vs Revenue", f"Receivables (DSO vs {DSO_TERMS_DAYS}d)", "Multi-SKU & Top-5 share %"))
+    _qr_part("Year to date vs the annual goal", f"January to the end of {_qr_label}")
+    _qr_cards(_qr_y_tiles)
+    _qr_img(_qr_c["cum"])
+    _tone_c = {"good": "#16a34a", "bad": "#dc2626", "neutral": BRAND_GOLD}
+    for _l, _t, _tn in _qr_ytdp:
+        st.markdown(f'<div style="border-left:4px solid {_tone_c[_tn]};padding:6px 12px;margin:0 0 8px;'
+                    f'font-size:13px;color:{_T["text_heading"]}"><b>{_l}.</b> {_t}</div>', unsafe_allow_html=True)
+    _qr_img(_qr_c["matt"])
 
-    def _qr_line(metric, color, name, r, c, labels=None, pos="top center", dash="solid"):
-        _qr_tf.add_scatter(x=_qr_ql, y=_qr_row(metric), name=name, row=r, col=c,
-                           mode="lines+markers+text" if labels else "lines+markers",
-                           line=dict(color=color, width=3, dash=dash), marker=dict(size=8),
-                           text=labels, textposition=pos, textfont=dict(size=11),
-                           hovertemplate=f"{name}: %{{y:,.0f}}<extra>%{{x}}</extra>")
-
-    _qr_line("Revenue", BRAND_GREEN, "Actual revenue", 1, 1, [f"{a:.0f}%" for a in _qr_row("Attainment %")])
-    _qr_line("Target", BRAND_GOLD, "Target", 1, 1, dash="dash")
-    _qr_line("Orders", BRAND_GREEN, "Orders", 1, 2,
-             [f"{o:.0f} · AOV {a/1e3:.1f}k" for o, a in zip(_qr_row("Orders"), _qr_row("AOV"))])
-    _qr_line("Active customers", BRAND_GREEN, "Active customers", 1, 3, [f"{v:.0f}" for v in _qr_row("Active customers")])
-    _qr_line("New customers", BRAND_GOLD, "New customers", 1, 3, [f"{v:.0f}" for v in _qr_row("New customers")])
-    _qr_line("Revenue", "#9ca3af", "Invoiced", 2, 1, dash="dash")
-    _qr_line("Collections", BRAND_GREEN, "Collected", 2, 1,
-             [f"{c:.0f}%" for c in _qr_row("Collection ratio %")], pos="bottom center")
-    _qr_line("AR at quarter end", "#dc2626", "Receivables", 2, 2,
-             [f"DSO {d:.0f}d" for d in _qr_row("DSO at quarter end")])
-    _qr_line("Multi-SKU %", BRAND_GREEN, "Multi-SKU %", 2, 3, [f"{v:.0f}%" for v in _qr_row("Multi-SKU %")])
-    _qr_line("Top-5 share %", BRAND_GOLD, "Top-5 share %", 2, 3,
-             [f"{v:.0f}%" for v in _qr_row("Top-5 share %")], pos="bottom center")
-    _qr_tf.update_layout(**white_layout(600))
-    _qr_tf.update_layout(margin=dict(t=40, b=30, l=10, r=10), showlegend=True,
-                         legend=dict(orientation="h", y=-0.08, font=dict(size=11)))
-    _qr_tf.update_annotations(font_size=12)
-    _qr_tf.update_yaxes(rangemode="tozero")
-    _qr_tf.update_xaxes(tickangle=0)
-    st.plotly_chart(_qr_tf, use_container_width=True, config=CHART_CFG)
+    _qr_part(f"Quarter-by-quarter trends, Q1 to {_qr_ql}", "How each part of the business moved across the year")
+    _qr_img(_qr_c["trends"])
     for _t, _x in _qr_trends:
         st.markdown(f"**{_t}.** {_x}")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown(chart_wrap(f"Quarterly Scorecard, Q1 to Q{_qr_q}", "Revenue has targets; everything else is a trend"),
-                unsafe_allow_html=True)
     st.dataframe(_qr_table, use_container_width=True, hide_index=True)
-    st.markdown("</div>", unsafe_allow_html=True)
 
-    _qr_d = _qr["drivers"]
-    if "customers" in _qr_d:
-        _qr_m = _qr_d["customers"]
-        _qr_m = pd.concat([_qr_m.head(5), _qr_m.tail(5).iloc[::-1]])
-        _qr_m = _qr_m[_qr_m["Change"] != 0]
-        st.markdown(chart_wrap("Largest Customer Movements", f"Revenue change, Q{_qr_q-1} to Q{_qr_q}"),
-                    unsafe_allow_html=True)
-        st.dataframe(pd.DataFrame({
-            "Customer": _qr_m.index,
-            f"Q{_qr_q-1}": _qr_m["Prev"].apply(_qr_money).values,
-            f"Q{_qr_q}": _qr_m["Curr"].apply(_qr_money).values,
-            "Change": _qr_m["Change"].apply(lambda v: f"{v:+,.0f}").values,
-        }), use_container_width=True, hide_index=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
+    _qr_part(f"Suggested focus for {_qr_next}", "Where the numbers say to act")
+    _qr_box("Focus", _qr_focus, BRAND_GOLD)
     st.markdown(chart_wrap("Data Gaps and Figures to Validate", "Flag these before the numbers are presented"),
                 unsafe_allow_html=True)
     for _t, _x in _qr_gaps:

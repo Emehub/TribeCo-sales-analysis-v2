@@ -118,11 +118,32 @@ def build(inv_scoped, rep_scoped, full_hist, rc, il, prod, targets, year, quarte
         "collections": rep[(rep["PayDate"].dt.year == year) & (rep["PayDate"] <= quarter_bounds(year, quarter)[1])]["Amount"].sum(),
     }
 
-    # ── Monthly revenue vs target ────────────────────────────────────────────────
+    # ── Monthly revenue vs target, orders, cash, and cumulative position ──────────
+    rep_yr = rep[rep["PayDate"].dt.year == year]
     monthly = (tg[["Month", "Target", "Q"]]
-               .merge(inv.groupby("Month")["V"].sum().rename("Revenue").reset_index(), on="Month", how="left"))
-    monthly.loc[monthly["Q"] > quarter, "Revenue"] = np.nan
+               .merge(inv.groupby("Month")["V"].agg(Revenue="sum", Orders="size").reset_index(), on="Month", how="left")
+               .merge(rep_yr.groupby(rep_yr["PayDate"].dt.strftime("%Y-%m"))["Amount"].sum()
+                      .rename("Collections").rename_axis("Month").reset_index(), on="Month", how="left"))
+    future = monthly["Q"] > quarter
+    monthly.loc[future, ["Revenue", "Orders", "Collections"]] = np.nan
+    monthly["Collections"] = monthly["Collections"].where(future, monthly["Collections"].fillna(0))
     monthly["Attainment %"] = monthly["Revenue"] / monthly["Target"] * 100
+    monthly["Cum Revenue"] = monthly["Revenue"].cumsum()
+    monthly["Cum Target"] = monthly["Target"].cumsum()
+    monthly["Label"] = pd.to_datetime(monthly["Month"]).dt.strftime("%b")
+
+    # ── Receivables by age at the selected quarter end ───────────────────────────
+    qs_sel, qe_sel = quarter_bounds(year, quarter)
+    asof = min(qe_sel, data_end)
+    ia = inv[inv["Date"] <= asof][["ID", "V", "Date"]].copy()
+    repaid = rep[rep["PayDate"] <= asof].groupby("Invoice ID")["Amount"].sum()
+    ia["Out"] = (ia["V"] - ia["ID"].map(repaid).fillna(0)).clip(lower=0)
+    ia = ia[ia["Out"] > 0.01]
+    dpd = (asof - (ia["Date"] + pd.Timedelta(days=terms_days))).dt.days
+    ia["Bucket"] = pd.cut(dpd, [-10**6, 0, 30, 60, 90, 10**6],
+                          labels=["Within terms", "1-30 days past", "31-60 days past", "61-90 days past", "90+ days past"])
+    aging = ia.groupby("Bucket", observed=False)["Out"].agg(Amount="sum", Invoices="size")
+    aging["Share %"] = aging["Amount"] / aging["Amount"].sum() * 100 if aging["Amount"].sum() else 0
 
     # ── Drivers: customer, city and product movement vs previous quarter ──────────
     drivers = {}
@@ -142,12 +163,31 @@ def build(inv_scoped, rep_scoped, full_hist, rc, il, prod, targets, year, quarte
         lapsed = inv[(inv["Q"] == quarter - 1) & inv["Customer ID"].isin(prev_c - cur_c)].groupby("Customer ID")["V"].sum()
         drivers["lapsed"] = [(names.get(i, f"Customer {i}"), v) for i, v in lapsed.sort_values(ascending=False).items()]
         drivers["retained"], drivers["gained"] = len(prev_c & cur_c), len(cur_c - prev_c)
+
+        # Revenue bridge, previous quarter -> this quarter, by customer behaviour.
+        pv = inv[inv["Q"] == quarter - 1].groupby("Customer ID")["V"].sum()
+        cv = inv[inv["Q"] == quarter].groupby("Customer ID")["V"].sum()
+        both = pv.index.intersection(cv.index)
+        diff = (cv.reindex(both) - pv.reindex(both)).sort_values()
+        top_dec = diff[diff < 0].head(3)
+        steps = [(f"Q{quarter-1} revenue", pv.sum(), "total")]
+        steps += [(names.get(i, f"Customer {i}"), v, "delta") for i, v in top_dec.items()]
+        steps += [("Other lower spend", diff[diff < 0].iloc[3:].sum() if (diff < 0).sum() > 3 else 0.0, "delta"),
+                  ("Stopped ordering", -pv.reindex(pv.index.difference(cv.index)).sum(), "delta"),
+                  ("Higher spend, existing", diff[diff > 0].sum(), "delta"),
+                  ("New / returning", cv.reindex(cv.index.difference(pv.index)).sum(), "delta"),
+                  (f"Q{quarter} revenue", cv.sum(), "total")]
+        drivers["bridge"] = [s for s in steps if s[2] == "total" or abs(s[1]) >= 1]
     pl = lines.merge(prod[["ID", "Generic Name", "Brand Name", "Sku"]].rename(columns={"ID": "PID"}),
                      left_on="Product ID", right_on="PID", how="left")
     pl["Product"] = pl["Generic Name"].fillna(pl["Brand Name"]).fillna(pl["Sku"]).fillna("Unknown")
     pl["LR"] = pd.to_numeric(pl["Price"], errors="coerce") * pd.to_numeric(pl["Quantity"], errors="coerce")
     mix = pl[pl["Q"] == quarter].groupby("Product")["LR"].sum().sort_values(ascending=False)
     drivers["products"] = (mix / mix.sum() * 100) if mix.sum() else mix
+    pmix = pl[pl["Q"].isin([quarter - 1, quarter])].groupby(["Product", "Q"])["LR"].sum().unstack(fill_value=0)
+    pmix = pmix.reindex(columns=[quarter - 1, quarter], fill_value=0)
+    drivers["mix_compare"] = (pmix / pmix.sum().replace(0, np.nan) * 100).fillna(0) \
+        .sort_values(quarter, ascending=False)
 
     # ── Data gaps and figures to validate ────────────────────────────────────────
     att = monthly.dropna(subset=["Revenue"])
@@ -163,75 +203,125 @@ def build(inv_scoped, rep_scoped, full_hist, rc, il, prod, targets, year, quarte
         am = inv["Customer ID"].map(rc.set_index("ID")["Account Manager"])
         flags["placeholder_am"] = (am.astype(str).str.contains("John Doe", case=False).mean() * 100)
 
-    return dict(year=year, quarter=quarter, score=score, ytd=ytd, monthly=monthly,
-                drivers=drivers, flags=flags, window_days=window_days, terms_days=terms_days)
+    ytd["collection_ratio"] = _pct(ytd["collections"], ytd_rev)
+    ytd["months_on_target"] = int((monthly["Attainment %"] >= 100).sum())
+    ytd["months_done"] = int(monthly["Revenue"].notna().sum())
+    return dict(year=year, quarter=quarter, score=score, ytd=ytd, monthly=monthly, aging=aging,
+                aging_asof=asof, drivers=drivers, flags=flags, window_days=window_days, terms_days=terms_days)
 
 
 def insights(r):
-    """Ahead / behind / Q4 focus statements, generated from the figures."""
-    q, s, y = r["quarter"], r["score"], r["ytd"]
+    """Quarter-only ahead/behind statements, YTD points, and next-quarter focus -- all from the data.
+    Returns (q_ahead, q_behind, ytd_points, focus); ytd_points are (label, text, tone) tuples."""
+    q, s, y, mo = r["quarter"], r["score"], r["ytd"], r["monthly"]
     cur = s[q]
     prev = s[q - 1] if q > 1 else None
     ql, pl = f"Q{q}", f"Q{q-1}"
-    ahead, behind, focus = [], [], []
+    q_ahead, q_behind, focus = [], [], []
+    qm = mo[mo["Q"] == q]
+    on_target = int((qm["Attainment %"] >= 100).sum())
 
     if cur["Attainment %"] >= 100:
-        ahead.append(f"{ql} revenue GHS {cur['Revenue']:,.0f} = {cur['Attainment %']:.1f}% of the "
-                     f"GHS {cur['Target']:,.0f} quarterly target.")
+        q_ahead.append(f"Revenue GHS {cur['Revenue']:,.0f} = {cur['Attainment %']:.1f}% of the GHS "
+                       f"{cur['Target']:,.0f} target (+GHS {cur['Revenue']-cur['Target']:,.0f}); "
+                       f"{on_target} of {len(qm)} months on or above target.")
     else:
-        behind.append(f"{ql} revenue GHS {cur['Revenue']:,.0f} = {cur['Attainment %']:.1f}% of the "
-                      f"GHS {cur['Target']:,.0f} quarterly target (short by GHS {cur['Target']-cur['Revenue']:,.0f}).")
-    (ahead if y["attainment"] >= 100 else behind).append(
-        f"YTD revenue GHS {y['revenue']:,.0f} = {y['attainment']:.1f}% of YTD target and "
-        f"{y['annual_pct']:.1f}% of the GHS {y['annual_target']:,.0f} annual goal.")
-    if y["months_left"]:
-        ahead.append(f"Only GHS {y['remaining']:,.0f} more is needed to hit the annual goal -- "
-                     f"{y['needed_pct_of_rest_target']:.0f}% of the remaining target. At the {ql} run-rate "
-                     f"(GHS {y['run_rate']:,.0f}/month) the year lands near GHS {y['projected']:,.0f} "
-                     f"({y['projected_pct']:.0f}% of goal).")
+        q_behind.append(f"Revenue GHS {cur['Revenue']:,.0f} = {cur['Attainment %']:.1f}% of the GHS "
+                        f"{cur['Target']:,.0f} target (short by GHS {cur['Target']-cur['Revenue']:,.0f}); "
+                        f"{on_target} of {len(qm)} months on target.")
     if prev is not None:
         if cur["Multi-SKU %"] > prev["Multi-SKU %"]:
-            ahead.append(f"Multi-SKU adoption up to {cur['Multi-SKU %']:.0f}% of orders "
-                         f"(from {prev['Multi-SKU %']:.0f}% in {pl}).")
+            q_ahead.append(f"Basket breadth improving: {cur['Multi-SKU %']:.0f}% of orders had 2+ products "
+                           f"(from {prev['Multi-SKU %']:.0f}% in {pl}).")
         if cur["Top-5 share %"] < prev["Top-5 share %"]:
-            ahead.append(f"Less reliance on big accounts: top-5 customers {cur['Top-5 share %']:.0f}% of "
-                         f"revenue (from {prev['Top-5 share %']:.0f}%).")
+            q_ahead.append(f"Revenue less concentrated: top-5 customers {cur['Top-5 share %']:.0f}% of revenue "
+                           f"(from {prev['Top-5 share %']:.0f}%).")
+        if cur["Active customers"] > prev["Active customers"]:
+            q_ahead.append(f"More customers buying: {int(cur['Active customers'])} active "
+                           f"(from {int(prev['Active customers'])} in {pl}).")
+        if cur["Collection ratio %"] > prev["Collection ratio %"]:
+            q_ahead.append(f"Cash collected GHS {cur['Collections']:,.0f} = {cur['Collection ratio %']:.0f}% of "
+                           f"revenue (up from {prev['Collection ratio %']:.0f}%).")
+
         rev_chg = _pct(cur["Revenue"] - prev["Revenue"], prev["Revenue"])
         if rev_chg < 0:
             tgt_chg = _pct(cur["Target"] - prev["Target"], prev["Target"])
-            behind.append(f"Revenue {rev_chg:+.1f}% vs {pl} (GHS {prev['Revenue']:,.0f} to "
-                          f"GHS {cur['Revenue']:,.0f}); orders {int(prev['Orders'])} to {int(cur['Orders'])}"
-                          + (f". The {ql} target was itself {tgt_chg:+.0f}% vs {pl}, so the dip was "
-                             f"partly planned." if tgt_chg < 0 else "."))
+            q_behind.append(f"Revenue {rev_chg:+.1f}% vs {pl} (GHS {prev['Revenue']:,.0f} to "
+                            f"GHS {cur['Revenue']:,.0f}) on {int(cur['Orders'])} orders vs {int(prev['Orders'])}"
+                            + (f"; the {ql} target was itself {abs(tgt_chg):.0f}% lower, so the dip was partly "
+                               f"planned." if tgt_chg < 0 else "."))
         if cur["AR at quarter end"] > prev["AR at quarter end"]:
-            behind.append(f"Receivables up to GHS {cur['AR at quarter end']:,.0f} at quarter end "
-                          f"(from GHS {prev['AR at quarter end']:,.0f}); DSO {cur['DSO at quarter end']:.0f} days "
-                          f"vs {prev['DSO at quarter end']:.0f} and a {r['terms_days']}-day term. "
-                          f"{cur['AR past terms %']:.0f}% of AR is past terms.")
+            q_behind.append(f"Receivables rose to GHS {cur['AR at quarter end']:,.0f} "
+                            f"(+GHS {cur['AR at quarter end']-prev['AR at quarter end']:,.0f}); DSO "
+                            f"{cur['DSO at quarter end']:.0f} days vs a {r['terms_days']}-day term, with "
+                            f"{cur['AR past terms %']:.0f}% of the balance past terms.")
         if cur["Collection ratio %"] < prev["Collection ratio %"]:
-            behind.append(f"Cash collected GHS {cur['Collections']:,.0f} = {cur['Collection ratio %']:.0f}% of "
-                          f"{ql} revenue (from {prev['Collection ratio %']:.0f}% in {pl}).")
-        if cur["New customers"] <= 5:
-            behind.append(f"Acquisition is thin: {int(cur['New customers'])} new customers in {ql} "
-                          f"({int(cur['Active customers'])} active).")
-
+            q_behind.append(f"Cash collected GHS {cur['Collections']:,.0f} = {cur['Collection ratio %']:.0f}% of "
+                            f"revenue (down from {prev['Collection ratio %']:.0f}%).")
+    if cur["Collection ratio %"] < 100:
+        q_behind.append(f"Collections covered {cur['Collection ratio %']:.0f}% of what was invoiced, so "
+                        f"GHS {cur['Revenue']-cur['Collections']:,.0f} of {ql} sales added to receivables.")
+    if cur["New customers"] <= 5:
+        q_behind.append(f"Acquisition is thin: {int(cur['New customers'])} new customers in {ql}.")
     d = r["drivers"]
+    if d.get("lapsed"):
+        big = [(n, v) for n, v in d["lapsed"] if v >= 10000]
+        if big:
+            q_behind.append(f"Stopped ordering after {pl}: " +
+                            ", ".join(f"{n} (GHS {v:,.0f} in {pl})" for n, v in big) + ".")
+
+    # Year to date
+    ytd_points = [
+        ("YTD vs target", f"GHS {y['revenue']:,.0f} = {y['attainment']:.1f}% of the GHS {y['target']:,.0f} "
+                          f"YTD target; {y['months_on_target']} of {y['months_done']} months on or above target.",
+         "good" if y["attainment"] >= 100 else "bad"),
+        ("Progress to annual goal", f"{y['annual_pct']:.1f}% of the GHS {y['annual_target']:,.0f} goal reached "
+                                    f"with {y['months_left']} months left; GHS {y['remaining']:,.0f} still needed, "
+                                    f"which is {y['needed_pct_of_rest_target']:.0f}% of the remaining targets.",
+         "good" if y["needed_pct_of_rest_target"] <= 100 else "bad"),
+    ]
+    if y["months_left"]:
+        ytd_points.append(("Year-end outlook",
+                           f"At the {ql} run-rate (GHS {y['run_rate']:,.0f}/month) the year lands near "
+                           f"GHS {y['projected']:,.0f}, {y['projected_pct']:.0f}% of goal. Matching the "
+                           f"remaining monthly targets would give GHS {y['revenue'] + y['rest_target']:,.0f} "
+                           f"({_pct(y['revenue'] + y['rest_target'], y['annual_target']):.0f}%).",
+                           "good" if y["projected_pct"] >= 100 else "bad"))
+    ar_first, ar_last = s.iloc[:, 0]["AR at quarter end"], cur["AR at quarter end"]
+    cash_txt = f"GHS {y['collections']:,.0f} collected YTD = {y['collection_ratio']:.0f}% of YTD revenue. "
+    if q > 1:
+        cash_txt += (f"Receivables went from GHS {ar_first:,.0f} (end Q1) to GHS {ar_last:,.0f} (end {ql})"
+                     + (" -- sales are turning into cash more slowly as the year goes on."
+                        if ar_last > ar_first else "."))
+    else:
+        cash_txt += f"Receivables stood at GHS {ar_last:,.0f} at the end of Q1."
+    ytd_points.append(("Cash conversion", cash_txt, "bad" if q > 1 and ar_last > ar_first else "neutral"))
+    if q > 1:
+        ytd_points.append(("Customer base",
+                           f"{int(s.loc['New customers'].sum())} new customers YTD "
+                           f"({int(s.loc['New customers'].iloc[0])} of them in Q1); growth since has come from "
+                           f"existing accounts and broader baskets (multi-SKU {s.loc['Multi-SKU %'].iloc[0]:.0f}% "
+                           f"to {cur['Multi-SKU %']:.0f}%).", "neutral"))
+
+    # Next-quarter focus
+    nq = f"Q{q+1}" if q < 4 else "Q1"
+    if prev is not None and cur["AR at quarter end"] > prev["AR at quarter end"]:
+        focus.append(f"Collections first: work down the GHS {cur['AR past terms']:,.0f} past terms and set a "
+                     f"{nq} DSO target (e.g. back to {max(r['terms_days'], int(prev['DSO at quarter end']))} days).")
     if "customers" in d:
         dec = d["customers"].head(5)
         dec = dec[dec["Change"] < 0]
         if len(dec):
-            focus.append(f"Win back volume from the accounts that slowed most: " +
+            focus.append("Recover volume from the accounts that slowed most: " +
                          ", ".join(f"{n} ({c:+,.0f})" for n, c in dec["Change"].items()) + ".")
-    if prev is not None and cur["AR at quarter end"] > prev["AR at quarter end"]:
-        focus.append(f"Make collections the Q{q+1 if q < 4 else 1} priority: chase the GHS "
-                     f"{cur['AR past terms']:,.0f} past terms and set a DSO target (e.g. back under "
-                     f"{max(r['terms_days'], int(prev['DSO at quarter end']))} days).")
     if y["months_left"]:
-        focus.append(f"Keep monthly revenue at or above target (GHS {y['rest_target']/y['months_left']:,.0f} "
-                     f"average) to finish above the annual goal rather than just reach it.")
+        focus.append(f"Hold monthly revenue at or above target (GHS {y['rest_target']/y['months_left']:,.0f} "
+                     f"average) to finish the year above goal, not just at it.")
     if cur["New customers"] <= 5:
-        focus.append("Set a new-customer acquisition goal -- growth this year has come from existing accounts.")
-    return ahead, behind, focus
+        focus.append("Set a new-customer acquisition goal -- the customer base has barely grown since Q1.")
+    focus.append("Agree targets beyond revenue (collections/DSO, new customers) so the next quarter can be "
+                 "measured on more than sales.")
+    return q_ahead, q_behind, ytd_points, focus
 
 
 def data_gaps(r):
