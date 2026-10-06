@@ -3753,11 +3753,10 @@ elif page == "Quarterly Review":
 
         # ── Brief report: targets vs actuals, the quarter's weekly trend, vaccines YTD ──
         _qb_end = _qr["flags"]["data_end"]
-        _qb_wk = qbf.weekly_trend(inv_scoped, pd.read_csv(f"{DATA}/weekly_revenue_target.csv"),
-                                  _qr_year, _qr_q, _qb_end)
+        _qb_qm = _qr["monthly"][_qr["monthly"]["Q"] == _qr_q]
         _qb_last_m = qrv.quarter_bounds(_qr_year, _qr_q)[1].strftime("%Y-%m")
         _qb_vax, _qb_vials = qbf.vaccine_trend(inv_scoped, il, prod, _qr_year, _qb_last_m)
-        _qb_c = {"week": qbf.chart_weekly(_qb_wk, _qr_q) if len(_qb_wk) else None,
+        _qb_c = {"months": qbf.chart_quarter_months(_qb_qm, _qr_q) if len(_qb_qm) else None,
                  "vax": qbf.chart_vaccines(_qb_vax) if len(_qb_vax) else None}
 
         def _qb_row(lbl, tgt, act):
@@ -3790,19 +3789,19 @@ elif page == "Quarterly Review":
                    f"{_qr_money(_qr_y['projected'])} ({_qr_y['projected_pct']:.0f}% of goal)." if _qr_y["months_left"] else
                    f"The year closed at {_qr_y['annual_pct']:.1f}% of the annual goal.")
 
-            if _qb_c["week"] is not None:
-                w.section_title(f"3. {_qr_ql} trend: week by week")
-                w.chart(_qb_c["week"])
-                above = int((_qb_wk["Revenue"] >= _qb_wk["Target"]).sum())
-                w.body(f"How to read: the green line is revenue each week, the dashed gold line the weekly target; "
-                       f"green shading = above target, red = below. {above} of {len(_qb_wk)} weeks were at or above "
-                       f"target, ranging from {_qb_wk['Attainment %'].min():.0f}% to {_qb_wk['Attainment %'].max():.0f}% "
-                       f"of the weekly target. The first three weeks ran at "
-                       f"{_qb_wk['Revenue'].head(3).sum() / _qb_wk['Target'].head(3).sum() * 100:.0f}% of target and the "
-                       f"last four at {_qb_wk['Revenue'].tail(4).sum() / _qb_wk['Target'].tail(4).sum() * 100:.0f}%; the "
-                       f"biggest week was w/c {_qb_wk.loc[_qb_wk['Revenue'].idxmax(), 'Label']} "
-                       f"({_qr_money(_qb_wk['Revenue'].max())})."
-                       + (" * = partial week (data to " + f"{_qb_end:%d %b})." if _qb_wk["Partial"].any() else ""))
+            if _qb_c["months"] is not None:
+                rv, tg = list(_qb_qm["Revenue"]), list(_qb_qm["Target"])
+                lab = list(_qb_qm["Label"])
+                w.section_title(f"3. {_qr_ql} trend: month by month")
+                w.chart(_qb_c["months"])
+                w.body(f"How to read: the green line is revenue each month and the dashed gold line the monthly target; "
+                       f"green shading = above target, red = below. Revenue moved "
+                       + " -> ".join(f"{l} {_qr_money(v)}" for l, v in zip(lab, rv))
+                       + f" ({(rv[-1] / rv[0] - 1) * 100:+.1f}% from {lab[0]} to {lab[-1]}), while the target moved "
+                       + f"{(tg[-1] / tg[0] - 1) * 100:+.1f}% over the same months. "
+                       + f"{int((_qb_qm['Attainment %'] >= 100).sum())} of {len(rv)} months were on or above target; "
+                       + f"the best month against target was {lab[int(_qb_qm['Attainment %'].values.argmax())]} "
+                       + f"({_qb_qm['Attainment %'].max():.1f}%).")
 
             if _qb_c["vax"] is not None:
                 vq = _qb_vax.groupby("Q")["Total"].sum()
@@ -3822,7 +3821,7 @@ elif page == "Quarterly Review":
                           if len(vq) > 1 else "")
                        + "Doses = vials sold x doses per vial (mostly 1,000-dose vials).")
             w.body("Revenue = invoiced value after discount, Ghana FBC orders (excludes cancelled and BufferPesa). "
-                   "Targets from the approved monthly and weekly target sheets. Generated live from Metabase.")
+                   "Targets from the approved monthly target sheet. Generated live from Metabase.")
 
         def _qb_pdf():
             pdf = _QRPdf()
@@ -3836,7 +3835,7 @@ elif page == "Quarterly Review":
 
         _qb_fname = f"Ghana_{_qr_label.replace(' ', '_')}_Brief_Targets_vs_Actuals"
         _qr_text("<b>Brief version</b> (2 pages): targets vs actuals for the quarter and year to date, the "
-                 "quarter's weekly trend and the year-to-date vaccines trend.", margin="10px 0 6px")
+                 "quarter's month-by-month trend and the year-to-date vaccines trend.", margin="10px 0 6px")
         _qb_d1, _qb_d2 = st.columns(2)
         with _qb_d1:
             st.download_button(f"⬇ Download {_qr_label} Brief (PDF)", data=_qb_pdf(), file_name=f"{_qb_fname}.pdf",

@@ -1,5 +1,5 @@
 """
-Brief quarter report: targets vs actuals (quarter and YTD), a weekly trend within the quarter,
+Brief quarter report: targets vs actuals (quarter and YTD), a month-by-month trend within the quarter,
 and the year-to-date vaccine doses trend. Figures + charts only; the page composes the document.
 """
 import numpy as np
@@ -18,25 +18,6 @@ DISEASE_COLORS = {"Newcastle": DEEP, "Gumboro": GOLD, "Fowl pox": "#0e7490", "Ot
 
 def _naive(s):
     return pd.to_datetime(s, errors="coerce", utc=True).dt.tz_convert(None)
-
-
-def weekly_trend(inv_scoped, weekly_targets, year, quarter, data_end):
-    """Weekly revenue vs weekly target for weeks starting inside the quarter."""
-    from quarterly_review import quarter_bounds
-    qs, qe = quarter_bounds(year, quarter)
-    inv = inv_scoped.copy()
-    inv["Date"] = _naive(inv["Created At"])
-    inv["V"] = pd.to_numeric(inv["Discountedvalue"], errors="coerce").fillna(0)
-    inv["Week Start"] = (inv["Date"] - pd.to_timedelta(inv["Date"].dt.weekday, unit="D")).dt.normalize()
-    wt = weekly_targets.copy()
-    wt["Week Start"] = pd.to_datetime(wt["Week Start"])
-    wt = wt[(wt["Week Start"] >= qs) & (wt["Week Start"] <= qe)].copy()
-    wt["Revenue"] = wt["Week Start"].map(inv.groupby("Week Start")["V"].sum()).fillna(0)
-    wt["Week End"] = wt["Week Start"] + pd.Timedelta(days=6)
-    wt["Partial"] = (wt["Week End"] > qe.normalize()) | (wt["Week End"] > data_end)
-    wt["Label"] = wt["Week Start"].dt.strftime("%d %b")
-    wt["Attainment %"] = wt["Revenue"] / wt["Target"] * 100
-    return wt.reset_index(drop=True)
 
 
 def vaccine_trend(inv_scoped, il, prod, year, last_month):
@@ -60,23 +41,30 @@ def vaccine_trend(inv_scoped, il, prod, year, last_month):
 
 
 # ── charts ────────────────────────────────────────────────────────────────────────
-def chart_weekly(wt, quarter):
-    x = np.arange(len(wt))
+def chart_quarter_months(qm, quarter):
+    """Month-by-month trend within the quarter: revenue vs target, with attainment."""
+    x = np.arange(len(qm))
     fig, ax = plt.subplots(figsize=(10, 3.4))
-    ax.plot(x, wt["Target"], color=GOLD, lw=2, ls="--", marker="o", ms=4, label="Weekly target", zorder=3)
-    ax.plot(x, wt["Revenue"], color=GREEN, lw=2.6, marker="o", ms=6, label="Actual revenue", zorder=4)
-    ax.fill_between(x, wt["Revenue"], wt["Target"], where=wt["Revenue"] >= wt["Target"],
+    ax.plot(x, qm["Target"], color=GOLD, lw=2.2, ls="--", marker="o", ms=6, label="Monthly target", zorder=3)
+    ax.plot(x, qm["Revenue"], color=GREEN, lw=3, marker="o", ms=9, label="Actual revenue", zorder=4)
+    ax.fill_between(x, qm["Revenue"], qm["Target"], where=qm["Revenue"] >= qm["Target"],
                     color=GREEN, alpha=0.10, interpolate=True, zorder=2)
-    ax.fill_between(x, wt["Revenue"], wt["Target"], where=wt["Revenue"] < wt["Target"],
+    ax.fill_between(x, qm["Revenue"], qm["Target"], where=qm["Revenue"] < qm["Target"],
                     color=RED, alpha=0.10, interpolate=True, zorder=2)
-    for xi, (rv, tg, part) in enumerate(zip(wt["Revenue"], wt["Target"], wt["Partial"])):
-        ax.annotate(_k(rv) + ("*" if part else ""), (xi, max(rv, tg)), textcoords="offset points", xytext=(0, 7),
-                    ha="center", fontsize=7.5, color=DEEP, fontweight="bold")
+    for xi, (rv, tg, at) in enumerate(zip(qm["Revenue"], qm["Target"], qm["Attainment %"])):
+        ax.annotate(f"GHS {_k(rv)}\n{at:.1f}% of target", (xi, max(rv, tg)), textcoords="offset points",
+                    xytext=(0, 9), ha="center", fontsize=8.5, color=DEEP, fontweight="bold")
+        ax.annotate(f"target {_k(tg)}", (xi, min(rv, tg)), textcoords="offset points", xytext=(0, -16),
+                    ha="center", fontsize=7.5, color=GOLD)
     ax.set_xticks(x)
-    ax.set_xticklabels([f"w/c\n{l}" for l in wt["Label"]], fontsize=7.5)
-    ax.set_ylim(0, max(wt["Revenue"].max(), wt["Target"].max()) * 1.2)
-    _style(ax, f"Q{quarter} weekly trend: revenue vs weekly target (GHS)", _k)
-    ax.legend(fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2, frameon=False)
+    ax.set_xticklabels(list(qm["Label"]), fontsize=10)
+    ax.set_xlim(-0.4, len(qm) - 0.6)
+    lo = min(qm["Revenue"].min(), qm["Target"].min())
+    hi = max(qm["Revenue"].max(), qm["Target"].max())
+    pad = (hi - lo) * 0.45 or hi * 0.1          # zoom to the data so the month-to-month trend is visible
+    ax.set_ylim(max(0, lo - pad), hi + pad)
+    _style(ax, f"Q{quarter} month-by-month trend: revenue vs target (GHS)", _k)
+    ax.legend(fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.12), ncol=2, frameon=False)
     return _png(fig)
 
 
