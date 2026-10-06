@@ -19,6 +19,7 @@ import credit_collections_report as ccr
 import quarterly_review as qrv
 import qr_charts as qrc
 import qr_word as qrw
+import qr_pptx as qrp
 warnings.filterwarnings("ignore")
 try:
     import matplotlib
@@ -3724,8 +3725,16 @@ elif page == "Quarterly Review":
             _qr_compose(doc)
             return doc.output()
 
+        def _qr_build_pptx():
+            return qrp.build(dict(
+                r=_qr, q=_qr_q, ql=_qr_ql, label=_qr_label, next=_qr_next,
+                as_of=f"{_qr['flags']['data_end']:%d %b %Y}", terms_days=DSO_TERMS_DAYS,
+                headline=_qr_headline, q_tiles=_qr_q_tiles, y_tiles=_qr_y_tiles,
+                q_ahead=_qr_qa, q_behind=_qr_qb, ytd_points=_qr_ytdp, focus=_qr_focus,
+                trends=_qr_trends, gaps=_qr_gaps, table=_qr_table, cust_note=_qr_cust_note))
+
         _qr_fname = f"Ghana_{_qr_label.replace(' ', '_')}_Review_vs_Annual_Goals"
-        _qr_d1, _qr_d2 = st.columns(2)
+        _qr_d1, _qr_d2, _qr_d3 = st.columns(3)
         with _qr_d1:
             st.download_button(f"⬇ Download {_qr_label} Review (PDF)", data=_qr_build_pdf(),
                                file_name=f"{_qr_fname}.pdf", mime="application/pdf",
@@ -3734,6 +3743,11 @@ elif page == "Quarterly Review":
             st.download_button(f"⬇ Download {_qr_label} Review (Word)", data=_qr_build_docx(),
                                file_name=f"{_qr_fname}.docx",
                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                               type="primary", use_container_width=True)
+        with _qr_d3:
+            st.download_button(f"⬇ Download {_qr_label} Presentation (PowerPoint)", data=_qr_build_pptx(),
+                               file_name=f"{_qr_fname}.pptx",
+                               mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                                type="primary", use_container_width=True)
     else:
         st.warning("PDF export isn't available in this environment (fpdf2/matplotlib not installed).")
