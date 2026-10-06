@@ -3762,6 +3762,84 @@ elif page == "Quarterly Review":
         def _qb_row(lbl, tgt, act):
             return (lbl, _qr_money(tgt), _qr_money(act), f"{act - tgt:+,.0f}", f"{act / tgt * 100:.1f}%" if tgt else "n/a")
 
+        def _qb_drivers_recs():
+            """Analyst read of the quarter: what drove the numbers, and what management should do."""
+            drivers, recs = [], []
+            prev = _qr_prev
+            nq = _qr_next.split()[0]
+            # 1. Target vs underlying sales
+            if prev is not None and _qr_cur["Target"] < prev["Target"] and _qr_cur["Revenue"] < prev["Revenue"]:
+                drivers.append(
+                    f"Target beaten on a lower bar: revenue fell {abs(_qr_cur['Revenue'] / prev['Revenue'] - 1) * 100:.0f}% "
+                    f"vs Q{_qr_q - 1}, but the {_qr_ql} target was {abs(_qr_cur['Target'] / prev['Target'] - 1) * 100:.0f}% "
+                    f"lower, so {_qr_cur['Attainment %']:.1f}% attainment reflects a lighter plan more than stronger sales.")
+            # 2. Customer movements (bridge)
+            b = _qr_d.get("bridge")
+            if b:
+                top = [(n, v) for n, v, k in b[1:4] if k == "delta" and v < 0]
+                grow = next((v for n, v, k in b if n == "Higher spend, existing"), 0)
+                new = next((v for n, v, k in b if n == "New / returning"), 0)
+                if top:
+                    drivers.append(
+                        f"A few large accounts drove the change: {', '.join(n for n, _ in top)} together bought "
+                        f"{_qr_money(abs(sum(v for _, v in top)))} less than in Q{_qr_q - 1}; other customers spending more "
+                        f"(+{_qr_money(grow)}) and new or returning customers (+{_qr_money(new)}) only partly offset it.")
+            # 3. Cash conversion
+            if prev is not None and _qr_cur["AR at quarter end"] > prev["AR at quarter end"]:
+                ag = _qr["aging"]
+                worst = ag.drop(index="Within terms", errors="ignore")["Amount"]
+                drivers.append(
+                    f"Sales are not turning into cash fast enough: only {_qr_cur['Collection ratio %']:.0f}% of {_qr_ql} sales "
+                    f"was collected, receivables rose to {_qr_money(_qr_cur['AR at quarter end'])} "
+                    f"(+{(_qr_cur['AR at quarter end'] / prev['AR at quarter end'] - 1) * 100:.0f}%) and DSO reached "
+                    f"{_qr_cur['DSO at quarter end']:.0f} days against a {DSO_TERMS_DAYS}-day term"
+                    + (f"; the largest overdue block is {worst.idxmax()} ({_qr_money(worst.max())})." if len(worst) and worst.max() > 0 else "."))
+            # 4. Vaccine volumes
+            if len(_qb_vax):
+                vq = _qb_vax.groupby("Q")["Total"].sum()
+                cur_q = _qb_vax[_qb_vax["Q"] == _qr_q]["Total"]
+                if len(vq) > 1 and vq.iloc[-1] < vq.iloc[-2]:
+                    drivers.append(
+                        f"Vaccine volumes are softening: {vq.iloc[-1] / 1e6:.1f}M doses in {_qr_ql}, "
+                        f"{abs(vq.iloc[-1] / vq.iloc[-2] - 1) * 100:.0f}% below Q{_qr_q - 1}"
+                        + (", falling every month of the quarter" if (cur_q.diff().dropna() < 0).all() else "")
+                        + (f"; revenue moved in line ({(_qr_cur['Revenue'] / prev['Revenue'] - 1) * 100:+.0f}%), so lower "
+                           f"volume, not price, explains the dip."
+                           if prev is not None and abs((_qr_cur['Revenue'] / prev['Revenue']) - (vq.iloc[-1] / vq.iloc[-2])) < 0.05
+                           else "."))
+            # 5. Customer base and basket
+            if prev is not None:
+                drivers.append(
+                    f"Growth is coming from existing customers: only {int(_qr_cur['New customers'])} new customers in "
+                    f"{_qr_ql}, while orders with 2+ products rose to {_qr_cur['Multi-SKU %']:.0f}% "
+                    f"(from {prev['Multi-SKU %']:.0f}%).")
+
+            # Recommendations
+            if prev is not None and _qr_cur["AR at quarter end"] > prev["AR at quarter end"]:
+                recs.append(
+                    f"Make collections the {nq} priority: work a weekly chase list of the {_qr_money(_qr_cur['AR past terms'])} "
+                    f"past terms, oldest first, and set a {nq} DSO target (e.g. from {_qr_cur['DSO at quarter end']:.0f} "
+                    f"days back towards the {DSO_TERMS_DAYS}-day term). Consider pausing new credit for accounts over 60 days past terms.")
+            if b and top:
+                recs.append(
+                    f"Run account reviews with the customers that slowed most ({', '.join(n for n, _ in top)}"
+                    + (f", and {_qr_d['lapsed'][0][0]}, which stopped ordering" if _qr_d.get("lapsed") and _qr_d["lapsed"][0][1] >= 10000 else "")
+                    + "): understand why volume dropped and agree a recovery plan with the account manager.")
+            if len(_qb_vax) and len(vq) > 1 and vq.iloc[-1] < vq.iloc[-2]:
+                recs.append("Find out why vaccine doses are falling (customer demand, stock availability or seasonality) "
+                            "and set a monthly doses target alongside revenue.")
+            if _qr_y["months_left"]:
+                recs.append(
+                    f"Protect the annual goal: {_qr_money(_qr_y['remaining'])} is needed in {nq} "
+                    f"({_qr_y['needed_pct_of_rest_target']:.0f}% of the {nq} target). Aim for at least "
+                    f"{_qr_money(_qr_y['rest_target'] / _qr_y['months_left'])} per month to finish above goal.")
+            if _qr_cur["New customers"] <= 5:
+                recs.append(f"Set a new-customer acquisition target for {nq}; the customer base has barely grown since Q1.")
+            if len(_qr["flags"]["exact_months"]) >= 3:
+                recs.append("Confirm how monthly targets were set: several months landed within 0.5% of target, so "
+                            "agree that targets are fixed before each month starts and add targets for collections and doses.")
+            return drivers, recs
+
         def _qb_compose(w):
             qm = _qr["monthly"][_qr["monthly"]["Q"] == _qr_q]
             w.new_page(f"{_qr_ql} brief")
@@ -3820,8 +3898,14 @@ elif page == "Quarterly Review":
                              if (_qb_vax[_qb_vax['Q'] == _qr_q]['Total'].diff().dropna() < 0).all() else ". ")
                           if len(vq) > 1 else "")
                        + "Doses = vials sold x doses per vial (mostly 1,000-dose vials).")
-            w.body("Revenue = invoiced value after discount, Ghana FBC orders (excludes cancelled and BufferPesa). "
-                   "Targets from the approved monthly target sheet. Generated live from Metabase.")
+            drivers, recs = _qb_drivers_recs()
+            if drivers:
+                w.section_title(f"5. Key drivers behind the {_qr_ql} numbers")
+                w.bullets(drivers, w._ACCENT)
+            if recs:
+                w.section_title("6. Recommendations to management")
+                w.bullets(recs, w._GOLD)
+            w.body("Revenue = invoiced value after discount (Ghana FBC orders). Live from Metabase.")
 
         def _qb_pdf():
             pdf = _QRPdf()
@@ -3834,8 +3918,9 @@ elif page == "Quarterly Review":
             return doc.output()
 
         _qb_fname = f"Ghana_{_qr_label.replace(' ', '_')}_Brief_Targets_vs_Actuals"
-        _qr_text("<b>Brief version</b> (2 pages): targets vs actuals for the quarter and year to date, the "
-                 "quarter's month-by-month trend and the year-to-date vaccines trend.", margin="10px 0 6px")
+        _qr_text("<b>Brief version</b>: targets vs actuals for the quarter and year to date, the quarter's "
+                 "month-by-month trend, the year-to-date vaccines trend, key drivers and recommendations.",
+                 margin="10px 0 6px")
         _qb_d1, _qb_d2 = st.columns(2)
         with _qb_d1:
             st.download_button(f"⬇ Download {_qr_label} Brief (PDF)", data=_qb_pdf(), file_name=f"{_qb_fname}.pdf",

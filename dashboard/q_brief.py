@@ -70,7 +70,7 @@ def chart_quarter_months(qm, quarter):
 
 def chart_vaccines(t):
     x = np.arange(len(t))
-    fig, ax = plt.subplots(figsize=(10, 3.4))
+    fig, ax = plt.subplots(figsize=(10, 3.0))
     for d, c in DISEASE_COLORS.items():
         if d in t.columns and t[d].sum() > 0:
             ax.plot(x, t[d] / 1e6, color=c, lw=2.4, marker="o", ms=5, label=d, zorder=3)
