@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # sibling modul
 import credit_collections_report as ccr
 import quarterly_review as qrv
 import qr_charts as qrc
+import qr_word as qrw
 warnings.filterwarnings("ignore")
 try:
     import matplotlib
@@ -3532,21 +3533,25 @@ elif page == "Quarterly Review":
                 self.cell(0, 8, self._clean(f"TribeCo Ghana  |  {_qr_label} Performance Review  |  {self.part}"))
                 self.ln(12)
 
-            def title_block(self, as_of_label):
+            def new_page(self, part):
+                self.part = part
+                self.add_page()
+
+            def title_block(self, title, subtitle, note):
                 self.set_fill_color(*self._BRAND)
                 self.rect(0, 0, 210, 34, "F")
                 self.set_font("Helvetica", "B", 18)
                 self.set_text_color(*self._WHITE)
                 self.set_xy(10, 6)
-                self.cell(190, 9, "Ghana Commercial Performance", align="C")
+                self.cell(190, 9, self._clean(title), align="C")
                 self.set_font("Helvetica", "B", 12)
                 self.set_text_color(*self._GOLD)
                 self.set_xy(10, 16)
-                self.cell(190, 7, self._clean(f"{_qr_label} Review and Year-to-Date vs Annual Goals"), align="C")
+                self.cell(190, 7, self._clean(subtitle), align="C")
                 self.set_font("Helvetica", "", 8.5)
                 self.set_text_color(*self._WHITE)
                 self.set_xy(10, 24)
-                self.cell(190, 6, self._clean(f"Prepared for the management meeting  |  data as of {as_of_label}"), align="C")
+                self.cell(190, 6, self._clean(note), align="C")
                 self.set_text_color(0, 0, 0)
                 self.set_y(39)
 
@@ -3652,68 +3657,84 @@ elif page == "Quarterly Review":
                     self.ln(0.6)
                 self.ln(1.2)
 
-        def _qr_build_pdf():
-            pdf = _QRPdf()
-            tone = {"good": pdf._ACCENT, "bad": pdf._RED, "neutral": pdf._GOLD}
+        def _qr_compose(w):
+            """Write the whole report through a writer -- the PDF and Word versions share this."""
+            tone = {"good": w._ACCENT, "bad": w._RED, "neutral": w._GOLD}
 
             # Pages 1-2: the quarter on its own
-            pdf.part = f"{_qr_ql} analysis"
-            pdf.add_page()
-            pdf.title_block(f"{_qr['flags']['data_end']:%d %b %Y}")
-            pdf.section_title(f"1. {_qr_label} at a glance")
-            pdf.tiles(_qr_q_tiles)
-            pdf.callout("Headline", _qr_headline, pdf._ACCENT)
-            pdf.chart(_qr_c["months"])
-            pdf.section_title(f"2. {_qr_ql}: what went well")
-            pdf.bullets(_qr_qa or ["Nothing materially ahead of plan this quarter."], pdf._ACCENT)
-            pdf.section_title(f"3. {_qr_ql}: what needs attention")
-            pdf.bullets(_qr_qb or ["Nothing materially behind plan this quarter."], pdf._RED)
+            w.new_page(f"{_qr_ql} analysis")
+            w.title_block("Ghana Commercial Performance",
+                          f"{_qr_label} Review and Year-to-Date vs Annual Goals",
+                          f"Prepared for the management meeting  |  data as of {_qr['flags']['data_end']:%d %b %Y}")
+            w.section_title(f"1. {_qr_label} at a glance")
+            w.tiles(_qr_q_tiles)
+            w.callout("Headline", _qr_headline, w._ACCENT)
+            w.chart(_qr_c["months"])
+            w.section_title(f"2. {_qr_ql}: what went well")
+            w.bullets(_qr_qa or ["Nothing materially ahead of plan this quarter."], w._ACCENT)
+            w.section_title(f"3. {_qr_ql}: what needs attention")
+            w.bullets(_qr_qb or ["Nothing materially behind plan this quarter."], w._RED)
             if _qr_c["bridge"] is not None or _qr_c["mix"] is not None:
-                pdf.section_title(f"4. {_qr_ql} drivers")
-                pdf.chart(_qr_c["bridge"])
+                w.section_title(f"4. {_qr_ql} drivers")
+                w.chart(_qr_c["bridge"])
                 if _qr_cust_note:
-                    pdf.body(_qr_cust_note)
-                pdf.chart_pair(_qr_c["mix"], _qr_c["aging"])
+                    w.body(_qr_cust_note)
+                w.chart_pair(_qr_c["mix"], _qr_c["aging"])
                 if _qr_movers is not None and len(_qr_movers):
-                    pdf.sub_title(f"Largest customer movements, Q{_qr_q-1} to {_qr_ql}")
-                    pdf.table(["Customer", f"Q{_qr_q-1}", _qr_ql, "Change"],
-                              [(n[:38], _qr_money(r.Prev), _qr_money(r.Curr), f"{r.Change:+,.0f}")
-                               for n, r in _qr_movers.iterrows()], [80, 35, 35, 33])
+                    w.sub_title(f"Largest customer movements, Q{_qr_q-1} to {_qr_ql}")
+                    w.table(["Customer", f"Q{_qr_q-1}", _qr_ql, "Change"],
+                            [(n[:38], _qr_money(r.Prev), _qr_money(r.Curr), f"{r.Change:+,.0f}")
+                             for n, r in _qr_movers.iterrows()], [80, 35, 35, 33])
 
             # Page 3 onward: year to date
-            pdf.part = "Year to date"
-            pdf.add_page()
-            pdf.section_title(f"5. Year to date vs the annual goal (Jan - {_qr['monthly'].dropna(subset=['Revenue'])['Label'].iloc[-1]} {_qr_year})")
-            pdf.tiles(_qr_y_tiles)
-            pdf.progress(_qr_y["revenue"], _qr_y["annual_target"], _qr_y["target"],
-                         f"Progress to the GHS {_qr_y['annual_target']:,.0f} annual goal")
-            pdf.chart(_qr_c["cum"])
-            pdf.chart(_qr_c["matt"])
+            w.new_page("Year to date")
+            w.section_title(f"5. Year to date vs the annual goal (Jan - {_qr['monthly'].dropna(subset=['Revenue'])['Label'].iloc[-1]} {_qr_year})")
+            w.tiles(_qr_y_tiles)
+            w.progress(_qr_y["revenue"], _qr_y["annual_target"], _qr_y["target"],
+                       f"Progress to the GHS {_qr_y['annual_target']:,.0f} annual goal")
+            w.chart(_qr_c["cum"])
+            w.chart(_qr_c["matt"])
             for lbl, txt, t in _qr_ytdp:
-                pdf.callout(lbl, txt, tone[t])
+                w.callout(lbl, txt, tone[t])
 
-            pdf.section_title(f"6. Quarter-by-quarter trends, Q1 to {_qr_ql}")
-            pdf.chart(_qr_c["trends"])
+            w.section_title(f"6. Quarter-by-quarter trends, Q1 to {_qr_ql}")
+            w.chart(_qr_c["trends"])
             for title, text in _qr_trends:
-                pdf.callout(title, text, pdf._ACCENT)
-            pdf.sub_title(f"Quarterly scorecard, Q1 to {_qr_ql}")
-            pdf.table(list(_qr_table.columns), _qr_table.values.tolist(),
-                      [48] + [int(110 / len(_qr_quarters))] * len(_qr_quarters) + [25])
-            pdf.section_title(f"7. Suggested focus for {_qr_next}")
-            pdf.bullets(_qr_focus, pdf._GOLD)
-            pdf.section_title("8. Data gaps and figures to validate")
+                w.callout(title, text, w._ACCENT)
+            w.sub_title(f"Quarterly scorecard, Q1 to {_qr_ql}")
+            w.table(list(_qr_table.columns), _qr_table.values.tolist(),
+                    [48] + [int(110 / len(_qr_quarters))] * len(_qr_quarters) + [25])
+            w.section_title(f"7. Suggested focus for {_qr_next}")
+            w.bullets(_qr_focus, w._GOLD)
+            w.section_title("8. Data gaps and figures to validate")
             for title, text in _qr_gaps:
-                pdf.callout(title, text, pdf._AMBER)
-            pdf.body("Method: revenue = invoiced value after discount (Ghana FBC orders, excluding cancelled and "
-                     "BufferPesa). Collections dated by actual payment date. DSO = receivables at quarter end / "
-                     f"last {DSO_WINDOW_DAYS} days of sales x {DSO_WINDOW_DAYS}. Projection = YTD revenue + "
-                     f"{_qr_ql} monthly run-rate x months left. Generated live from Metabase.")
+                w.callout(title, text, w._AMBER)
+            w.body("Method: revenue = invoiced value after discount (Ghana FBC orders, excluding cancelled and "
+                   "BufferPesa). Collections dated by actual payment date. DSO = receivables at quarter end / "
+                   f"last {DSO_WINDOW_DAYS} days of sales x {DSO_WINDOW_DAYS}. Projection = YTD revenue + "
+                   f"{_qr_ql} monthly run-rate x months left. Generated live from Metabase.")
+
+        def _qr_build_pdf():
+            pdf = _QRPdf()
+            _qr_compose(pdf)
             return bytes(pdf.output())
 
-        st.download_button(f"⬇ Download {_qr_label} Review (PDF) for management",
-                           data=_qr_build_pdf(),
-                           file_name=f"Ghana_{_qr_label.replace(' ', '_')}_Review_vs_Annual_Goals.pdf",
-                           mime="application/pdf", type="primary", use_container_width=True)
+        def _qr_build_docx():
+            doc = qrw.ReportDoc(f"TribeCo Ghana  |  {_qr_label} Performance Review")
+            _qr_compose(doc)
+            return doc.output()
+
+        _qr_fname = f"Ghana_{_qr_label.replace(' ', '_')}_Review_vs_Annual_Goals"
+        _qr_d1, _qr_d2 = st.columns(2)
+        with _qr_d1:
+            st.download_button(f"⬇ Download {_qr_label} Review (PDF)", data=_qr_build_pdf(),
+                               file_name=f"{_qr_fname}.pdf", mime="application/pdf",
+                               type="primary", use_container_width=True)
+        with _qr_d2:
+            st.download_button(f"⬇ Download {_qr_label} Review (Word)", data=_qr_build_docx(),
+                               file_name=f"{_qr_fname}.docx",
+                               mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                               type="primary", use_container_width=True)
     else:
         st.warning("PDF export isn't available in this environment (fpdf2/matplotlib not installed).")
 
