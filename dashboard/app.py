@@ -3435,70 +3435,69 @@ elif page == "Quarterly Review":
     # ── PDF ──────────────────────────────────────────────────────────────────────
     if _PDF_AVAIL:
         def _qr_trend_png():
-            """Six small panels, one per trend theme, Q1 to the selected quarter."""
+            """Six small line charts, one per trend theme, Q1 to the selected quarter."""
             fig, axes = plt.subplots(2, 3, figsize=(10.5, 6.0))
             x = list(range(len(_qr_ql)))
-            G, Au, Rd, Gy = "#1f7a4d", "#c9975a", "#b91c1c", "#9ca3af"
-            w = 0.35
+            G, Au, Rd, Gy = "#1f7a4d", "#c9975a", "#b91c1c", "#6b7280"
+            k = lambda v, _=None: f"{v/1e3:,.0f}k"
 
-            def _style(ax, title, fmt=None):
+            def _line(ax, metric, color, label, labels=None, below=False, dash="-"):
+                ys = _qr_row(metric)
+                ax.plot(x, ys, marker="o", markersize=5, color=color, lw=2.2, ls=dash, zorder=3, label=label)
+                for xi, yv, t in zip(x, ys, labels or [None] * len(ys)):
+                    ax.annotate(t if t is not None else "", (xi, yv), textcoords="offset points",
+                                xytext=(0, -12 if below else 7), ha="center", va="top" if below else "bottom",
+                                fontsize=6.5, color="#374151")
+
+            def _style(ax, title, fmt=None, legend=True):
                 ax.set_title(title, fontsize=9.5, fontweight="bold", color="#14532d", pad=5)
                 ax.set_xticks(x)
                 ax.set_xticklabels(_qr_ql, fontsize=8)
+                ax.set_xlim(-0.3, len(x) - 0.7)
                 ax.tick_params(axis="y", labelsize=7)
                 ax.yaxis.grid(True, alpha=0.3, zorder=0)
                 ax.set_axisbelow(True)
                 for sp in ("top", "right"):
                     ax.spines[sp].set_visible(False)
-                ax.margins(y=0.22)
+                top = max(max(l.get_ydata()) for l in ax.get_lines())
+                ax.set_ylim(0, top * 1.32)
                 if fmt:
                     ax.yaxis.set_major_formatter(plt.FuncFormatter(fmt))
+                if legend:
+                    ax.legend(fontsize=6.5, loc="upper center", bbox_to_anchor=(0.5, -0.1), ncol=2, frameon=False)
 
-            k = lambda v, _=None: f"{v/1e3:,.0f}k"
             ax = axes[0, 0]
-            b = ax.bar(x, _qr_row("Revenue"), color=G, alpha=.9, zorder=3, width=.55)
-            ax.scatter(x, _qr_row("Target"), color=Au, marker="_", s=900, linewidths=3, zorder=4, label="Target")
-            ax.bar_label(b, labels=[f"{a:.0f}%" for a in _qr_row("Attainment %")], fontsize=7.5,
-                         label_type="center", color="white", fontweight="bold")
-            ax.legend(fontsize=6.5, loc="upper center", bbox_to_anchor=(0.5, -0.1), ncol=2, frameon=False)
+            _line(ax, "Revenue", G, "Actual", [f"{a:.0f}%" for a in _qr_row("Attainment %")])
+            _line(ax, "Target", Au, "Target", below=True, dash="--")
             _style(ax, "Revenue vs Target (GHS)", k)
 
             ax = axes[0, 1]
-            b = ax.bar(x, _qr_row("Orders"), color=G, alpha=.9, zorder=3, width=.55)
-            ax.bar_label(b, labels=[f"{o:.0f}\nAOV {a/1e3:.1f}k" for o, a in zip(_qr_row("Orders"), _qr_row("AOV"))],
-                         fontsize=6.5, padding=2)
-            _style(ax, "Orders (with average order value)")
+            _line(ax, "Orders", G, "Orders",
+                  [f"{o:.0f}\nAOV {a/1e3:.1f}k" for o, a in zip(_qr_row("Orders"), _qr_row("AOV"))])
+            _style(ax, "Orders (with average order value)", legend=False)
 
             ax = axes[0, 2]
-            b1 = ax.bar([i - w/2 for i in x], _qr_row("Active customers"), w, color=G, alpha=.9, zorder=3, label="Active")
-            b2 = ax.bar([i + w/2 for i in x], _qr_row("New customers"), w, color=Au, alpha=.9, zorder=3, label="New")
-            ax.bar_label(b1, fontsize=6.5, padding=1, fmt="%.0f")
-            ax.bar_label(b2, fontsize=6.5, padding=1, fmt="%.0f")
-            ax.legend(fontsize=6.5, loc="upper center", bbox_to_anchor=(0.5, -0.1), ncol=2, frameon=False)
+            _line(ax, "Active customers", G, "Active", [f"{v:.0f}" for v in _qr_row("Active customers")])
+            _line(ax, "New customers", Au, "New", [f"{v:.0f}" for v in _qr_row("New customers")])
             _style(ax, "Customers")
 
             ax = axes[1, 0]
-            ax.bar([i - w/2 for i in x], _qr_row("Revenue"), w, color=Gy, alpha=.7, zorder=3, label="Revenue")
-            b2 = ax.bar([i + w/2 for i in x], _qr_row("Collections"), w, color=G, alpha=.9, zorder=3, label="Collected")
-            ax.bar_label(b2, labels=[f"{c:.0f}%" for c in _qr_row("Collection ratio %")], fontsize=7, padding=1)
-            ax.legend(fontsize=6.5, loc="upper center", bbox_to_anchor=(0.5, -0.1), ncol=2, frameon=False)
+            _line(ax, "Revenue", Gy, "Invoiced", dash="--")
+            _line(ax, "Collections", G, "Collected", [f"{c:.0f}%" for c in _qr_row("Collection ratio %")], below=True)
             _style(ax, "Collections vs Revenue (GHS)", k)
 
             ax = axes[1, 1]
-            b = ax.bar(x, _qr_row("AR at quarter end"), color=Rd, alpha=.75, zorder=3, width=.55)
-            ax.bar_label(b, labels=[f"DSO {d:.0f}d" for d in _qr_row("DSO at quarter end")], fontsize=7, padding=2)
-            _style(ax, f"Receivables at Quarter End (DSO vs {DSO_TERMS_DAYS}d term)", k)
+            _line(ax, "AR at quarter end", Rd, "Receivables",
+                  [f"{k(v)}\nDSO {d:.0f}d" for v, d in zip(_qr_row("AR at quarter end"), _qr_row("DSO at quarter end"))])
+            _style(ax, f"Receivables at Quarter End (DSO vs {DSO_TERMS_DAYS}d term)", k, legend=False)
 
             ax = axes[1, 2]
-            for m, c, lbl in (("Multi-SKU %", G, "Multi-SKU orders"), ("Top-5 share %", Au, "Top-5 customer share")):
-                ax.plot(x, _qr_row(m), marker="o", color=c, lw=2, zorder=3, label=lbl)
-                for xi, v in zip(x, _qr_row(m)):
-                    ax.annotate(f"{v:.0f}%", (xi, v), textcoords="offset points", xytext=(0, 6),
-                                ha="center", fontsize=6.5)
-            ax.legend(fontsize=6.5, loc="upper center", bbox_to_anchor=(0.5, -0.1), ncol=2, frameon=False)
+            _line(ax, "Multi-SKU %", G, "Multi-SKU orders", [f"{v:.0f}%" for v in _qr_row("Multi-SKU %")])
+            _line(ax, "Top-5 share %", Au, "Top-5 customer share", [f"{v:.0f}%" for v in _qr_row("Top-5 share %")],
+                  below=True)
             _style(ax, "Mix and Concentration (%)")
 
-            plt.tight_layout(pad=0.6, h_pad=1.2)
+            plt.tight_layout(pad=0.6, h_pad=1.4)
             buf = io.BytesIO()
             fig.savefig(buf, format="png", dpi=140, bbox_inches="tight", facecolor="white")
             plt.close(fig)
@@ -3680,35 +3679,37 @@ elif page == "Quarterly Review":
     st.markdown(chart_wrap(f"Quarter-by-Quarter Trends, Q1 to Q{_qr_q}", "How each part of the business moved across the year"),
                 unsafe_allow_html=True)
     from plotly.subplots import make_subplots as _qr_subplots
-    _qr_tf = _qr_subplots(rows=2, cols=3, vertical_spacing=0.2, horizontal_spacing=0.07, subplot_titles=(
+    _qr_tf = _qr_subplots(rows=2, cols=3, vertical_spacing=0.22, horizontal_spacing=0.07, subplot_titles=(
         "Revenue vs Target", "Orders (with AOV)", "Customers (active / new)",
         "Collections vs Revenue", f"Receivables (DSO vs {DSO_TERMS_DAYS}d)", "Multi-SKU & Top-5 share %"))
-    _qr_tf.add_bar(x=_qr_ql, y=_qr_row("Revenue"), marker_color=BRAND_GREEN, name="Revenue", row=1, col=1,
-                   text=[f"{a:.0f}%" for a in _qr_row("Attainment %")], textposition="outside")
-    _qr_tf.add_scatter(x=_qr_ql, y=_qr_row("Target"), mode="markers", name="Target", row=1, col=1,
-                       marker=dict(symbol="line-ew-open", size=26, color=BRAND_GOLD, line=dict(width=3)))
-    _qr_tf.add_bar(x=_qr_ql, y=_qr_row("Orders"), marker_color=BRAND_GREEN, name="Orders", row=1, col=2,
-                   text=[f"{o:.0f} · AOV {a/1e3:.1f}k" for o, a in zip(_qr_row("Orders"), _qr_row("AOV"))],
-                   textposition="outside")
-    _qr_tf.add_bar(x=_qr_ql, y=_qr_row("Active customers"), marker_color=BRAND_GREEN, name="Active", row=1, col=3,
-                   text=[f"{v:.0f}" for v in _qr_row("Active customers")], textposition="outside")
-    _qr_tf.add_bar(x=_qr_ql, y=_qr_row("New customers"), marker_color=BRAND_GOLD, name="New", row=1, col=3,
-                   text=[f"{v:.0f}" for v in _qr_row("New customers")], textposition="outside")
-    _qr_tf.add_bar(x=_qr_ql, y=_qr_row("Revenue"), marker_color="#9ca3af", name="Invoiced", row=2, col=1)
-    _qr_tf.add_bar(x=_qr_ql, y=_qr_row("Collections"), marker_color=BRAND_GREEN, name="Collected", row=2, col=1,
-                   text=[f"{c:.0f}%" for c in _qr_row("Collection ratio %")], textposition="outside")
-    _qr_tf.add_bar(x=_qr_ql, y=_qr_row("AR at quarter end"), marker_color="#dc2626", name="Receivables", row=2, col=2,
-                   text=[f"DSO {d:.0f}d" for d in _qr_row("DSO at quarter end")], textposition="outside")
-    _qr_tf.add_scatter(x=_qr_ql, y=_qr_row("Multi-SKU %"), mode="lines+markers+text", name="Multi-SKU %",
-                       line=dict(color=BRAND_GREEN), text=[f"{v:.0f}%" for v in _qr_row("Multi-SKU %")],
-                       textposition="top center", row=2, col=3)
-    _qr_tf.add_scatter(x=_qr_ql, y=_qr_row("Top-5 share %"), mode="lines+markers+text", name="Top-5 share %",
-                       line=dict(color=BRAND_GOLD), text=[f"{v:.0f}%" for v in _qr_row("Top-5 share %")],
-                       textposition="bottom center", row=2, col=3)
-    _qr_tf.update_layout(**white_layout(560))
-    _qr_tf.update_layout(showlegend=False, barmode="group", margin=dict(t=40, b=30, l=10, r=10))
+
+    def _qr_line(metric, color, name, r, c, labels=None, pos="top center", dash="solid"):
+        _qr_tf.add_scatter(x=_qr_ql, y=_qr_row(metric), name=name, row=r, col=c,
+                           mode="lines+markers+text" if labels else "lines+markers",
+                           line=dict(color=color, width=3, dash=dash), marker=dict(size=8),
+                           text=labels, textposition=pos, textfont=dict(size=11),
+                           hovertemplate=f"{name}: %{{y:,.0f}}<extra>%{{x}}</extra>")
+
+    _qr_line("Revenue", BRAND_GREEN, "Actual revenue", 1, 1, [f"{a:.0f}%" for a in _qr_row("Attainment %")])
+    _qr_line("Target", BRAND_GOLD, "Target", 1, 1, dash="dash")
+    _qr_line("Orders", BRAND_GREEN, "Orders", 1, 2,
+             [f"{o:.0f} · AOV {a/1e3:.1f}k" for o, a in zip(_qr_row("Orders"), _qr_row("AOV"))])
+    _qr_line("Active customers", BRAND_GREEN, "Active customers", 1, 3, [f"{v:.0f}" for v in _qr_row("Active customers")])
+    _qr_line("New customers", BRAND_GOLD, "New customers", 1, 3, [f"{v:.0f}" for v in _qr_row("New customers")])
+    _qr_line("Revenue", "#9ca3af", "Invoiced", 2, 1, dash="dash")
+    _qr_line("Collections", BRAND_GREEN, "Collected", 2, 1,
+             [f"{c:.0f}%" for c in _qr_row("Collection ratio %")], pos="bottom center")
+    _qr_line("AR at quarter end", "#dc2626", "Receivables", 2, 2,
+             [f"DSO {d:.0f}d" for d in _qr_row("DSO at quarter end")])
+    _qr_line("Multi-SKU %", BRAND_GREEN, "Multi-SKU %", 2, 3, [f"{v:.0f}%" for v in _qr_row("Multi-SKU %")])
+    _qr_line("Top-5 share %", BRAND_GOLD, "Top-5 share %", 2, 3,
+             [f"{v:.0f}%" for v in _qr_row("Top-5 share %")], pos="bottom center")
+    _qr_tf.update_layout(**white_layout(600))
+    _qr_tf.update_layout(margin=dict(t=40, b=30, l=10, r=10), showlegend=True,
+                         legend=dict(orientation="h", y=-0.08, font=dict(size=11)))
     _qr_tf.update_annotations(font_size=12)
     _qr_tf.update_yaxes(rangemode="tozero")
+    _qr_tf.update_xaxes(tickangle=0)
     st.plotly_chart(_qr_tf, use_container_width=True, config=CHART_CFG)
     for _t, _x in _qr_trends:
         st.markdown(f"**{_t}.** {_x}")
