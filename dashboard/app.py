@@ -16,6 +16,7 @@ import warnings
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # sibling modules, however the app is launched
 import credit_collections_report as ccr
+import quarterly_review as qrv
 warnings.filterwarnings("ignore")
 try:
     import matplotlib
@@ -1190,7 +1191,9 @@ if _PDF_AVAIL:
             self.set_text_color(*self._WHITE)
             self.set_font("Helvetica", "B", 11)
             self.set_x(10)
-            self.cell(190, 8, self._clean(f"  {text}"), new_x="LMARGIN", new_y="NEXT")
+            if self.get_y() > self.page_break_trigger - 30:   # never strand a heading at a page foot
+                self.add_page()
+            self.cell(190, 8, self._clean(f"  {text}"), fill=True, new_x="LMARGIN", new_y="NEXT")
             self.ln(2)
 
         def sub_title(self, text):
@@ -1272,7 +1275,7 @@ if "active_page" not in st.session_state:
     st.session_state["active_page"] = "Overview"
 
 NAV_GROUPS = {
-    "Leadership":     ["Weekly Info", "YTD Review", "Credit & Collections", "Data Export"],
+    "Leadership":     ["Weekly Info", "YTD Review", "Quarterly Review", "Credit & Collections", "Data Export"],
     "Core Analytics": ["Overview", "Sales Performance"],
     "Business":       ["Customers", "Payments"],
     "Phase 1":        ["Weekly Scorecard", "Reconciliation", "Data Quality"],
@@ -1283,6 +1286,7 @@ NAV_GROUPS = {
 NAV_ICONS = {
     "Weekly Info":        "🧭",
     "YTD Review":         "📊",
+    "Quarterly Review":    "🎯",
     "Credit & Collections": "🧾",
     "Data Export":         "🗂️",
     "Overview":            "🏠",
@@ -3361,6 +3365,270 @@ elif page == "YTD Review":
 # ══════════════════════════════════════════════════════════════════════════════════
 # PAGE — DATA EXPORT
 # ══════════════════════════════════════════════════════════════════════════════════
+elif page == "Quarterly Review":
+    _qr_text = lambda html, size=13, muted=True, margin="0 0 14px": st.markdown(
+        f'<div style="font-size:{size}px;color:{_T["text_muted"] if muted else _T["text_heading"]};'
+        f'margin:{margin}">{html}</div>', unsafe_allow_html=True)
+    _qr_text("Quarter performance against the annual goals: quarterly and YTD actuals vs target, "
+             "key trends, where we are ahead or behind, drivers, suggested focus for next quarter, and "
+             "the data gaps to validate. Download it as a PDF for the management meeting.")
+
+    # Completed quarters only (a quarter counts once data runs past its last day).
+    _qr_latest = max(ccr._to_naive_date(inv_scoped["Created At"]).max(),
+                     ccr._to_naive_date(rep_scoped["Repayment Date"]).dropna().pipe(
+                         lambda s: s[s <= pd.Timestamp.now()]).max())
+    _qr_year = _qr_latest.year
+    _qr_done = [q for q in (1, 2, 3, 4) if qrv.quarter_bounds(_qr_year, q)[1].normalize() <= _qr_latest]
+    if not _qr_done:
+        st.info(f"No completed quarter yet in {_qr_year}.")
+        st.stop()
+    _qr_q = st.selectbox("Quarter", _qr_done, index=len(_qr_done) - 1, key="qr_quarter",
+                         format_func=lambda q: f"Q{q} {_qr_year}")
+
+    _qr_hist = inv.copy()
+    _qr_hf = pd.Series(True, index=_qr_hist.index)
+    if "Order Type" in _qr_hist.columns: _qr_hf &= (_qr_hist["Order Type"] == 1)
+    if "Channel" in _qr_hist.columns: _qr_hf &= (_qr_hist["Channel"] != "BufferPesa")
+    if "Status" in _qr_hist.columns: _qr_hf &= (_qr_hist["Status"] != 5)
+    _qr_targets = pd.read_csv(f"{DATA}/revenue_target.csv")
+    _qr = qrv.build(inv_scoped, rep_scoped, _qr_hist[_qr_hf], rc, il, prod, _qr_targets,
+                    _qr_year, _qr_q, window_days=DSO_WINDOW_DAYS, terms_days=DSO_TERMS_DAYS)
+    _qr_ahead, _qr_behind, _qr_focus = qrv.insights(_qr)
+    _qr_gaps = qrv.data_gaps(_qr)
+    _qr_s, _qr_y = _qr["score"], _qr["ytd"]
+    _qr_cur = _qr_s[_qr_q]
+    _qr_prev = _qr_s[_qr_q - 1] if _qr_q > 1 else None
+    _qr_label = f"Q{_qr_q} {_qr_year}"
+    _qr_next = f"Q{_qr_q + 1}" if _qr_q < 4 else f"Q1 {_qr_year + 1}"
+    _qr_mo = _qr["monthly"].copy()
+    _qr_mo["Label"] = _qr_mo["Month"].apply(month_label)
+
+    # Scorecard rows shown on screen and in the PDF: (metric, formatter, is the higher value better)
+    _qr_money = lambda v: f"GHS {v:,.0f}" if pd.notna(v) else "n/a"
+    _qr_pctf  = lambda v: f"{v:.1f}%" if pd.notna(v) else "n/a"
+    _qr_int   = lambda v: f"{int(v):,}" if pd.notna(v) else "n/a"
+    _qr_days  = lambda v: f"{v:.0f} days" if pd.notna(v) else "n/a"
+    _QR_ROWS = [("Revenue", _qr_money), ("Target", _qr_money), ("Attainment %", _qr_pctf),
+                ("Orders", _qr_int), ("AOV", _qr_money), ("Median order", _qr_money),
+                ("Active customers", _qr_int), ("New customers", _qr_int), ("Multi-SKU %", _qr_pctf),
+                ("Top-5 share %", _qr_pctf), ("Collections", _qr_money), ("Collection ratio %", _qr_pctf),
+                ("AR at quarter end", _qr_money), ("AR past terms %", _qr_pctf), ("DSO at quarter end", _qr_days)]
+
+    def _qr_change(metric):
+        if _qr_prev is None or pd.isna(_qr_prev[metric]) or pd.isna(_qr_cur[metric]):
+            return "n/a"
+        if metric.endswith("%"):
+            return f"{_qr_cur[metric] - _qr_prev[metric]:+.1f} pts"
+        if metric == "DSO at quarter end":
+            return f"{_qr_cur[metric] - _qr_prev[metric]:+.0f} days"
+        return f"{(_qr_cur[metric] / _qr_prev[metric] - 1) * 100:+.1f}%" if _qr_prev[metric] else "n/a"
+
+    _qr_quarters = list(_qr_s.columns)
+    _qr_table = pd.DataFrame(
+        [[m] + [fmt(_qr_s.loc[m, q]) for q in _qr_quarters] + [_qr_change(m)] for m, fmt in _QR_ROWS],
+        columns=["Metric"] + [f"Q{q}" for q in _qr_quarters] + [f"Q{_qr_q} vs Q{_qr_q-1}" if _qr_q > 1 else "Change"])
+
+    # ── PDF ──────────────────────────────────────────────────────────────────────
+    if _PDF_AVAIL:
+        class _QRPdf(YTDReportPDF):
+            def header(self):
+                if self.page_no() == 1:
+                    return
+                self.set_fill_color(*self._BRAND)
+                self.rect(0, 0, 210, 14, "F")
+                self.set_font("Helvetica", "B", 9)
+                self.set_text_color(*self._WHITE)
+                self.set_xy(10, 3)
+                self.cell(0, 8, self._clean(f"TribeCo Ghana  |  {_qr_label} Performance Review vs Annual Goals"))
+                self.ln(12)
+
+            def title_block(self, as_of_label):
+                self.set_fill_color(*self._BRAND)
+                self.rect(0, 0, 210, 40, "F")
+                self.set_font("Helvetica", "B", 19)
+                self.set_text_color(*self._WHITE)
+                self.set_xy(10, 7)
+                self.cell(190, 9, "Ghana Commercial Performance", align="C")
+                self.set_font("Helvetica", "B", 13)
+                self.set_text_color(*self._GOLD)
+                self.set_xy(10, 18)
+                self.cell(190, 8, self._clean(f"{_qr_label} Review vs Annual Goals"), align="C")
+                self.set_font("Helvetica", "", 9)
+                self.set_text_color(*self._WHITE)
+                self.set_xy(10, 28)
+                self.cell(190, 6, self._clean(f"Prepared for the management meeting (data as of {as_of_label})"), align="C")
+                self.set_text_color(0, 0, 0)
+                self.set_y(48)
+
+            def bullets(self, items, color=None):
+                for it in items:
+                    if self.get_y() > self.page_break_trigger - 12:
+                        self.add_page()
+                    self.set_x(14)
+                    self.set_font("Helvetica", "B", 9.5)
+                    self.set_text_color(*(color or self._ACCENT))
+                    self.cell(5, 5.2, "-")
+                    self.set_font("Helvetica", "", 9.5)
+                    self.set_text_color(*self._BLACK)
+                    self.multi_cell(178, 5.2, self._clean(it))
+                    self.ln(0.8)
+                self.ln(1.5)
+
+        def _qr_build_pdf():
+            pdf = _QRPdf()
+            pdf.add_page()
+            pdf.title_block(f"{_qr['flags']['data_end']:%d %b %Y}")
+
+            pdf.section_title("1. Where we stand")
+            rows = [(f"{_qr_label} revenue vs quarterly target", _qr_money(_qr_cur["Revenue"]),
+                     _qr_money(_qr_cur["Target"]), _qr_pctf(_qr_cur["Attainment %"])),
+                    ("YTD revenue vs YTD target", _qr_money(_qr_y["revenue"]), _qr_money(_qr_y["target"]),
+                     _qr_pctf(_qr_y["attainment"])),
+                    ("YTD revenue vs annual goal", _qr_money(_qr_y["revenue"]), _qr_money(_qr_y["annual_target"]),
+                     _qr_pctf(_qr_y["annual_pct"]))]
+            if _qr_y["months_left"]:
+                rows.append((f"Still needed for annual goal", _qr_money(_qr_y["remaining"]),
+                             _qr_money(_qr_y["rest_target"]), f"{_qr_y['needed_pct_of_rest_target']:.0f}% of rest"))
+            pdf.table(["Measure", "Actual", "Target / Goal", "Attainment"], rows, [76, 37, 37, 33])
+            pdf.callout("Headline",
+                        f"{_qr_label} revenue finished at {_qr_cur['Attainment %']:.1f}% of target and the year is "
+                        f"{_qr_y['annual_pct']:.0f}% of the way to the GHS {_qr_y['annual_target']:,.0f} annual goal "
+                        f"after Q{_qr_q}. "
+                        + (f"At the {_qr_label.split()[0]} run-rate the year lands near GHS {_qr_y['projected']:,.0f} "
+                           f"({_qr_y['projected_pct']:.0f}% of goal). " if _qr_y["months_left"] else "")
+                        + (f"The main risk is cash, not sales: receivables reached GHS {_qr_cur['AR at quarter end']:,.0f} "
+                           f"with DSO at {_qr_cur['DSO at quarter end']:.0f} days against a {DSO_TERMS_DAYS}-day term."
+                           if _qr_prev is not None and _qr_cur['AR at quarter end'] > _qr_prev['AR at quarter end'] else ""),
+                        pdf._ACCENT)
+            _done = _qr_mo.dropna(subset=["Revenue"])
+            pdf.chart(_grouped_bar_png(_done.assign(Label=_done["Label"]), "Label",
+                                       [("Revenue", "Actual"), ("Target", "Target")],
+                                       title="Monthly Revenue vs Target", colors=[BRAND_GREEN_DEEP, BRAND_GOLD],
+                                       xlabel="Month", ylabel="GHS"))
+
+            pdf.section_title("2. Ahead of target / going well")
+            pdf.bullets(_qr_ahead or ["Nothing materially ahead of target this quarter."], pdf._ACCENT)
+            pdf.section_title("3. Behind target / needs attention")
+            pdf.bullets(_qr_behind or ["Nothing materially behind target this quarter."], pdf._RED)
+
+            pdf.section_title(f"4. Quarterly trends, Q1 to Q{_qr_q}")
+            pdf.table(list(_qr_table.columns), _qr_table.values.tolist(),
+                      [48] + [int(110 / len(_qr_quarters))] * len(_qr_quarters) + [25])
+            pdf.chart(_bar_with_threshold_png([f"Q{q}" for q in _qr_quarters],
+                                              [_qr_s.loc["DSO at quarter end", q] for q in _qr_quarters],
+                                              DSO_TERMS_DAYS, threshold_label=f"{DSO_TERMS_DAYS}-day term",
+                                              title="DSO at Quarter End", xlabel="Quarter", ylabel="Days",
+                                              label_fmt="{:.0f}d", figh=2.6))
+
+            d = _qr["drivers"]
+            pdf.section_title("5. Drivers")
+            if "customers" in d:
+                c = d["customers"]
+                movers = pd.concat([c.head(5), c.tail(5).iloc[::-1]])
+                movers = movers[movers["Change"] != 0]
+                pdf.sub_title(f"Largest customer movements, Q{_qr_q-1} to Q{_qr_q}")
+                pdf.table(["Customer", f"Q{_qr_q-1}", f"Q{_qr_q}", "Change"],
+                          [(n[:38], _qr_money(r.Prev), _qr_money(r.Curr), f"{r.Change:+,.0f}") for n, r in movers.iterrows()],
+                          [80, 35, 35, 33])
+                pdf.body(f"{d['retained']} customers ordered in both quarters, {d['gained']} ordered in Q{_qr_q} but "
+                         f"not Q{_qr_q-1}"
+                         + (f"; {len(d['lapsed'])} stopped ordering (" + ", ".join(f"{n} GHS {v:,.0f}" for n, v in d['lapsed'][:4]) + ")."
+                            if d["lapsed"] else "."))
+            if len(d["products"]):
+                pdf.sub_title(f"Product mix, Q{_qr_q} (share of line revenue)")
+                pdf.body(", ".join(f"{p} {v:.0f}%" for p, v in d["products"].head(6).items()) + ".")
+
+            pdf.section_title(f"6. Suggested focus for {_qr_next}")
+            pdf.bullets(_qr_focus, pdf._GOLD)
+
+            pdf.section_title("7. Data gaps and figures to validate")
+            for title, text in _qr_gaps:
+                pdf.callout(title, text, pdf._AMBER)
+            pdf.body("Method: revenue = invoiced value after discount (Ghana FBC orders, excluding cancelled and "
+                     "BufferPesa). Collections dated by actual payment date. DSO = receivables at quarter end / "
+                     f"last {DSO_WINDOW_DAYS} days of sales x {DSO_WINDOW_DAYS}. Generated live from Metabase.")
+            return bytes(pdf.output())
+
+        st.download_button(f"⬇ Download {_qr_label} Review (PDF) for management",
+                           data=_qr_build_pdf(),
+                           file_name=f"Ghana_{_qr_label.replace(' ', '_')}_Review_vs_Annual_Goals.pdf",
+                           mime="application/pdf", type="primary", use_container_width=True)
+    else:
+        st.warning("PDF export isn't available in this environment (fpdf2/matplotlib not installed).")
+
+    # ── On-screen ────────────────────────────────────────────────────────────────
+    _qr_r1 = kpi_card(f"{_qr_label} Revenue", _qr_money(_qr_cur["Revenue"]),
+                      f"vs target {_qr_money(_qr_cur['Target'])}", BRAND_GREEN,
+                      _qr_pctf(_qr_cur["Attainment %"]),
+                      "#16a34a" if _qr_cur["Attainment %"] >= 100 else "#dc2626") + \
+             kpi_card("YTD Revenue", _qr_money(_qr_y["revenue"]), f"vs YTD target {_qr_money(_qr_y['target'])}",
+                      "#14b8a6", _qr_pctf(_qr_y["attainment"]),
+                      "#16a34a" if _qr_y["attainment"] >= 100 else "#dc2626") + \
+             kpi_card("Annual Goal Progress", f"{_qr_y['annual_pct']:.1f}%",
+                      f"of {_qr_money(_qr_y['annual_target'])}; {_qr_money(_qr_y['remaining'])} to go", BRAND_GOLD)
+    _qr_r2 = kpi_card(f"{_qr_label} Collections", _qr_money(_qr_cur["Collections"]),
+                      f"{_qr_cur['Collection ratio %']:.0f}% of quarter revenue", "#16a34a") + \
+             kpi_card("Receivables at Quarter End", _qr_money(_qr_cur["AR at quarter end"]),
+                      f"{_qr_cur['AR past terms %']:.0f}% past the {DSO_TERMS_DAYS}-day term", "#f59e0b") + \
+             kpi_card("DSO at Quarter End", _qr_days(_qr_cur["DSO at quarter end"]),
+                      f"vs {DSO_TERMS_DAYS}-day term", "#dc2626",
+                      f"{_qr_cur['DSO at quarter end'] - DSO_TERMS_DAYS:+.0f}d",
+                      "#dc2626" if _qr_cur["DSO at quarter end"] > DSO_TERMS_DAYS else "#16a34a")
+    st.markdown(kpi_grid(_qr_r1, max_cols=3), unsafe_allow_html=True)
+    st.markdown(kpi_grid(_qr_r2, max_cols=3), unsafe_allow_html=True)
+
+    st.markdown(chart_wrap("Monthly Revenue vs Target", f"{_qr_year} actuals to {_qr_label}, with the remaining months' targets"),
+                unsafe_allow_html=True)
+    _qr_fig = go.Figure()
+    _qr_fig.add_bar(x=_qr_mo["Label"], y=_qr_mo["Revenue"], name="Actual", marker=bar_marker(BRAND_GREEN),
+                    text=_qr_mo["Attainment %"].apply(lambda v: f"{v:.0f}%" if pd.notna(v) else ""),
+                    textposition="outside")
+    _qr_fig.add_scatter(x=_qr_mo["Label"], y=_qr_mo["Target"], name="Target", mode="lines+markers",
+                        line=dict(color=BRAND_GOLD, dash="dot", width=2))
+    _qr_fig.update_layout(**white_layout(320), legend=dict(orientation="h", y=-0.2))
+    st.plotly_chart(_qr_fig, use_container_width=True, config=CHART_CFG)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    def _qr_box(title, items, color):
+        body = "".join(f'<li style="margin:0 0 6px">{i}</li>' for i in items) or "<li>None this quarter.</li>"
+        st.markdown(f'<div style="border-left:4px solid {color};padding:10px 14px;margin:6px 0 14px;'
+                    f'background:{_T.get("card_bg", "transparent")};border-radius:8px">'
+                    f'<div style="font-weight:700;color:{color};margin-bottom:6px">{title}</div>'
+                    f'<ul style="margin:0;padding-left:18px;font-size:13px;color:{_T["text_heading"]}">{body}</ul></div>',
+                    unsafe_allow_html=True)
+    _qr_c1, _qr_c2 = st.columns(2)
+    with _qr_c1:
+        _qr_box("Ahead of target / going well", _qr_ahead, "#16a34a")
+    with _qr_c2:
+        _qr_box("Behind target / needs attention", _qr_behind, "#dc2626")
+    _qr_box(f"Suggested focus for {_qr_next}", _qr_focus, BRAND_GOLD)
+
+    st.markdown(chart_wrap(f"Quarterly Scorecard, Q1 to Q{_qr_q}", "Revenue has targets; everything else is a trend"),
+                unsafe_allow_html=True)
+    st.dataframe(_qr_table, use_container_width=True, hide_index=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    _qr_d = _qr["drivers"]
+    if "customers" in _qr_d:
+        _qr_m = _qr_d["customers"]
+        _qr_m = pd.concat([_qr_m.head(5), _qr_m.tail(5).iloc[::-1]])
+        _qr_m = _qr_m[_qr_m["Change"] != 0]
+        st.markdown(chart_wrap("Largest Customer Movements", f"Revenue change, Q{_qr_q-1} to Q{_qr_q}"),
+                    unsafe_allow_html=True)
+        st.dataframe(pd.DataFrame({
+            "Customer": _qr_m.index,
+            f"Q{_qr_q-1}": _qr_m["Prev"].apply(_qr_money).values,
+            f"Q{_qr_q}": _qr_m["Curr"].apply(_qr_money).values,
+            "Change": _qr_m["Change"].apply(lambda v: f"{v:+,.0f}").values,
+        }), use_container_width=True, hide_index=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown(chart_wrap("Data Gaps and Figures to Validate", "Flag these before the numbers are presented"),
+                unsafe_allow_html=True)
+    for _t, _x in _qr_gaps:
+        st.markdown(f"**{_t}.** {_x}")
+    st.markdown("</div>", unsafe_allow_html=True)
+
 elif page == "Credit & Collections":
     _cc_text = lambda html: st.markdown(
         f'<div style="font-size:13px;color:{_T["text_muted"]};margin:0 0 14px">{html}</div>',
