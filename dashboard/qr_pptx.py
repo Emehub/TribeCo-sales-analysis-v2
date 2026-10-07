@@ -671,3 +671,143 @@ def build(ctx):
         _text(s, 1.7, yy - 0.05, 10.8, 0.7, a, size=20, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 
     return d.output()
+
+
+# ══════════════════════════════════════════════════════════════════════════════════
+# Brief deck: targets vs actuals, quarter trend, vaccines YTD, drivers, recommendations
+# ══════════════════════════════════════════════════════════════════════════════════
+def _lead_rest(t):
+    """Split 'Lead phrase: rest' so the lead can be shown in bold."""
+    t = _clean(t)
+    i = t.find(": ")
+    if 0 < i < 60:
+        rest = t[i + 2:]
+        return t[:i], rest[:1].upper() + rest[1:]
+    return "", t
+
+
+def _numbered_rows(s, items, y0, y1, color, size=14):
+    n = max(len(items), 1)
+    rh = (y1 - y0) / n
+    for i, it in enumerate(items):
+        yy = y0 + i * rh
+        _circle(s, L, yy + (rh - 0.5) / 2, 0.5, color, str(i + 1), size=16)
+        lead, rest = _lead_rest(it)
+        runs = ([(lead + ". ", {"bold": True, "color": DEEP})] if lead else []) + [(rest, {})]
+        _text(s, L + 0.75, yy, CW - 0.8, rh, runs, size=size, color=INK, anchor=MSO_ANCHOR.MIDDLE)
+
+
+def build_brief(ctx):
+    import pandas as pd
+    q, ql, label = ctx["q"], ctx["ql"], ctx["label"]
+    qm, cur, y_, vax = ctx["qm"], ctx["cur"], ctx["ytd"], ctx["vax"]
+    d = Deck(f"TribeCo Ghana  |  {label} Brief: Targets vs Actuals")
+
+    def money(v):
+        return f"GHS {v:,.0f}"
+
+    # 1. Title
+    s = d.slide(dark=True, notes=f"{label} brief for management: targets vs actuals for the quarter and the year to "
+                                f"date, the quarter's monthly trend, vaccines delivered, key drivers and "
+                                f"recommendations. Data live from Metabase as of {ctx['as_of']}.")
+    _text(s, 0.9, 2.2, 11.5, 0.5, "GHANA COMMERCIAL PERFORMANCE", size=16, bold=True, color=GOLD)
+    _text(s, 0.9, 2.7, 11.5, 1.2, f"{label} Brief", size=54, bold=True, color=WHITE)
+    _text(s, 0.9, 3.85, 11.5, 0.6, "Targets vs actuals, trends, drivers and recommendations", size=22, color="D1E7DD")
+    _text(s, 0.9, 6.3, 11.5, 0.4, f"Management meeting  |  Data as of {ctx['as_of']}", size=14, color="A7C4B5")
+
+    def table_slide(kicker, title, rows, stat_label, stat_value, stat_sub, stat_color, note):
+        s = d.slide(kicker, title, notes=note)
+        df = pd.DataFrame(rows, columns=["Period", "Target (GHS)", "Actual (GHS)", "Variance (GHS)", "Attainment"])
+        tw = CW - 3.6
+        _table(s, L, 1.6, tw, df, [2.2, 2, 2, 2, 1.7], size=14, name="Targets vs actuals", row_h=0.5)
+        x = L + tw + 0.35
+        _card(s, x, 1.6, CW - tw - 0.35, 2.6, name="Headline stat")
+        _text(s, x + 0.25, 1.8, 2.9, 0.35, stat_label.upper(), size=12, bold=True, color=MUTED)
+        _text(s, x + 0.25, 2.15, 2.9, 1.0, stat_value, size=48, bold=True, color=stat_color)
+        _text(s, x + 0.25, 3.2, 2.9, 0.9, stat_sub, size=13, color=INK)
+        _text(s, L, 1.6 + 0.5 * (len(df) + 1) + 0.35, tw, 0.9, note, size=15, color=INK, name="Takeaway")
+
+    # 2. Quarter targets vs actuals
+    on_t = int((qm["Attainment %"] >= 100).sum())
+    q_title = (f"{ql} beat target by {money(cur['Revenue'] - cur['Target'])}; {on_t} of {len(qm)} months on target"
+               if cur["Revenue"] >= cur["Target"] else f"{ql} missed target by {money(cur['Target'] - cur['Revenue'])}")
+    table_slide(f"{ql} targets vs actuals", q_title, ctx["q_rows"], f"{ql} attainment",
+                f"{cur['Attainment %']:.1f}%", f"{money(cur['Revenue'])} against a {money(cur['Target'])} target",
+                GREEN if cur["Attainment %"] >= 100 else RED, ctx["q_note"])
+
+    # 3. Quarter monthly trend (native line chart, axis zoomed to the data)
+    rv = [float(v) for v in qm["Revenue"]]
+    tg = [float(v) for v in qm["Target"]]
+    lo, hi = min(rv + tg), max(rv + tg)
+    pad = (hi - lo) * 0.45 or hi * 0.1
+    t_title = ("Revenue eased month by month, but the target fell faster"
+               if rv[-1] < rv[0] and tg[-1] / tg[0] < rv[-1] / rv[0] else f"{ql} month-by-month trend")
+    s = d.slide(f"{ql} trend", t_title, notes=ctx["trend_note"])
+    ch = chart_lines(s, L, 1.45, 8.6, 5.3, list(qm["Label"]), [
+        ("Actual revenue", rv, GREEN, None, False), ("Monthly target", tg, GOLD, "dash", False)],
+        MONEY_K, name="Chart: quarter monthly trend")
+    ch.value_axis.minimum_scale = max(0, round(lo - pad, -4))
+    ch.value_axis.maximum_scale = round(hi + pad, -4)
+    for i, a in enumerate(qm["Attainment %"]):
+        # label on the side away from the target line so the two never overlap
+        pos = XL_LABEL_POSITION.ABOVE if rv[i] >= tg[i] else XL_LABEL_POSITION.BELOW
+        if i == 0:
+            pos = XL_LABEL_POSITION.RIGHT
+        _point_label(ch.series[0], i, f"GHS {_k(rv[i])}  |  {a:.1f}%", DEEP, 12, pos)
+    _card(s, L + 8.9, 1.6, CW - 8.9, 5.1, name="Commentary")
+    _text(s, L + 9.15, 1.8, CW - 9.4, 0.4, "What the trend shows", size=15, bold=True, color=DEEP)
+    best = qm["Label"].iloc[int(qm["Attainment %"].values.argmax())]
+    _bullets(s, L + 9.15, 2.3, CW - 9.4, 4.3, [
+        f"Revenue {_k(rv[0])} to {_k(rv[-1])} ({(rv[-1] / rv[0] - 1) * 100:+.1f}%)",
+        f"Target {_k(tg[0])} to {_k(tg[-1])} ({(tg[-1] / tg[0] - 1) * 100:+.1f}%)",
+        f"{on_t} of {len(qm)} months on or above target",
+        f"Best month vs target: {best} ({qm['Attainment %'].max():.1f}%)"], size=14, gap=10)
+
+    # 4. YTD targets vs actuals
+    table_slide("Year to date",
+                f"{y_['attainment']:.1f}% of the YTD target; {y_['annual_pct']:.0f}% of the annual goal reached",
+                ctx["y_rows"], "Projected year-end", f"{y_['projected_pct']:.0f}%",
+                f"of the {money(y_['annual_target'])} goal at the {ql} run-rate ({money(y_['projected'])})",
+                GREEN if y_["projected_pct"] >= 100 else RED, ctx["y_note"])
+
+    # 5. Vaccines YTD trend
+    if len(vax):
+        vq = vax.groupby("Q")["Total"].sum()
+        v_title = (f"Doses fell {abs(vq.iloc[-1] / vq.iloc[-2] - 1) * 100:.0f}% in {ql} vs Q{q - 1}"
+                   if len(vq) > 1 and vq.iloc[-1] < vq.iloc[-2] else "Vaccine doses delivered by month")
+        s = d.slide("Vaccines delivered, year to date", v_title, notes=ctx["vax_note"])
+        series = [(dname, [float(v) / 1e6 for v in vax[dname]], col, None, False)
+                  for dname, col in (("Newcastle", DEEP), ("Gumboro", GOLD), ("Fowl pox", "0E7490"),
+                                     ("Other poultry", GREY))
+                  if dname in vax.columns and vax[dname].sum() > 0]
+        series.append(("All vaccines", [float(v) / 1e6 for v in vax["Total"]], GREEN, "dot", True))
+        chart_lines(s, L, 1.45, 8.6, 5.3, list(vax["Label"]), series, '0.0"M"', name="Chart: vaccine doses")
+        nc = (f"{vax['Newcastle'].sum() / vax['Total'].sum() * 100:.0f}%" if "Newcastle" in vax.columns else "n/a")
+        cards = [("Doses year to date", f"{vax['Total'].sum() / 1e6:.1f}M", f"{ctx['vials']:,.0f} vials"),
+                 (f"Doses in {ql}", f"{vq.iloc[-1] / 1e6:.1f}M",
+                  f"{(vq.iloc[-1] / vq.iloc[-2] - 1) * 100:+.0f}% vs Q{q - 1}" if len(vq) > 1 else ""),
+                 ("Newcastle share", nc, "of all doses")]
+        for i, (lab, val, sub) in enumerate(cards):
+            yy = 1.6 + i * 1.72
+            _card(s, L + 8.9, yy, CW - 8.9, 1.55, name=f"Card: {lab}")
+            _text(s, L + 9.15, yy + 0.12, CW - 9.4, 0.3, lab.upper(), size=11, bold=True, color=MUTED)
+            _text(s, L + 9.15, yy + 0.42, CW - 9.4, 0.6, val, size=26, bold=True, color=INK)
+            _text(s, L + 9.15, yy + 1.05, CW - 9.4, 0.35, sub, size=12,
+                  color=RED if sub.startswith("-") else GREEN)
+
+    # 6. Drivers
+    if ctx["drivers"]:
+        s = d.slide("Analysis", f"Key drivers behind the {ql} numbers", notes="\n".join(ctx["drivers"]))
+        _numbered_rows(s, ctx["drivers"][:5], 1.5, 6.85, DEEP, size=14)
+
+    # 7. Recommendations
+    if ctx["recs"]:
+        s = d.slide("For management", "Recommendations", notes="\n".join(ctx["recs"]))
+        _numbered_rows(s, ctx["recs"][:6], 1.5, 6.85, GOLD, size=14)
+
+    # 8. Close
+    s = d.slide(dark=True, notes="Open the floor for questions and agree owners for the recommendations.")
+    _text(s, 0.9, 2.9, 11.5, 0.5, "THANK YOU", size=16, bold=True, color=GOLD)
+    _text(s, 0.9, 3.35, 11.5, 1.0, "Questions and discussion", size=44, bold=True, color=WHITE)
+    _text(s, 0.9, 4.4, 11.5, 0.6, "Full detail: Quarterly Review page on the Ghana dashboard", size=18, color="D1E7DD")
+    return d.output()

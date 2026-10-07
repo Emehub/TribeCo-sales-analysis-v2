@@ -3840,6 +3840,15 @@ elif page == "Quarterly Review":
                             "agree that targets are fixed before each month starts and add targets for collections and doses.")
             return drivers, recs
 
+        _qb_q_rows = [_qb_row(f"{l} {_qr_year}", t, a)
+                      for l, t, a in zip(_qb_qm["Label"], _qb_qm["Target"], _qb_qm["Revenue"])]
+        _qb_q_rows.append(_qb_row(f"{_qr_ql} total", _qr_cur["Target"], _qr_cur["Revenue"]))
+        _qb_y_rows = [_qb_row(f"Q{c}", _qr_s.loc["Target", c], _qr_s.loc["Revenue", c]) for c in _qr_quarters]
+        _qb_y_rows.append(_qb_row(f"YTD (Jan - {_qb_qm['Label'].iloc[-1]})", _qr_y["target"], _qr_y["revenue"]))
+        _qb_y_rows.append((f"Annual goal {_qr_year}", _qr_money(_qr_y["annual_target"]), _qr_money(_qr_y["revenue"]),
+                           f"{_qr_y['revenue'] - _qr_y['annual_target']:+,.0f}", f"{_qr_y['annual_pct']:.1f}% reached"))
+        _qb_notes = {}
+
         def _qb_compose(w):
             qm = _qr["monthly"][_qr["monthly"]["Q"] == _qr_q]
             w.new_page(f"{_qr_ql} brief")
@@ -3847,32 +3856,30 @@ elif page == "Quarterly Review":
                           f"Management summary  |  data as of {_qb_end:%d %b %Y}")
 
             w.section_title(f"1. {_qr_ql} targets vs actuals")
-            rows = [_qb_row(f"{l} {_qr_year}", t, a) for l, t, a in zip(qm["Label"], qm["Target"], qm["Revenue"])]
-            rows.append(_qb_row(f"{_qr_ql} total", _qr_cur["Target"], _qr_cur["Revenue"]))
-            w.table(["Period", "Target (GHS)", "Actual (GHS)", "Variance (GHS)", "Attainment"], rows, [40, 37, 37, 37, 32])
-            w.body(f"{_qr_ql} finished {'above' if _qr_cur['Attainment %'] >= 100 else 'below'} target at "
+            w.table(["Period", "Target (GHS)", "Actual (GHS)", "Variance (GHS)", "Attainment"], _qb_q_rows,
+                    [40, 37, 37, 37, 32])
+            _qb_notes["q"] = (f"{_qr_ql} finished {'above' if _qr_cur['Attainment %'] >= 100 else 'below'} target at "
                    f"{_qr_cur['Attainment %']:.1f}% ({_qr_money(_qr_cur['Revenue'] - _qr_cur['Target'])} "
                    f"{'over' if _qr_cur['Revenue'] >= _qr_cur['Target'] else 'under'}), with "
                    f"{int((qm['Attainment %'] >= 100).sum())} of {len(qm)} months on or above target.")
+            w.body(_qb_notes["q"])
 
             w.section_title("2. Year-to-date targets vs actuals")
-            rows = [_qb_row(f"Q{c}", _qr_s.loc["Target", c], _qr_s.loc["Revenue", c]) for c in _qr_quarters]
-            rows.append(_qb_row(f"YTD (Jan - {qm['Label'].iloc[-1]})", _qr_y["target"], _qr_y["revenue"]))
-            rows.append((f"Annual goal {_qr_year}", _qr_money(_qr_y["annual_target"]), _qr_money(_qr_y["revenue"]),
-                         f"{_qr_y['revenue'] - _qr_y['annual_target']:+,.0f}", f"{_qr_y['annual_pct']:.1f}% reached"))
-            w.table(["Period", "Target (GHS)", "Actual (GHS)", "Variance (GHS)", "Attainment"], rows, [40, 37, 37, 37, 32])
-            w.body(f"The year is {_qr_y['attainment']:.1f}% of the YTD target. {_qr_money(_qr_y['remaining'])} more "
+            w.table(["Period", "Target (GHS)", "Actual (GHS)", "Variance (GHS)", "Attainment"], _qb_y_rows,
+                    [40, 37, 37, 37, 32])
+            _qb_notes["y"] = (f"The year is {_qr_y['attainment']:.1f}% of the YTD target. {_qr_money(_qr_y['remaining'])} more "
                    f"is needed to reach the annual goal, which is {_qr_y['needed_pct_of_rest_target']:.0f}% of the "
                    f"remaining monthly targets; at the {_qr_ql} pace the year would close near "
                    f"{_qr_money(_qr_y['projected'])} ({_qr_y['projected_pct']:.0f}% of goal)." if _qr_y["months_left"] else
                    f"The year closed at {_qr_y['annual_pct']:.1f}% of the annual goal.")
+            w.body(_qb_notes["y"])
 
             if _qb_c["months"] is not None:
                 rv, tg = list(_qb_qm["Revenue"]), list(_qb_qm["Target"])
                 lab = list(_qb_qm["Label"])
                 w.section_title(f"3. {_qr_ql} trend: month by month")
                 w.chart(_qb_c["months"])
-                w.body(f"How to read: the green line is revenue each month and the dashed gold line the monthly target; "
+                _qb_notes["trend"] = (f"How to read: the green line is revenue each month and the dashed gold line the monthly target; "
                        f"green shading = above target, red = below. Revenue moved "
                        + " -> ".join(f"{l} {_qr_money(v)}" for l, v in zip(lab, rv))
                        + f" ({(rv[-1] / rv[0] - 1) * 100:+.1f}% from {lab[0]} to {lab[-1]}), while the target moved "
@@ -3880,6 +3887,7 @@ elif page == "Quarterly Review":
                        + f"{int((_qb_qm['Attainment %'] >= 100).sum())} of {len(rv)} months were on or above target; "
                        + f"the best month against target was {lab[int(_qb_qm['Attainment %'].values.argmax())]} "
                        + f"({_qb_qm['Attainment %'].max():.1f}%).")
+                w.body(_qb_notes["trend"])
 
             if _qb_c["vax"] is not None:
                 vq = _qb_vax.groupby("Q")["Total"].sum()
@@ -3887,7 +3895,7 @@ elif page == "Quarterly Review":
                          for d in qbf.DISEASE_COLORS if d in _qb_vax.columns}
                 w.section_title("4. Vaccines delivered: year-to-date trend")
                 w.chart(_qb_c["vax"])
-                w.body(f"How to read: each line is doses delivered per month by disease; the dotted line is all vaccines. "
+                _qb_notes["vax"] = (f"How to read: each line is doses delivered per month by disease; the dotted line is all vaccines. "
                        f"{_qb_vax['Total'].sum() / 1e6:.1f}M doses delivered year to date ({_qb_vials:,.0f} vials): "
                        + ", ".join(f"Q{k} {v / 1e6:.1f}M" for k, v in vq.items()) + ". "
                        + ", ".join(f"{d} {v:.0f}%" for d, v in sorted(share.items(), key=lambda kv: -kv[1]) if v >= 1)
@@ -3898,6 +3906,7 @@ elif page == "Quarterly Review":
                              if (_qb_vax[_qb_vax['Q'] == _qr_q]['Total'].diff().dropna() < 0).all() else ". ")
                           if len(vq) > 1 else "")
                        + "Doses = vials sold x doses per vial (mostly 1,000-dose vials).")
+                w.body(_qb_notes["vax"])
             drivers, recs = _qb_drivers_recs()
             if drivers:
                 w.section_title(f"5. Key drivers behind the {_qr_ql} numbers")
@@ -3917,17 +3926,33 @@ elif page == "Quarterly Review":
             _qb_compose(doc)
             return doc.output()
 
+        def _qb_pptx():
+            if not _qb_notes:                       # notes are filled while composing the document
+                _qb_compose(qrw.ReportDoc(""))
+            drivers, recs = _qb_drivers_recs()
+            return qrp.build_brief(dict(
+                q=_qr_q, ql=_qr_ql, label=_qr_label, as_of=f"{_qb_end:%d %b %Y}", qm=_qb_qm, cur=_qr_cur,
+                ytd=_qr_y, vax=_qb_vax, vials=_qb_vials, q_rows=_qb_q_rows, y_rows=_qb_y_rows,
+                q_note=_qb_notes.get("q", ""), y_note=_qb_notes.get("y", ""),
+                trend_note=_qb_notes.get("trend", ""), vax_note=_qb_notes.get("vax", ""),
+                drivers=drivers, recs=recs))
+
         _qb_fname = f"Ghana_{_qr_label.replace(' ', '_')}_Brief_Targets_vs_Actuals"
         _qr_text("<b>Brief version</b>: targets vs actuals for the quarter and year to date, the quarter's "
                  "month-by-month trend, the year-to-date vaccines trend, key drivers and recommendations.",
                  margin="10px 0 6px")
-        _qb_d1, _qb_d2 = st.columns(2)
+        _qb_d1, _qb_d2, _qb_d3 = st.columns(3)
         with _qb_d1:
             st.download_button(f"⬇ Download {_qr_label} Brief (PDF)", data=_qb_pdf(), file_name=f"{_qb_fname}.pdf",
                                mime="application/pdf", use_container_width=True)
         with _qb_d2:
             st.download_button(f"⬇ Download {_qr_label} Brief (Word)", data=_qb_docx(), file_name=f"{_qb_fname}.docx",
                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                               use_container_width=True)
+        with _qb_d3:
+            st.download_button(f"⬇ Download {_qr_label} Brief (PowerPoint)", data=_qb_pptx(),
+                               file_name=f"{_qb_fname}.pptx",
+                               mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                                use_container_width=True)
     else:
         st.warning("PDF export isn't available in this environment (fpdf2/matplotlib not installed).")
