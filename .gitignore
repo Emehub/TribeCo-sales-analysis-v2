@@ -24,3 +24,6 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local admin settings store (development)
+data/admin_store.local.json

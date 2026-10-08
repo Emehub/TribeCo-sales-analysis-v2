@@ -1,0 +1,104 @@
+"""
+Scheduled management emails (run by GitHub Actions every hour; sends only when a report is due).
+
+  python scripts/send_scheduled_reports.py                 # send whatever is due now (idempotent)
+  python scripts/send_scheduled_reports.py --report weekly --force --to me@cowtribe.com
+  python scripts/send_scheduled_reports.py --report monthly --period 2026-09 --dry-run --out exports/
+
+Configuration comes from environment variables (GitHub Actions secrets) or, when running locally,
+from .streamlit/secrets.toml:
+  METABASE_URL, METABASE_USERNAME, METABASE_PASSWORD, METABASE_DBNAME
+  SMTP_USER, SMTP_PASSWORD, SMTP_FROM_NAME
+  ADMIN_SHEET_ID, GCP_SERVICE_ACCOUNT_JSON
+"""
+import argparse
+import json
+import os
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "dashboard"))
+DATA = os.path.join(ROOT, "data")
+LOCAL_STORE = os.path.join(ROOT, "data", "admin_store.local.json")
+
+
+def load_config():
+    cfg = {}
+    sec = os.path.join(ROOT, ".streamlit", "secrets.toml")
+    if os.path.exists(sec):
+        import tomllib
+        with open(sec, "rb") as f:
+            cfg = tomllib.load(f)
+    env = os.environ.get
+    if env("METABASE_URL"):
+        cfg["metabase"] = {"url": env("METABASE_URL"), "username": env("METABASE_USERNAME"),
+                           "password": env("METABASE_PASSWORD"), "dbname": env("METABASE_DBNAME", "tribecodb")}
+    if env("SMTP_USER"):
+        cfg["smtp"] = {"user": env("SMTP_USER"), "password": env("SMTP_PASSWORD"),
+                       "from_name": env("SMTP_FROM_NAME", "TribeCo Ghana Reports")}
+    if env("ADMIN_SHEET_ID"):
+        cfg["admin_store"] = {"sheet_id": env("ADMIN_SHEET_ID")}
+    if env("GCP_SERVICE_ACCOUNT_JSON"):
+        cfg["gcp_service_account"] = json.loads(env("GCP_SERVICE_ACCOUNT_JSON"))
+    return cfg
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--report", choices=["auto", "weekly", "monthly"], default="auto")
+    ap.add_argument("--period", help="weekly: e.g. 2026-09-28/2026-10-04; monthly: e.g. 2026-09")
+    ap.add_argument("--force", action="store_true", help="send even if not due or already sent")
+    ap.add_argument("--to", help="comma-separated recipients (overrides the store; for testing)")
+    ap.add_argument("--dry-run", action="store_true", help="build only; write files instead of sending")
+    ap.add_argument("--out", default=os.path.join(ROOT, "exports"))
+    a = ap.parse_args()
+
+    import admin_store
+    import report_jobs as rj
+    cfg = load_config()
+    store = admin_store.open_store(cfg, LOCAL_STORE)
+    settings = store.get_settings()
+    now = rj.now_local(settings)
+
+    kinds = ["weekly", "monthly"] if a.report == "auto" else [a.report]
+    todo = []
+    for k in kinds:
+        is_due, period = rj.due(k, settings, now)
+        period = a.period or period
+        if a.force or (is_due and not store.already_sent(k, period)):
+            todo.append((k, period))
+        else:
+            print(f"{k}: not due ({'already sent' if is_due else 'outside schedule'}) for {period}")
+    if not todo:
+        return 0
+
+    import data_layer as dl
+    (pay, inv, rep, rc, prod, il, ir, prod_rev, rc_names, ibv, camp, irf,
+     inv_scoped, rep_scoped, ir_all_fbc, ts, live, err) = dl.load(cfg["metabase"], DATA, save_csv=False)
+    if not live:
+        print(f"WARNING: Metabase unavailable ({err}); using saved CSVs")
+    d = dict(inv=inv, inv_scoped=inv_scoped, rep_scoped=rep_scoped, rc=rc, il=il, prod=prod, data_dir=DATA)
+    to = [t.strip() for t in a.to.split(",")] if a.to else None
+
+    failed = False
+    for k, period in todo:
+        try:
+            parts = rj.send(k, d, store, cfg.get("smtp"), period, recipients=to,
+                            triggered_by="manual" if (a.force or a.to) else "schedule", dry_run=a.dry_run)
+            if a.dry_run:
+                os.makedirs(a.out, exist_ok=True)
+                with open(os.path.join(a.out, parts["pdf_name"]), "wb") as f:
+                    f.write(parts["pdf"])
+                with open(os.path.join(a.out, parts["pdf_name"].replace(".pdf", ".html")), "w", encoding="utf-8") as f:
+                    f.write(parts["html"])
+                print(f"{k} {period}: built (dry run) -> {parts['pdf_name']} | would send to {parts['recipients']}")
+            else:
+                print(f"{k} {period}: sent to {len(parts['recipients'])} recipient(s)")
+        except Exception as e:
+            failed = True
+            print(f"{k} {period}: FAILED - {type(e).__name__}: {e}")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

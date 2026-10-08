@@ -1,0 +1,58 @@
+# Weekly and monthly management emails.
+# Runs hourly between 06:00 and 18:59 Ghana time (UTC); the script only sends when a report is due
+# according to the Settings on the dashboard's Admin page (default: Fridays 09:00; monthly on the
+# first Friday), and never sends the same report twice. Run it by hand from the Actions tab to test.
+name: Scheduled management reports
+
+on:
+  schedule:
+    - cron: "5 6-18 * * *"
+  workflow_dispatch:
+    inputs:
+      report:
+        description: "auto, weekly or monthly"
+        default: "auto"
+      to:
+        description: "Optional: send only to these addresses (comma-separated), e.g. a test to yourself"
+        default: ""
+      force:
+        description: "Send even if not due (yes/no)"
+        default: "no"
+
+concurrency:
+  group: scheduled-reports
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-reports.txt
+      - run: pip install -r requirements-reports.txt
+      - name: Send due reports
+        env:
+          METABASE_URL: ${{ secrets.METABASE_URL }}
+          METABASE_USERNAME: ${{ secrets.METABASE_USERNAME }}
+          METABASE_PASSWORD: ${{ secrets.METABASE_PASSWORD }}
+          METABASE_DBNAME: ${{ secrets.METABASE_DBNAME }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM_NAME: TribeCo Ghana Reports
+          ADMIN_SHEET_ID: ${{ secrets.ADMIN_SHEET_ID }}
+          GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
+          # Manual-run inputs go through env vars (never interpolated into the script) to avoid injection.
+          IN_REPORT: ${{ github.event.inputs.report || 'auto' }}
+          IN_TO: ${{ github.event.inputs.to }}
+          IN_FORCE: ${{ github.event.inputs.force }}
+        run: |
+          case "$IN_REPORT" in auto|weekly|monthly) ;; *) echo "invalid report: $IN_REPORT"; exit 1;; esac
+          set -- --report "$IN_REPORT"
+          if [ -n "$IN_TO" ]; then set -- "$@" --to "$IN_TO"; fi
+          if [ "$IN_FORCE" = "yes" ]; then set -- "$@" --force; fi
+          python scripts/send_scheduled_reports.py "$@"

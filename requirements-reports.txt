@@ -1,0 +1,9 @@
+# Dependencies for the scheduled email job (scripts/send_scheduled_reports.py) only.
+pandas>=2.0.0
+numpy
+requests>=2.31.0
+matplotlib>=3.7.0
+fpdf2>=2.7.0
+pillow
+gspread>=6.0.0
+google-auth>=2.20.0
