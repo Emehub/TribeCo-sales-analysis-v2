@@ -56,6 +56,13 @@ def main():
     import admin_store
     import report_jobs as rj
     cfg = load_config()
+    missing = [k for k in ("metabase", "admin_store", "gcp_service_account") if k not in cfg]
+    if not a.dry_run and "smtp" not in cfg:
+        missing.append("smtp")
+    if missing and not a.dry_run:
+        # Not set up yet (see docs/ADMIN_AND_EMAIL_SETUP.md): skip quietly instead of failing every hour.
+        print("Scheduled reports are not configured yet (missing: " + ", ".join(missing) + "); nothing sent.")
+        return 0
     store = admin_store.open_store(cfg, LOCAL_STORE)
     settings = store.get_settings()
     now = rj.now_local(settings)
