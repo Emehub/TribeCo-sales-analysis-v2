@@ -21,6 +21,8 @@ import qr_charts as qrc
 import qr_word as qrw
 import qr_pptx as qrp
 import q_brief as qbf
+import admin_store
+import admin_page
 warnings.filterwarnings("ignore")
 try:
     import matplotlib
@@ -40,6 +42,55 @@ st.set_page_config(
 
 DATA      = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 CHART_CFG = {"displayModeBar": False}
+
+
+# ── Sign-in and roles ────────────────────────────────────────────────────────────
+# Google sign-in (st.login) is used once an [auth] section exists in the secrets. Until then the
+# dashboard works as before, but nobody gets the Admin role -- except on a developer machine whose
+# local secrets set [access] dev_admin = true. [access] require_login = true refuses to run without
+# [auth], so a misconfigured deployment can never fall back to an open dashboard.
+def _secrets_dict():
+    return {k: (dict(v) if hasattr(v, "keys") else v) for k, v in st.secrets.items()}
+
+
+@st.cache_resource
+def _get_store():
+    return admin_store.open_store(_secrets_dict(), os.path.join(DATA, "admin_store.local.json"))
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _role_for(email, admins):
+    return _get_store().role_for(email, admins)
+
+
+_ACCESS = dict(st.secrets.get("access", {}))
+_BOOT_ADMINS = tuple(a.strip().lower() for a in _ACCESS.get("admins", []))
+_AUTH_ON = "auth" in st.secrets
+
+if _AUTH_ON:
+    if not getattr(st.user, "is_logged_in", False):
+        st.markdown("<div style='max-width:420px;margin:12vh auto 0;text-align:center'>"
+                    "<div style='font-size:28px;font-weight:800;color:#024b30'>TribeCo Ghana Dashboard</div>"
+                    "<div style='color:#6b7280;margin:8px 0 24px'>Sign in with your Cowtribe Google account.</div>"
+                    "</div>", unsafe_allow_html=True)
+        _c = st.columns([1, 1, 1])[1]
+        if _c.button("Sign in with Google", type="primary", use_container_width=True):
+            st.login()
+        st.stop()
+    USER_EMAIL = (getattr(st.user, "email", "") or "").lower()
+    USER_ROLE = _role_for(USER_EMAIL, _BOOT_ADMINS)
+    if USER_ROLE is None:
+        st.error(f"{USER_EMAIL} does not have access to this dashboard yet. Ask an admin to add you.")
+        if st.button("Sign out"):
+            st.logout()
+        st.stop()
+elif _ACCESS.get("require_login"):
+    st.error("Sign-in is required but Google sign-in ([auth]) is not configured in the app secrets.")
+    st.stop()
+else:
+    USER_EMAIL = _ACCESS.get("dev_user", "")
+    USER_ROLE = "Admin" if _ACCESS.get("dev_admin") else "Viewer"
+IS_ADMIN = USER_ROLE == "Admin"
 
 # DSO settings, shared by the Weekly Info and YTD Review pages.
 # DSO = Outstanding AR ÷ sales in the trailing DSO_WINDOW_DAYS × DSO_WINDOW_DAYS,
@@ -1036,12 +1087,17 @@ NAV_GROUPS = {
     "Phase 2":        ["Reliability", "Segmentation", "Campaigns"],
     "History":        ["Historical Analysis"],
 }
+if IS_ADMIN:
+    NAV_GROUPS["Admin"] = ["Admin"]
+if st.session_state.get("active_page") == "Admin" and not IS_ADMIN:
+    st.session_state["active_page"] = "Overview"
 
 NAV_ICONS = {
     "Weekly Info":        "🧭",
     "YTD Review":         "📊",
     "Quarterly Review":    "🎯",
     "Credit & Collections": "🧾",
+    "Admin":               "🔐",
     "Data Export":         "🗂️",
     "Overview":            "🏠",
     "Sales Performance":   "📈",
@@ -1076,6 +1132,11 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
+    if USER_EMAIL:
+        st.markdown(f'<div style="color:rgba(255,255,255,0.85);font-size:12px;padding:2px 4px 8px">'
+                    f'Signed in as <b>{USER_EMAIL}</b><br>Role: {USER_ROLE}</div>', unsafe_allow_html=True)
+        if _AUTH_ON and st.button("Sign out", key="nav_signout", use_container_width=True):
+            st.logout()
     st.toggle("🌙 Dark mode", key="dark_mode")
 
     all_pages = [item for items in NAV_GROUPS.values() for item in items]
@@ -3883,6 +3944,12 @@ elif page == "Credit & Collections":
     st.caption("Built from Metabase only. An invoice counts as Credit when Metabase records payment terms "
                "on it (every invoice this year carries 30-day terms), so Credit Issued matches total "
                "invoice value. Sales Zone isn't held in Metabase and is left blank in the workbook.")
+
+elif page == "Admin" and IS_ADMIN:
+    _smtp = dict(st.secrets["smtp"]) if "smtp" in st.secrets else None
+    admin_page.render(_get_store(), USER_EMAIL or "admin", list(_BOOT_ADMINS),
+                      dict(inv=inv, inv_scoped=inv_scoped, rep_scoped=rep_scoped, rc=rc, il=il, prod=prod,
+                           data_dir=DATA), _smtp)
 
 elif page == "Data Export":
     _de_text = lambda html: st.markdown(
