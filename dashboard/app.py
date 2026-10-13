@@ -3946,7 +3946,8 @@ elif page == "Credit & Collections":
                "invoice value. Sales Zone isn't held in Metabase and is left blank in the workbook.")
 
 elif page == "Admin" and IS_ADMIN:
-    _smtp = dict(st.secrets["smtp"]) if "smtp" in st.secrets else None
+    import mailer as _mailer
+    _smtp = _mailer.config_from(_secrets_dict())
     admin_page.render(_get_store(), USER_EMAIL or "admin", list(_BOOT_ADMINS),
                       dict(inv=inv, inv_scoped=inv_scoped, rep_scoped=rep_scoped, rc=rc, il=il, prod=prod,
                            data_dir=DATA), _smtp)

@@ -112,7 +112,7 @@ def render(store, me, bootstrap_admins, d, smtp):
 
         st.divider()
         if not smtp:
-            st.warning("Email sending is not configured yet (missing [smtp] in the app secrets).")
+            st.warning("Email sending is not configured yet (add a [resend] section to the app secrets).")
         else:
             c1, c2 = st.columns(2)
             if c1.button(f"Send a test to me ({me})", key="adm_test"):

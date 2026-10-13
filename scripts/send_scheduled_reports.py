@@ -8,7 +8,7 @@ Scheduled management emails (run by GitHub Actions every hour; sends only when a
 Configuration comes from environment variables (GitHub Actions secrets) or, when running locally,
 from .streamlit/secrets.toml:
   METABASE_URL, METABASE_USERNAME, METABASE_PASSWORD, METABASE_DBNAME
-  SMTP_USER, SMTP_PASSWORD, SMTP_FROM_NAME
+  RESEND_API_KEY, RESEND_FROM, RESEND_REPLY_TO      (or SMTP_USER, SMTP_PASSWORD for Gmail)
   ADMIN_SHEET_ID, GCP_SERVICE_ACCOUNT_JSON
 """
 import argparse
@@ -33,6 +33,10 @@ def load_config():
     if env("METABASE_URL"):
         cfg["metabase"] = {"url": env("METABASE_URL"), "username": env("METABASE_USERNAME"),
                            "password": env("METABASE_PASSWORD"), "dbname": env("METABASE_DBNAME", "tribecodb")}
+    if env("RESEND_API_KEY"):
+        cfg["resend"] = {"api_key": env("RESEND_API_KEY"),
+                         "from": env("RESEND_FROM") or "TribeCo Ghana Reports <onboarding@resend.dev>",
+                         "reply_to": env("RESEND_REPLY_TO", "")}
     if env("SMTP_USER"):
         cfg["smtp"] = {"user": env("SMTP_USER"), "password": env("SMTP_PASSWORD"),
                        "from_name": env("SMTP_FROM_NAME", "TribeCo Ghana Reports")}
@@ -54,11 +58,13 @@ def main():
     a = ap.parse_args()
 
     import admin_store
+    import mailer
     import report_jobs as rj
     cfg = load_config()
+    email_cfg = mailer.config_from(cfg)
     missing = [k for k in ("metabase", "admin_store", "gcp_service_account") if k not in cfg]
-    if not a.dry_run and "smtp" not in cfg:
-        missing.append("smtp")
+    if not a.dry_run and email_cfg is None:
+        missing.append("resend (or smtp)")
     if missing and not a.dry_run:
         # Not set up yet (see docs/ADMIN_AND_EMAIL_SETUP.md): skip quietly instead of failing every hour.
         print("Scheduled reports are not configured yet (missing: " + ", ".join(missing) + "); nothing sent.")
@@ -90,7 +96,7 @@ def main():
     failed = False
     for k, period in todo:
         try:
-            parts = rj.send(k, d, store, cfg.get("smtp"), period, recipients=to,
+            parts = rj.send(k, d, store, email_cfg, period, recipients=to,
                             triggered_by="manual" if (a.force or a.to) else "schedule", dry_run=a.dry_run)
             if a.dry_run:
                 os.makedirs(a.out, exist_ok=True)

@@ -64,7 +64,7 @@ def build(kind, d, period, settings, as_of=None):
     return dict(subject=subject, html=html, pdf=pdf, pdf_name=name, period=period)
 
 
-def send(kind, d, store, smtp, period, recipients=None, triggered_by="schedule", dry_run=False):
+def send(kind, d, store, email_cfg, period, recipients=None, triggered_by="schedule", dry_run=False):
     """Build and send one report; logs the outcome. Returns the built parts plus 'recipients'."""
     settings = store.get_settings()
     to = recipients if recipients is not None else store.recipients(kind)
@@ -75,8 +75,10 @@ def send(kind, d, store, smtp, period, recipients=None, triggered_by="schedule",
             return parts
         if not to:
             raise ValueError(f"No active users have the {kind} report switched on")
-        mailer.send(smtp, to, parts["subject"], parts["html"],
-                    [(parts["pdf_name"], parts["pdf"], "application/pdf")])
+        # Scheduled sends carry an idempotency key, so a retried run can never email the same report twice.
+        key = f"tribeco-{kind}-{period}" if triggered_by == "schedule" else None
+        mailer.send(email_cfg, to, parts["subject"], parts["html"],
+                    [(parts["pdf_name"], parts["pdf"], "application/pdf")], idempotency_key=key)
         store.log(kind, period, to, "sent", parts["subject"], triggered_by)
         return parts
     except Exception as e:

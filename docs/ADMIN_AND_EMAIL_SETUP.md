@@ -37,11 +37,19 @@ The Metabase username and password appear in an old commit (`2953453`, 29 May 20
 
 The dashboard creates the tabs `Users`, `Settings` and `EmailLog` itself.
 
-## 3. Sending mailbox
+## 3. Email sending (Resend)
 
-1. Create `reports@cowtribe.com` (or similar) in Google Workspace.
-2. Turn on 2-Step Verification for that account, then create an **App password**
-   (Google Account → Security → App passwords). Copy the 16-character password.
+Reports are sent through **Resend** (resend.com) with an API key. No Gmail app password or
+2-Step Verification is needed.
+
+1. Sign in at <https://resend.com> and create an **API key** with *Sending access*. Keep it private.
+2. **Verify the domain** so reports can come from `@cowtribe.com`: Resend → **Domains → Add domain** →
+   `cowtribe.com`. Resend shows 2-3 DNS records (SPF/DKIM). Whoever manages cowtribe.com's DNS adds them;
+   Resend then shows the domain as *Verified*.
+   - Until it is verified, Resend only allows sending **from `onboarding@resend.dev` to your own Resend
+     login email**, which is fine for testing.
+3. Choose the sender, e.g. `TribeCo Ghana Reports <reports@cowtribe.com>` (any address on the verified
+   domain works; no mailbox is needed to send). Optionally set a reply-to address so replies reach a real inbox.
 
 ## 4. Streamlit Cloud secrets
 
@@ -72,10 +80,10 @@ client_email = "dashboard-store@....iam.gserviceaccount.com"
 client_id = "..."
 token_uri = "https://oauth2.googleapis.com/token"
 
-[smtp]
-user = "reports@cowtribe.com"
-password = "<app password from step 3>"
-from_name = "TribeCo Ghana Reports"
+[resend]
+api_key = "<Resend API key from step 3>"
+from = "TribeCo Ghana Reports <reports@cowtribe.com>"   # onboarding@resend.dev until the domain is verified
+reply_to = "your.name@cowtribe.com"                      # optional
 ```
 
 Save. The app restarts and asks everyone to sign in with Google.
@@ -90,8 +98,9 @@ GitHub → repository → **Settings → Secrets and variables → Actions → N
 | `METABASE_USERNAME` | same as `[metabase] username` |
 | `METABASE_PASSWORD` | the **new** Metabase password |
 | `METABASE_DBNAME` | `tribecodb` |
-| `SMTP_USER` | `reports@cowtribe.com` |
-| `SMTP_PASSWORD` | the app password |
+| `RESEND_API_KEY` | the Resend API key |
+| `RESEND_FROM` | e.g. `TribeCo Ghana Reports <reports@cowtribe.com>` |
+| `RESEND_REPLY_TO` | optional, e.g. your Cowtribe email |
 | `ADMIN_SHEET_ID` | the sheet ID |
 | `GCP_SERVICE_ACCOUNT_JSON` | the whole contents of the JSON key file |
 
@@ -110,10 +119,14 @@ GitHub → repository → **Settings → Secrets and variables → Actions → N
 
 - `dashboard/data_layer.py`: Metabase fetch and data scoping, shared by the dashboard and the email job.
 - `dashboard/weekly_report.py`, `dashboard/monthly_report.py`: report figures, PDF and email body.
-- `dashboard/report_jobs.py`: what is due, build, send, log. `dashboard/mailer.py`: Gmail SMTP.
+- `dashboard/report_jobs.py`: what is due, build, send, log. `dashboard/mailer.py`: Resend API
+  (Gmail SMTP is kept as a fallback if a `[smtp]` section is used instead).
 - `dashboard/admin_store.py`: Google Sheet store (local JSON file when no sheet is configured).
 - `dashboard/admin_page.py`: the Admin page. Sign-in gate and roles: top of `dashboard/app.py`.
 - `scripts/send_scheduled_reports.py` + `.github/workflows/scheduled-reports.yml`: the scheduler
   (hourly 06:00-18:59 Ghana time; sends only when due, never twice for the same period).
+- Local email test: add the `[resend]` section to your local `.streamlit/secrets.toml`, then run
+  `python scripts/send_scheduled_reports.py --report weekly --force --to your.email@...`
+  (that run still needs the `[admin_store]` sheet configured, or use the Admin page instead).
 - Local testing without Google: add `[access] dev_admin = true` and `dev_user = "you@..."` to your
   local `.streamlit/secrets.toml` (never to the Streamlit Cloud secrets).
