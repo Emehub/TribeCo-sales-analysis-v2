@@ -4,6 +4,7 @@ Scheduled management emails (run by GitHub Actions every hour; sends only when a
   python scripts/send_scheduled_reports.py                 # send whatever is due now (idempotent)
   python scripts/send_scheduled_reports.py --report weekly --force --to me@cowtribe.com
   python scripts/send_scheduled_reports.py --report monthly --period 2026-09 --dry-run --out exports/
+  python scripts/send_scheduled_reports.py --report auto --trigger external   # called by an outside scheduler
 
 Configuration comes from environment variables (GitHub Actions secrets) or, when running locally,
 from .streamlit/secrets.toml:
@@ -56,6 +57,8 @@ def main():
     ap.add_argument("--force", action="store_true", help="send even if not due or already sent")
     ap.add_argument("--to", help="comma-separated recipients (overrides the store; for testing)")
     ap.add_argument("--dry-run", action="store_true", help="build only; write files instead of sending")
+    ap.add_argument("--trigger", choices=["internal", "external"], default="internal",
+                    help="external = called by an outside scheduler at its own times (send latest period once)")
     ap.add_argument("--out", default=os.path.join(ROOT, "exports"))
     a = ap.parse_args()
 
@@ -78,7 +81,7 @@ def main():
     kinds = ["weekly", "monthly"] if a.report == "auto" else [a.report]
     todo = []
     for k in kinds:
-        is_due, period = rj.due(k, settings, now)
+        is_due, period = (rj.due_external if a.trigger == "external" else rj.due)(k, settings, now)
         period = a.period or period
         if a.force or (is_due and not store.already_sent(k, period)):
             todo.append((k, period))
@@ -99,7 +102,9 @@ def main():
     for k, period in todo:
         try:
             parts = rj.send(k, d, store, email_cfg, period, recipients=to,
-                            triggered_by="manual" if (a.force or a.to) else "schedule", dry_run=a.dry_run)
+                            triggered_by=("manual" if (a.force or a.to) else
+                                          "schedule (external)" if a.trigger == "external" else "schedule"),
+                            dry_run=a.dry_run)
             if a.dry_run:
                 os.makedirs(a.out, exist_ok=True)
                 with open(os.path.join(a.out, parts["pdf_name"]), "wb") as f:

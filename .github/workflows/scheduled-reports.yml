@@ -10,8 +10,15 @@ on:
   workflow_dispatch:
     inputs:
       report:
-        description: "auto, weekly or monthly"
+        description: "auto (weekly + monthly when due), weekly or monthly"
+        type: choice
+        options: [auto, weekly, monthly]
         default: "auto"
+      trigger:
+        description: "internal (manual test) or external (called by the company scheduler)"
+        type: choice
+        options: [internal, external]
+        default: "internal"
       to:
         description: "Optional: send only to these addresses (comma-separated), e.g. a test to yourself"
         default: ""
@@ -50,9 +57,11 @@ jobs:
           IN_REPORT: ${{ github.event.inputs.report || 'auto' }}
           IN_TO: ${{ github.event.inputs.to }}
           IN_FORCE: ${{ github.event.inputs.force }}
+          IN_TRIGGER: ${{ github.event.inputs.trigger || 'internal' }}
         run: |
           case "$IN_REPORT" in auto|weekly|monthly) ;; *) echo "invalid report: $IN_REPORT"; exit 1;; esac
-          set -- --report "$IN_REPORT"
+          case "$IN_TRIGGER" in internal|external) ;; *) echo "invalid trigger: $IN_TRIGGER"; exit 1;; esac
+          set -- --report "$IN_REPORT" --trigger "$IN_TRIGGER"
           if [ -n "$IN_TO" ]; then set -- "$@" --to "$IN_TO"; fi
           if [ "$IN_FORCE" = "yes" ]; then set -- "$@" --force; fi
           python scripts/send_scheduled_reports.py "$@"

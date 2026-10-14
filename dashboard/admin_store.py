@@ -85,7 +85,7 @@ class _Base:
 
     def already_sent(self, report, period):
         return any(l["report"] == report and l["period"] == period and l["status"] == "sent"
-                   and l.get("triggered_by") == "schedule" for l in self.list_log(500))
+                   and str(l.get("triggered_by", "")).startswith("schedule") for l in self.list_log(500))
 
 
 class LocalStore(_Base):
