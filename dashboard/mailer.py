@@ -30,7 +30,7 @@ def send(cfg, to, subject, html, attachments=(), text=None, idempotency_key=None
 
 def _send_resend(cfg, to, subject, html, attachments, text, idempotency_key):
     body = {
-        "from": cfg["from"],
+        "from": str(cfg["from"]).strip(),
         "to": to,
         "subject": subject,
         "html": html,
@@ -40,7 +40,7 @@ def _send_resend(cfg, to, subject, html, attachments, text, idempotency_key):
     }
     if cfg.get("reply_to"):
         body["reply_to"] = cfg["reply_to"]
-    headers = {"Authorization": f"Bearer {cfg['api_key']}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {str(cfg['api_key']).strip()}", "Content-Type": "application/json"}
     if idempotency_key:
         headers["Idempotency-Key"] = idempotency_key[:256]   # Resend ignores repeats of the same key for 24h
     r = requests.post(RESEND_URL, json=body, headers=headers, timeout=60)

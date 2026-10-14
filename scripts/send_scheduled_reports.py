@@ -29,7 +29,9 @@ def load_config():
         import tomllib
         with open(sec, "rb") as f:
             cfg = tomllib.load(f)
-    env = os.environ.get
+    def env(name, default=""):
+        """Secret value with stray spaces / line breaks from copy-paste removed; empty counts as unset."""
+        return (os.environ.get(name) or "").strip() or default
     if env("METABASE_URL"):
         cfg["metabase"] = {"url": env("METABASE_URL"), "username": env("METABASE_USERNAME"),
                            "password": env("METABASE_PASSWORD"), "dbname": env("METABASE_DBNAME", "tribecodb")}
@@ -43,7 +45,7 @@ def load_config():
     if env("ADMIN_SHEET_ID"):
         cfg["admin_store"] = {"sheet_id": env("ADMIN_SHEET_ID")}
     if env("GCP_SERVICE_ACCOUNT_JSON"):
-        cfg["gcp_service_account"] = json.loads(env("GCP_SERVICE_ACCOUNT_JSON"))
+        cfg["gcp_service_account"] = json.loads(os.environ["GCP_SERVICE_ACCOUNT_JSON"].strip())
     return cfg
 
 
