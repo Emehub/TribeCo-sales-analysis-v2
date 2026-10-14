@@ -58,7 +58,8 @@ def main():
     ap.add_argument("--to", help="comma-separated recipients (overrides the store; for testing)")
     ap.add_argument("--dry-run", action="store_true", help="build only; write files instead of sending")
     ap.add_argument("--trigger", choices=["internal", "external"], default="internal",
-                    help="external = called by an outside scheduler at its own times (send latest period once)")
+                    help="external = called by the company scheduler (hourly heartbeat); timing still follows "
+                         "the Admin page settings")
     ap.add_argument("--out", default=os.path.join(ROOT, "exports"))
     a = ap.parse_args()
 
@@ -81,13 +82,17 @@ def main():
     kinds = ["weekly", "monthly"] if a.report == "auto" else [a.report]
     todo = []
     for k in kinds:
-        is_due, period = (rj.due_external if a.trigger == "external" else rj.due)(k, settings, now)
+        is_due, period = rj.due(k, settings, now)
         period = a.period or period
         if a.force or (is_due and not store.already_sent(k, period)):
             todo.append((k, period))
         else:
             print(f"{k}: not due ({'already sent' if is_due else 'outside schedule'}) for {period}")
-    if not todo:
+    # One-off sends scheduled on the Admin page whose time has come (skipped for targeted test runs)
+    oneoffs = [] if (a.force or a.to or a.period or a.report != "auto") else store.due_oneoffs(now)
+    for o in oneoffs:
+        print(f"one-off #{o['id']}: {o['report']} {o['period']} scheduled for {o['send_at']}")
+    if not todo and not oneoffs:
         return 0
 
     import data_layer as dl
@@ -117,6 +122,19 @@ def main():
         except Exception as e:
             failed = True
             print(f"{k} {period}: FAILED - {type(e).__name__}: {e}")
+    for o in oneoffs:
+        try:
+            if a.dry_run:
+                print(f"one-off #{o['id']}: would send (dry run)")
+                continue
+            parts = rj.send(o["report"], d, store, email_cfg, o["period"], triggered_by=f"one-off #{o['id']}",
+                            idempotency_key=f"tribeco-oneoff-{o['id']}")
+            store.set_oneoff_status(o["id"], "sent", f"to {len(parts['recipients'])} recipient(s)")
+            print(f"one-off #{o['id']}: sent to {len(parts['recipients'])} recipient(s)")
+        except Exception as e:
+            failed = True
+            store.set_oneoff_status(o["id"], "failed", f"{type(e).__name__}: {e}")
+            print(f"one-off #{o['id']}: FAILED - {type(e).__name__}: {e}")
     return 1 if failed else 0
 
 

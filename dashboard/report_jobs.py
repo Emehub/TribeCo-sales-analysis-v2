@@ -31,23 +31,13 @@ def now_local(settings):
     return datetime.now(ZoneInfo(settings.get("timezone", "Africa/Accra"))).replace(tzinfo=None)
 
 
-def due_external(kind, settings, now):
-    """Called by an external scheduler at its own times: send the latest completed period. Weekly any day;
-    monthly only in the first 7 days of a month (so a weekly Friday call sends it on the first Friday)."""
-    if settings.get(f"{kind}_enabled", "yes").lower() not in ("yes", "true", "1"):
-        return False, None
-    if kind == "weekly":
-        return True, weekly_report.last_completed_week(now)
-    return now.day <= 7, monthly_report.previous_month(now)
-
-
 def due(kind, settings, now):
     """(is_due, period). Weekly: on the send day at/after the send time. Monthly: the first such day of
     the month. Periods: last completed Monday-Sunday week / previous calendar month."""
     if settings.get(f"{kind}_enabled", "yes").lower() not in ("yes", "true", "1"):
         return False, None
     day = DAYS.index(settings.get("send_day", "Friday"))
-    hh, mm = (int(x) for x in settings.get("send_time", "09:00").split(":"))
+    hh, mm = (int(x) for x in str(settings.get("send_time", "09:00")).split(":")[:2])
     on_time = now.weekday() == day and (now.hour, now.minute) >= (hh, mm)
     if kind == "weekly":
         return on_time, weekly_report.last_completed_week(now)
@@ -74,7 +64,8 @@ def build(kind, d, period, settings, as_of=None):
     return dict(subject=subject, html=html, pdf=pdf, pdf_name=name, period=period)
 
 
-def send(kind, d, store, email_cfg, period, recipients=None, triggered_by="schedule", dry_run=False):
+def send(kind, d, store, email_cfg, period, recipients=None, triggered_by="schedule", dry_run=False,
+         idempotency_key=None):
     """Build and send one report; logs the outcome. Returns the built parts plus 'recipients'."""
     settings = store.get_settings()
     to = recipients if recipients is not None else store.recipients(kind)
@@ -86,7 +77,7 @@ def send(kind, d, store, email_cfg, period, recipients=None, triggered_by="sched
         if not to:
             raise ValueError(f"No active users have the {kind} report switched on")
         # Scheduled sends carry an idempotency key, so a retried run can never email the same report twice.
-        key = f"tribeco-{kind}-{period}" if str(triggered_by).startswith("schedule") else None
+        key = idempotency_key or (f"tribeco-{kind}-{period}" if str(triggered_by).startswith("schedule") else None)
         mailer.send(email_cfg, to, parts["subject"], parts["html"],
                     [(parts["pdf_name"], parts["pdf"], "application/pdf")], idempotency_key=key)
         store.log(kind, period, to, "sent", parts["subject"], triggered_by)

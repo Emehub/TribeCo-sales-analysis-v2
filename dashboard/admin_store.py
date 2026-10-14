@@ -1,5 +1,5 @@
 """
-Admin settings store: users and roles, report settings, and the email log.
+Admin settings store: users and roles, report settings, scheduled one-off sends, and the email log.
 
 Two backends with the same interface:
   * GoogleSheetStore - a Google Sheet shared with a service account (production; survives restarts
@@ -14,6 +14,9 @@ from datetime import datetime, timezone
 ROLES = ["Admin", "Manager", "Viewer"]
 USER_COLS = ["email", "name", "role", "weekly", "monthly", "active", "added_by", "added_at"]
 LOG_COLS = ["timestamp", "report", "period", "recipients", "status", "detail", "triggered_by"]
+# One-off sends chosen on the Admin page. send_at is local (Ghana) time "YYYY-MM-DD HH:MM".
+# status: pending -> sent / failed / cancelled
+ONEOFF_COLS = ["id", "report", "period", "send_at", "status", "created_by", "created_at", "detail"]
 DEFAULT_SETTINGS = {
     "weekly_enabled": "yes", "monthly_enabled": "yes",
     "send_day": "Friday", "send_time": "09:00", "timezone": "Africa/Accra",
@@ -83,6 +86,27 @@ class _Base:
                           "recipients": ", ".join(recipients), "status": status,
                           "detail": str(detail)[:500], "triggered_by": triggered_by})
 
+    # ── one-off scheduled sends ──────────────────────────────────────────────
+    def add_oneoff(self, report, period, send_at, by):
+        rows = self.list_oneoffs()
+        new_id = str(max([int(r["id"]) for r in rows if str(r["id"]).isdigit()] or [0]) + 1)
+        rows.append({"id": new_id, "report": report, "period": period, "send_at": send_at, "status": "pending",
+                     "created_by": by, "created_at": _now(), "detail": ""})
+        self._save_oneoffs(rows)
+        return new_id
+
+    def set_oneoff_status(self, oneoff_id, status, detail=""):
+        rows = self.list_oneoffs()
+        for r in rows:
+            if str(r["id"]) == str(oneoff_id):
+                r["status"], r["detail"] = status, str(detail)[:300]
+        self._save_oneoffs(rows)
+
+    def due_oneoffs(self, now_local):
+        """Pending one-off sends whose time has come (now_local: naive local datetime)."""
+        stamp = now_local.strftime("%Y-%m-%d %H:%M")
+        return [r for r in self.list_oneoffs() if r["status"] == "pending" and str(r["send_at"]) <= stamp]
+
     def already_sent(self, report, period):
         return any(l["report"] == report and l["period"] == period and l["status"] == "sent"
                    and str(l.get("triggered_by", "")).startswith("schedule") for l in self.list_log(500))
@@ -96,7 +120,7 @@ class LocalStore(_Base):
         if os.path.exists(self.path):
             with open(self.path, encoding="utf-8") as f:
                 return json.load(f)
-        return {"users": [], "settings": {}, "log": []}
+        return {"users": [], "settings": {}, "log": [], "oneoffs": []}
 
     def _write(self, d):
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
@@ -120,6 +144,12 @@ class LocalStore(_Base):
 
     def list_log(self, n=100):
         return list(reversed(self._read()["log"]))[:n]
+
+    def list_oneoffs(self):
+        return self._read().get("oneoffs", [])
+
+    def _save_oneoffs(self, rows):
+        d = self._read(); d["oneoffs"] = rows; self._write(d)
 
 
 class GoogleSheetStore(_Base):
@@ -162,6 +192,16 @@ class GoogleSheetStore(_Base):
     def list_log(self, n=100):
         rows = self._tab("EmailLog", LOG_COLS).get_all_records()
         return [{c: str(r.get(c, "")) for c in LOG_COLS} for r in reversed(rows)][:n]
+
+    def list_oneoffs(self):
+        rows = self._tab("ScheduledSends", ONEOFF_COLS).get_all_records()
+        return [{c: str(r.get(c, "")) for c in ONEOFF_COLS} for r in rows]
+
+    def _save_oneoffs(self, rows):
+        ws = self._tab("ScheduledSends", ONEOFF_COLS)
+        ws.clear()
+        # RAW keeps "2026-10-20 10:00" and periods as plain text (no date/number conversion by Sheets)
+        ws.update([ONEOFF_COLS] + [[r.get(c, "") for c in ONEOFF_COLS] for r in rows], value_input_option="RAW")
 
 
 def open_store(cfg, local_path):

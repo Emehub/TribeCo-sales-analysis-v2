@@ -115,6 +115,16 @@ GitHub → repository → **Settings → Secrets and variables → Actions → N
 5. From then on it runs by itself: every Friday at 09:00 (weekly), and on the first Friday of each month
    (monthly). Every send is listed on the Admin page's **Email log**.
 
+## Who triggers the sends
+
+- The company scheduler (Zhulia) calls the report workflow **every hour** through GitHub's API
+  (`report=auto`, `trigger=external`); see `exports/Report_Endpoint_Handover_for_Scheduler_v2.docx`.
+  The workflow's own hourly schedule (06:00-18:59) stays on as a backup; both are safe together.
+- **The Admin page decides when anything is actually sent:**
+  - *Report settings*: the regular weekly day/time; monthly on the first such day of the month.
+  - *Scheduled sends*: one-off sends of a chosen report and period on a chosen date and time
+    (stored in the sheet's `ScheduledSends` tab; can be cancelled while pending).
+
 ## How it works (for maintainers)
 
 - `dashboard/data_layer.py`: Metabase fetch and data scoping, shared by the dashboard and the email job.
