@@ -31,17 +31,27 @@ def now_local(settings):
     return datetime.now(ZoneInfo(settings.get("timezone", "Africa/Accra"))).replace(tzinfo=None)
 
 
+def _past(now, hhmm):
+    hh, mm = (int(x) for x in str(hhmm).split(":")[:2])
+    return (now.hour, now.minute) >= (hh, mm)
+
+
 def due(kind, settings, now):
-    """(is_due, period). Weekly: on the send day at/after the send time. Monthly: the first such day of
-    the month. Periods: last completed Monday-Sunday week / previous calendar month."""
+    """(is_due, period). Weekly: on the send day at/after the send time. Monthly: either the first chosen
+    weekday of the month or a fixed date (1-28), at/after the monthly time.
+    Periods: last completed Monday-Sunday week / previous calendar month."""
     if settings.get(f"{kind}_enabled", "yes").lower() not in ("yes", "true", "1"):
         return False, None
-    day = DAYS.index(settings.get("send_day", "Friday"))
-    hh, mm = (int(x) for x in str(settings.get("send_time", "09:00")).split(":")[:2])
-    on_time = now.weekday() == day and (now.hour, now.minute) >= (hh, mm)
     if kind == "weekly":
-        return on_time, weekly_report.last_completed_week(now)
-    return on_time and now.day <= 7, monthly_report.previous_month(now)
+        on_day = now.weekday() == DAYS.index(settings.get("send_day", "Friday"))
+        return on_day and _past(now, settings.get("send_time", "09:00")), weekly_report.last_completed_week(now)
+    if settings.get("monthly_rule", "first_weekday") == "day_of_month":
+        on_day = now.day == int(settings.get("monthly_date", "1"))
+    else:
+        weekday = settings.get("monthly_day") or settings.get("send_day", "Friday")
+        on_day = now.weekday() == DAYS.index(weekday) and now.day <= 7
+    hhmm = settings.get("monthly_time") or settings.get("send_time", "09:00")
+    return on_day and _past(now, hhmm), monthly_report.previous_month(now)
 
 
 def build(kind, d, period, settings, as_of=None):

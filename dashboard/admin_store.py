@@ -20,6 +20,7 @@ ONEOFF_COLS = ["id", "report", "period", "send_at", "status", "created_by", "cre
 DEFAULT_SETTINGS = {
     "weekly_enabled": "yes", "monthly_enabled": "yes",
     "send_day": "Friday", "send_time": "09:00", "timezone": "Africa/Accra",
+    "monthly_rule": "first_weekday", "monthly_day": "Friday", "monthly_date": "1", "monthly_time": "09:00",
     "dashboard_url": "",
 }
 
