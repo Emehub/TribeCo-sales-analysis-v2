@@ -148,41 +148,46 @@ def render(store, me, bootstrap_admins, d, smtp):
     # ── Report schedule ───────────────────────────────────────────────────────
     with t_settings:
         s = settings
-        with st.form("adm_settings", border=False):
-            c_w, c_m = st.columns(2)
-            with c_w.container(border=True):
+        c_w, c_m = st.columns(2)
+        with c_w:
+            with st.container(border=True):
                 _heading("Weekly report", "Covers the last full Monday to Sunday week.")
-                wk_on = st.toggle("Send the weekly report", value=s["weekly_enabled"] == "yes")
-                day = st.selectbox("Day", report_jobs.DAYS, index=report_jobs.DAYS.index(s["send_day"]))
-                tm = st.time_input("Time (Ghana)", value=_t(s["send_time"]), step=3600)
-            with c_m.container(border=True):
+                wk_on = st.toggle("Send the weekly report", value=s["weekly_enabled"] == "yes", key="set_wk_on")
+                day = st.selectbox("Day", report_jobs.DAYS, index=report_jobs.DAYS.index(s["send_day"]),
+                                   key="set_wk_day")
+                tm = st.time_input("Time (Ghana)", value=_t(s["send_time"]), step=3600, key="set_wk_time")
+        with c_m:
+            with st.container(border=True):
                 _heading("Monthly report", "Covers the previous calendar month.")
-                mo_on = st.toggle("Send the monthly report", value=s["monthly_enabled"] == "yes")
+                mo_on = st.toggle("Send the monthly report", value=s["monthly_enabled"] == "yes", key="set_mo_on")
                 rules = {"first_weekday": "First weekday of the month", "day_of_month": "Fixed date"}
                 rule = st.radio("Send on", list(rules), format_func=rules.get, horizontal=True,
-                                index=list(rules).index(s["monthly_rule"]))
-                c1, c2 = st.columns(2)
-                m_day = c1.selectbox("Weekday", report_jobs.DAYS, index=report_jobs.DAYS.index(s["monthly_day"]),
-                                     help="Used with 'First weekday of the month'.")
-                m_date = c2.number_input("Date", min_value=1, max_value=28, value=int(s["monthly_date"]),
-                                         help="Used with 'Fixed date' (1 to 28).")
-                m_tm = st.time_input("Time (Ghana)", value=_t(s["monthly_time"]), step=3600, key="adm_m_time")
-
-            with st.container(border=True):
-                _heading("Email content")
-                url = st.text_input("Dashboard link included in the emails", value=s.get("dashboard_url", ""))
-            st.caption("Choose send times between 06:00 and 18:59.")
-            if st.form_submit_button("Save schedule", type="primary"):
-                if not (6 <= tm.hour <= 18 and 6 <= m_tm.hour <= 18):
-                    st.error("Choose send times between 06:00 and 18:59.")
+                                index=list(rules).index(s["monthly_rule"]), key="set_mo_rule")
+                m_day, m_date = s["monthly_day"], int(s["monthly_date"])
+                if rule == "first_weekday":
+                    m_day = st.selectbox("Weekday", report_jobs.DAYS, index=report_jobs.DAYS.index(m_day),
+                                         key="set_mo_day")
                 else:
-                    store.set_settings({"weekly_enabled": "yes" if wk_on else "no",
-                                        "monthly_enabled": "yes" if mo_on else "no", "send_day": day,
-                                        "send_time": tm.strftime("%H:%M"), "monthly_rule": rule,
-                                        "monthly_day": m_day, "monthly_date": str(int(m_date)),
-                                        "monthly_time": m_tm.strftime("%H:%M"), "dashboard_url": url.strip()})
-                    when = f"the first {m_day}" if rule == "first_weekday" else f"day {int(m_date)}"
-                    st.success(f"Saved. Weekly: {day}s at {tm:%H:%M}. Monthly: {when} of each month at {m_tm:%H:%M}.")
+                    m_date = st.number_input("Date (1 to 28)", min_value=1, max_value=28, value=m_date,
+                                             key="set_mo_date")
+                m_tm = st.time_input("Time (Ghana)", value=_t(s["monthly_time"]), step=3600, key="set_mo_time")
+
+        with st.container(border=True):
+            _heading("Email content")
+            url = st.text_input("Dashboard link included in the emails", value=s.get("dashboard_url", ""),
+                                key="set_url")
+        st.caption("Choose send times between 06:00 and 18:59.")
+        if st.button("Save schedule", type="primary", key="set_save"):
+            if not (6 <= tm.hour <= 18 and 6 <= m_tm.hour <= 18):
+                st.error("Choose send times between 06:00 and 18:59.")
+            else:
+                store.set_settings({"weekly_enabled": "yes" if wk_on else "no",
+                                    "monthly_enabled": "yes" if mo_on else "no", "send_day": day,
+                                    "send_time": tm.strftime("%H:%M"), "monthly_rule": rule,
+                                    "monthly_day": m_day, "monthly_date": str(int(m_date)),
+                                    "monthly_time": m_tm.strftime("%H:%M"), "dashboard_url": url.strip()})
+                when = f"the first {m_day}" if rule == "first_weekday" else f"day {int(m_date)}"
+                st.success(f"Saved. Weekly: {day}s at {tm:%H:%M}. Monthly: {when} of each month at {m_tm:%H:%M}.")
 
     # ── Preview and send ──────────────────────────────────────────────────────
     with t_send:
