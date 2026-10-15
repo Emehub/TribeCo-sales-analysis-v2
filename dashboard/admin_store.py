@@ -9,6 +9,7 @@ open_store(cfg) picks the sheet when [admin_store] sheet_id and [gcp_service_acc
 """
 import json
 import os
+import time
 from datetime import datetime, timezone
 
 ROLES = ["Admin", "Manager", "Viewer"]
@@ -160,42 +161,63 @@ class GoogleSheetStore(_Base):
         import gspread
         gc = gspread.service_account_from_dict(dict(service_account_info))
         self.sh = gc.open_by_key(sheet_id)
+        self._ws, self._rows = {}, {}
+
+    # Google allows about 60 reads a minute, and one Admin page render reads several tabs, so worksheet
+    # handles are kept and each tab's rows are reused for READ_TTL seconds (writes clear that tab).
+    READ_TTL = 30
 
     def _tab(self, name, header):
         import gspread
-        try:
-            ws = self.sh.worksheet(name)
-        except gspread.WorksheetNotFound:
-            ws = self.sh.add_worksheet(title=name, rows=200, cols=len(header))
-            ws.append_row(header)
-        return ws
+        if name not in self._ws:
+            try:
+                ws = self.sh.worksheet(name)
+            except gspread.WorksheetNotFound:
+                ws = self.sh.add_worksheet(title=name, rows=200, cols=len(header))
+                ws.append_row(header)
+            self._ws[name] = ws
+        return self._ws[name]
+
+    def _records(self, name, header):
+        hit = self._rows.get(name)
+        if hit and time.monotonic() - hit[0] < self.READ_TTL:
+            return hit[1]
+        rows = self._tab(name, header).get_all_records()
+        self._rows[name] = (time.monotonic(), rows)
+        return rows
+
+    def _written(self, name):
+        self._rows.pop(name, None)
 
     def list_users(self):
-        return [{c: str(r.get(c, "")) for c in USER_COLS} for r in self._tab("Users", USER_COLS).get_all_records()]
+        return [{c: str(r.get(c, "")) for c in USER_COLS} for r in self._records("Users", USER_COLS)]
 
     def _save_users(self, users):
         ws = self._tab("Users", USER_COLS)
         ws.clear()
         ws.update([USER_COLS] + [[u.get(c, "") for c in USER_COLS] for u in users])
+        self._written("Users")
 
     def _load_settings(self):
-        return {r["key"]: str(r["value"]) for r in self._tab("Settings", ["key", "value"]).get_all_records()}
+        return {r["key"]: str(r["value"]) for r in self._records("Settings", ["key", "value"])}
 
     def set_settings(self, s):
         cur = {**self._load_settings(), **{k: str(v) for k, v in s.items()}}
         ws = self._tab("Settings", ["key", "value"])
         ws.clear()
         ws.update([["key", "value"]] + [[k, v] for k, v in cur.items()])
+        self._written("Settings")
 
     def _append_log(self, row):
         self._tab("EmailLog", LOG_COLS).append_row([row[c] for c in LOG_COLS])
+        self._written("EmailLog")
 
     def list_log(self, n=100):
-        rows = self._tab("EmailLog", LOG_COLS).get_all_records()
+        rows = self._records("EmailLog", LOG_COLS)
         return [{c: str(r.get(c, "")) for c in LOG_COLS} for r in reversed(rows)][:n]
 
     def list_oneoffs(self):
-        rows = self._tab("ScheduledSends", ONEOFF_COLS).get_all_records()
+        rows = self._records("ScheduledSends", ONEOFF_COLS)
         return [{c: str(r.get(c, "")) for c in ONEOFF_COLS} for r in rows]
 
     def _save_oneoffs(self, rows):
@@ -203,6 +225,7 @@ class GoogleSheetStore(_Base):
         ws.clear()
         # RAW keeps "2026-10-20 10:00" and periods as plain text (no date/number conversion by Sheets)
         ws.update([ONEOFF_COLS] + [[r.get(c, "") for c in ONEOFF_COLS] for r in rows], value_input_option="RAW")
+        self._written("ScheduledSends")
 
 
 def open_store(cfg, local_path):
