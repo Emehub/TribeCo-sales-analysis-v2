@@ -54,8 +54,13 @@ def _secrets_dict():
 
 
 @st.cache_resource
-def _get_store():
+def _open_store(code_version):
     return admin_store.open_store(_secrets_dict(), os.path.join(DATA, "admin_store.local.json"))
+
+
+def _get_store():
+    # Keyed on admin_store.py's timestamp so a redeploy never reuses a store object built by older code.
+    return _open_store(os.path.getmtime(admin_store.__file__))
 
 
 @st.cache_data(ttl=60, show_spinner=False)
