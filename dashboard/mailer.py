@@ -7,6 +7,7 @@ Provider is chosen by the config dict:
   * Gmail / Workspace SMTP (fallback): {"user": ..., "password": <app password>, "from_name": ...}
 """
 import base64
+import re
 import smtplib
 import ssl
 from email.message import EmailMessage
@@ -28,9 +29,22 @@ def send(cfg, to, subject, html, attachments=(), text=None, idempotency_key=None
     return _send_smtp(cfg, to, subject, html, attachments, text)
 
 
+def _clean_key(raw):
+    """The Resend key out of a pasted secret, ignoring stray spaces, line breaks or extra text around it."""
+    m = re.search(r"re_[A-Za-z0-9_-]+", str(raw))
+    if not m:
+        raise ValueError("The Resend API key is not in the expected format (it should start with re_).")
+    return m.group(0)
+
+
+def _clean_from(raw):
+    """First non-empty line of the from address (drops anything pasted after it)."""
+    return next((ln.strip() for ln in str(raw).splitlines() if ln.strip()), "")
+
+
 def _send_resend(cfg, to, subject, html, attachments, text, idempotency_key):
     body = {
-        "from": str(cfg["from"]).strip(),
+        "from": _clean_from(cfg["from"]),
         "to": to,
         "subject": subject,
         "html": html,
@@ -40,7 +54,7 @@ def _send_resend(cfg, to, subject, html, attachments, text, idempotency_key):
     }
     if cfg.get("reply_to"):
         body["reply_to"] = cfg["reply_to"]
-    headers = {"Authorization": f"Bearer {str(cfg['api_key']).strip()}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {_clean_key(cfg['api_key'])}", "Content-Type": "application/json"}
     if idempotency_key:
         headers["Idempotency-Key"] = idempotency_key[:256]   # Resend ignores repeats of the same key for 24h
     r = requests.post(RESEND_URL, json=body, headers=headers, timeout=60)
