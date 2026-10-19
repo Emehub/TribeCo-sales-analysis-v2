@@ -42,6 +42,27 @@ def _t(hhmm):
     return pd.Timestamp(2000, 1, 1, hh, mm).time()
 
 
+def _ampm(t):
+    """09:00 -> '9:00 AM', 14:00 -> '2:00 PM'."""
+    return f"{t:%I:%M %p}".lstrip("0")
+
+
+def _time_pick(label, value, key):
+    """Hour and AM/PM pickers (sends go out on the hour). Returns a datetime.time."""
+    st.markdown(f'<div style="font-size:14px;margin-bottom:4px">{label}</div>', unsafe_allow_html=True)
+    c1, c2 = st.columns(2)
+    h12 = value.hour % 12 or 12
+    hour = c1.selectbox("Hour", list(range(1, 13)), index=h12 - 1, key=f"{key}_h", label_visibility="collapsed",
+                        format_func=lambda h: f"{h}:00")
+    half = c2.selectbox("AM/PM", ["AM", "PM"], index=int(value.hour >= 12), key=f"{key}_p",
+                        label_visibility="collapsed")
+    return pd.Timestamp(2000, 1, 1, hour % 12 + (12 if half == "PM" else 0), 0).time()
+
+
+def _ok_time(t):
+    return 6 <= t.hour <= 18
+
+
 def _next_send(kind, settings, now):
     """First hour from now when the regular schedule sends this report, or None if it is switched off."""
     t = pd.Timestamp(now).floor("h")
@@ -72,6 +93,14 @@ def _table(rows, cols):
     st.dataframe(df, width="stretch", hide_index=True)
 
 
+def _when(send_at):
+    try:
+        t = pd.Timestamp(send_at)
+        return f"{t:%a %d %b %Y}, {_ampm(t)}"
+    except (ValueError, TypeError):
+        return send_at
+
+
 def render(store, me, bootstrap_admins, d, smtp):
     settings = store.get_settings()
     users = store.list_users()
@@ -86,10 +115,10 @@ def render(store, me, bootstrap_admins, d, smtp):
         _stat("Users", len(active), f"{sum(u['role'] == 'Admin' for u in active)} admin(s), "
                                     f"{sum(u['role'] == 'Manager' for u in active)} manager(s)"),
         _stat("Next weekly email", f"{nxt['weekly']:%a %d %b}" if nxt["weekly"] else "Off",
-              f"at {nxt['weekly']:%H:%M} to {len(store.recipients('weekly'))} recipient(s)" if nxt["weekly"]
+              f"at {_ampm(nxt['weekly'])} to {len(store.recipients('weekly'))} recipient(s)" if nxt["weekly"]
               else "Switched off in Report settings", GOLD),
         _stat("Next monthly email", f"{nxt['monthly']:%a %d %b}" if nxt["monthly"] else "Off",
-              f"at {nxt['monthly']:%H:%M} to {len(store.recipients('monthly'))} recipient(s)" if nxt["monthly"]
+              f"at {_ampm(nxt['monthly'])} to {len(store.recipients('monthly'))} recipient(s)" if nxt["monthly"]
               else "Switched off in Report settings", GOLD),
         _stat("One-off sends", len(pending), "scheduled and waiting"),
     ]
@@ -155,7 +184,7 @@ def render(store, me, bootstrap_admins, d, smtp):
                 wk_on = st.toggle("Send the weekly report", value=s["weekly_enabled"] == "yes", key="set_wk_on")
                 day = st.selectbox("Day", report_jobs.DAYS, index=report_jobs.DAYS.index(s["send_day"]),
                                    key="set_wk_day")
-                tm = st.time_input("Time (Ghana)", value=_t(s["send_time"]), step=3600, key="set_wk_time")
+                tm = _time_pick("Time (Ghana)", _t(s["send_time"]), "set_wk_time")
         with c_m:
             with st.container(border=True):
                 _heading("Monthly report", "Covers the previous calendar month.")
@@ -170,16 +199,16 @@ def render(store, me, bootstrap_admins, d, smtp):
                 else:
                     m_date = st.number_input("Date (1 to 28)", min_value=1, max_value=28, value=m_date,
                                              key="set_mo_date")
-                m_tm = st.time_input("Time (Ghana)", value=_t(s["monthly_time"]), step=3600, key="set_mo_time")
+                m_tm = _time_pick("Time (Ghana)", _t(s["monthly_time"]), "set_mo_time")
 
         with st.container(border=True):
             _heading("Email content")
             url = st.text_input("Dashboard link included in the emails", value=s.get("dashboard_url", ""),
                                 key="set_url")
-        st.caption("Choose send times between 06:00 and 18:59.")
+        st.caption("Choose send times between 6:00 AM and 6:00 PM.")
         if st.button("Save schedule", type="primary", key="set_save"):
-            if not (6 <= tm.hour <= 18 and 6 <= m_tm.hour <= 18):
-                st.error("Choose send times between 06:00 and 18:59.")
+            if not (_ok_time(tm) and _ok_time(m_tm)):
+                st.error("Choose send times between 6:00 AM and 6:00 PM.")
             else:
                 store.set_settings({"weekly_enabled": "yes" if wk_on else "no",
                                     "monthly_enabled": "yes" if mo_on else "no", "send_day": day,
@@ -187,7 +216,7 @@ def render(store, me, bootstrap_admins, d, smtp):
                                     "monthly_day": m_day, "monthly_date": str(int(m_date)),
                                     "monthly_time": m_tm.strftime("%H:%M"), "dashboard_url": url.strip()})
                 when = f"the first {m_day}" if rule == "first_weekday" else f"day {int(m_date)}"
-                st.success(f"Saved. Weekly: {day}s at {tm:%H:%M}. Monthly: {when} of each month at {m_tm:%H:%M}.")
+                st.success(f"Saved. Weekly: {day}s at {_ampm(tm)}. Monthly: {when} of each month at {_ampm(m_tm)}.")
 
     # ── Preview and send ──────────────────────────────────────────────────────
     with t_send:
@@ -251,28 +280,30 @@ def render(store, me, bootstrap_admins, d, smtp):
                                         format_func=_month_label)
             c3, c4 = st.columns(2)
             s_date = c3.date_input("Date", value=now.date(), min_value=now.date(), key="sch_date")
-            s_time = c4.time_input("Time (Ghana)", value=pd.Timestamp(2000, 1, 1, 9, 0).time(), step=3600,
-                                   key="sch_time")
+            with c4:
+                s_time = _time_pick("Time (Ghana)", _t("09:00"), "sch_time")
             when = pd.Timestamp.combine(s_date, s_time)
             if st.button("Schedule send", type="primary", key="sch_add"):
-                if when < now.floor("h"):
+                if not _ok_time(s_time):
+                    st.error("Choose a time between 6:00 AM and 6:00 PM.")
+                elif when < now.floor("h"):
                     st.error("Choose a time in the future.")
                 else:
                     new_id = store.add_oneoff(s_kind, s_period, when.strftime("%Y-%m-%d %H:%M"), me)
                     st.success(f"Scheduled #{new_id}: the {s_kind} report for {_period_label(s_kind, s_period)} "
-                               f"on {when:%a %d %b %Y at %H:%M}.")
+                               f"on {when:%a %d %b %Y} at {_ampm(when)}.")
                     pending = [r for r in store.list_oneoffs() if r["status"] == "pending"]
-            st.caption("Goes out within the hour after the chosen time.")
+            st.caption("Choose a time between 6:00 AM and 6:00 PM. It goes out within the hour after that time.")
 
         with st.container(border=True):
             _heading("Upcoming")
             if pending:
-                _table([{**r, "period": _period_label(r["report"], r["period"]), "report": r["report"].title()}
-                        for r in pending],
+                _table([{**r, "period": _period_label(r["report"], r["period"]), "report": r["report"].title(),
+                         "send_at": _when(r["send_at"])} for r in pending],
                        {"id": "#", "report": "Report", "period": "Period", "send_at": "Send at",
                         "created_by": "Scheduled by"})
                 cancel = st.selectbox("Cancel a scheduled send", ["None"] + [
-                    f"#{r['id']} {r['report'].title()} {_period_label(r['report'], r['period'])} at {r['send_at']}"
+                    f"#{r['id']} {r['report'].title()} {_period_label(r['report'], r['period'])} on {_when(r['send_at'])}"
                     for r in pending], key="sch_cancel_pick")
                 if cancel != "None" and st.button("Cancel this send", key="sch_cancel"):
                     store.set_oneoff_status(cancel.split()[0][1:], "cancelled", f"cancelled by {me}")
@@ -283,7 +314,7 @@ def render(store, me, bootstrap_admins, d, smtp):
             done = [r for r in oneoffs if r["status"] != "pending"]
             if done:
                 with st.expander(f"Past one-off sends ({len(done)})"):
-                    _table(done[::-1], {"id": "#", "report": "Report", "period": "Period", "send_at": "Send at",
+                    _table([{**r, "send_at": _when(r["send_at"])} for r in done[::-1]], {"id": "#", "report": "Report", "period": "Period", "send_at": "Send at",
                                         "status": "Status", "detail": "Detail"})
 
     # ── Email log ─────────────────────────────────────────────────────────────
