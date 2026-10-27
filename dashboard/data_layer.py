@@ -113,6 +113,30 @@ def fetch_raw(cfg, data_dir, save_csv=True):
     return raw, from_mb, err
 
 
+# Central stock: each batch received into the Ghana warehouse, with its catalogue product and prices.
+STOCK_SQL = """SELECT b.*, s.product_id AS catalog_product_id, s.cost_price, s.selling_price
+    FROM batchorder b LEFT JOIN seller_product_catalog s ON s.id = b.seller_product_catalogid
+    WHERE b.country_code = 'GH'"""
+STOCK_CSV = "stock_batches.csv"
+
+
+def load_stock(cfg, data_dir, save_csv=True):
+    """Ghana stock batches live from Metabase, else the last saved copy. Returns (df, from_metabase, error)."""
+    try:
+        mb = _Metabase(cfg)
+        tok = mb.login()
+        df = _mb_sql(tok, mb.db_id(tok), STOCK_SQL, mb.base)
+    except Exception as e:
+        path = os.path.join(data_dir, STOCK_CSV)
+        return (pd.read_csv(path) if os.path.exists(path) else pd.DataFrame()), False, f"{type(e).__name__}: {e}"
+    if save_csv:
+        try:
+            df.to_csv(os.path.join(data_dir, STOCK_CSV), index=False, encoding="utf-8-sig")
+        except Exception:
+            pass
+    return df, True, ""
+
+
 def load(cfg, data_dir, save_csv=True):
     """Fetch + process in one call: returns the same tuple the dashboard unpacks."""
     raw, from_mb, err = fetch_raw(cfg, data_dir, save_csv=save_csv)
