@@ -101,7 +101,35 @@ def compute(month, inv_scoped, rep_scoped, rc, il, prod, monthly_targets, full_h
              movers=by, active=len(custs), new_c=new_c, vax=vax, vials=vials, data_end=data_end)
     r["drivers"], r["recs"] = drivers_recs(r)
     r["prod"] = product_report.compute(month, inv_scoped, product_frames) if product_frames else None
+    r["top5"] = top_customers(inv, ia, names, month, prev_m, r["prod"])
     return r
+
+
+def top_customers(inv, ia, names, month, prev_m, prod=None, n=5):
+    """The customers driving the month: revenue, share, change vs last month, YTD, owed and main product."""
+    cur = inv[inv["M"] == month]
+    if cur.empty:
+        return pd.DataFrame()
+    g = cur.groupby("Customer ID").agg(Revenue=("V", "sum"), Orders=("V", "size"))
+    g["Share"] = g["Revenue"] / g["Revenue"].sum()
+    g = g.sort_values("Revenue", ascending=False).head(n)
+    ids = g.index
+    g["Prev"] = inv[inv["M"] == prev_m].groupby("Customer ID")["V"].sum().reindex(ids).fillna(0)
+    g["YTD"] = inv[inv["M"].str[:4] == month[:4]].groupby("Customer ID")["V"].sum().reindex(ids).fillna(0)
+    g["Owed"] = ia.groupby("Customer ID")["Out"].sum().reindex(ids).fillna(0)
+    city = cur.groupby("Customer ID")["Customer City"].first() if "Customer City" in cur.columns else pd.Series(dtype=str)
+    g["City"] = city.reindex(ids).fillna("").astype(str).str.strip().str.title().replace("", "-")
+    g["Main"] = "-"
+    if prod and len(prod.get("lines", [])):
+        L = prod["lines"]
+        L = L[(L["Month"] == month) & L["Customer ID"].isin(ids)]
+        if len(L):
+            top = L.groupby(["Customer ID", "Product"])["Revenue"].sum().reset_index()
+            top = top.sort_values("Revenue").groupby("Customer ID").last()["Product"]
+            g["Main"] = top.reindex(ids).fillna("-")
+    g["Name"] = [names.get(i, f"Customer {i}") for i in ids]
+    g["Top5Share"] = g["Share"].sum()
+    return g.reset_index()
 
 
 def drivers_recs(r):
@@ -165,6 +193,28 @@ def chart_months(r):
     return _png(fig)
 
 
+def _vs_last(row, prev_short):
+    """Change vs last month; 'new' only for a customer whose first order this year is this month."""
+    if row.Prev:
+        return product_report._growth(row.Revenue / row.Prev - 1)
+    return "new" if row.YTD <= row.Revenue else f"none in {prev_short}"
+
+
+def _top5_note(t5, short):
+    up = t5[t5["Revenue"] > t5["Prev"]]
+    down = t5[t5["Revenue"] < t5["Prev"]]
+    s = (f"These {len(t5)} customers brought in GHS {t5['Revenue'].sum():,.0f}, "
+         f"{t5['Top5Share'].iloc[0] * 100:.0f}% of {short} revenue. ")
+    if len(up):
+        s += f"Buying more than last month: {', '.join(up['Name'])}. "
+    if len(down):
+        s += f"Buying less: {', '.join(down['Name'])}. "
+    owed = t5[t5["Owed"] > 0]
+    if len(owed):
+        s += f"Together they owe GHS {owed['Owed'].sum():,.0f} at month-end."
+    return s.strip()
+
+
 def _row(lbl, t, a):
     return (lbl, f"GHS {t:,.0f}", f"GHS {a:,.0f}", f"{a - t:+,.0f}", f"{a / t * 100:.1f}%" if t else "n/a")
 
@@ -209,16 +259,35 @@ def build_pdf(r, as_of):
                 f"GHS {y['projected']:,.0f} ({y['projected_pct']:.0f}% of goal)." if y["months_left"] else ""))
     pdf.section_title("3. Progress to the annual goal", need=80)
     pdf.chart(mch.cumulative(r))
+    n = 4
+    t5 = r.get("top5")
+    if t5 is not None and len(t5):
+        short = pd.Timestamp(r["month"]).strftime("%B")
+        prev_short = (pd.Period(r["month"], freq="M") - 1).strftime("%b")
+        pdf.section_title(f"{n}. Top {len(t5)} customers driving the business in {short}", need=110)
+        pdf.chart(mch.top_customers(t5, short, prev_short))
+        pdf.table(["Customer", f"{short[:3]} revenue", "Share", "vs last mth", "YTD revenue", "Owed",
+                   "Main product"],
+                  [(product_report._short(row.Name, 30), f"GHS {row.Revenue:,.0f}",
+                    f"{row.Share * 100:.0f}%", _vs_last(row, prev_short),
+                    f"GHS {row.YTD:,.0f}", f"GHS {row.Owed:,.0f}", product_report._short(row.Main, 22))
+                   for row in t5.itertuples()],
+                  [52, 24, 13, 20, 25, 22, 27])
+        pdf.body(_top5_note(t5, short))
+        n += 1
     if len(r["vax"]):
-        pdf.section_title("4. Vaccines delivered: year-to-date trend", need=80)
+        pdf.section_title(f"{n}. Vaccines delivered: year-to-date trend", need=80)
         pdf.chart(q_brief.chart_vaccines(r["vax"]))
-    pdf.section_title("5. Key drivers")
+        n += 1
+    pdf.section_title(f"{n}. Key drivers")
     pdf.bullets(r["drivers"], pdf._ACCENT)
+    n += 1
     if r["recs"]:
-        pdf.section_title("6. Recommendations")
+        pdf.section_title(f"{n}. Recommendations")
         pdf.bullets(r["recs"], pdf._GOLD)
+        n += 1
     if r.get("prod"):
-        product_report.pdf_section(pdf, r["prod"], 7)
+        product_report.pdf_section(pdf, r["prod"], n)
     pdf.body("Revenue = invoiced value after discount (Ghana FBC orders). Collections and receivables by actual "
              "payment date. Generated live from Metabase.")
     return pdf.output_bytes()
@@ -229,6 +298,10 @@ def email_html(r, dashboard_url=""):
     subject = (f"TribeCo Ghana monthly report: {r['label']} | revenue GHS {c['Revenue']:,.0f} "
                f"({c['Attainment %']:.0f}% of target)")
     points = r["drivers"][:3] + [f"Recommendation: {x}" for x in r["recs"][:2]]
+    t5 = r.get("top5")
+    if t5 is not None and len(t5):
+        points.append(f"Top {len(t5)} customers ({t5['Top5Share'].iloc[0] * 100:.0f}% of revenue): " + ", ".join(
+            f"{n} (GHS {v:,.0f})" for n, v in zip(t5["Name"], t5["Revenue"])) + ".")
     if r.get("prod"):
         points += product_report.email_points(r["prod"])
     return subject, weekly_report._html_email("Ghana Monthly Report", f"{r['label']}: Targets vs Actuals",

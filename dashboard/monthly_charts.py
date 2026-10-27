@@ -78,6 +78,32 @@ def cumulative(r):
     return _png(fig)
 
 
+def top_customers(t5, label, prev_label="last month"):
+    """Top customers: revenue this month vs last month, with share of the month and orders."""
+    t = t5.iloc[::-1]
+    y = np.arange(len(t))
+    fig, ax = plt.subplots(figsize=(10, 0.62 * len(t) + 1.2))
+    ax.barh(y + 0.2, t["Prev"], 0.38, color=GREY, alpha=0.55, zorder=2, label="Last month")
+    up = (t["Revenue"] >= t["Prev"]).values
+    ax.barh(y - 0.2, t["Revenue"], 0.38, color=[GREEN if u else AMBER for u in up], zorder=3, label=label)
+    mx = max(t["Revenue"].max(), t["Prev"].max())
+    for yi, row in zip(y, t.itertuples()):
+        if row.Prev:
+            g = row.Revenue / row.Prev - 1
+            chg = ("> +300%" if g > 3 else f"{g * 100:+.0f}%") + " vs last month"
+        else:
+            chg = "new customer this year" if row.YTD <= row.Revenue else f"no order in {prev_label}"
+        ax.text(max(row.Revenue, row.Prev) + mx * 0.01, yi, f"GHS {row.Revenue:,.0f}  ({row.Share * 100:.0f}%)  ·  "
+                f"{row.Orders} order{'s' if row.Orders != 1 else ''}  ·  {chg}", va="center", fontsize=8, color=INK)
+    ax.set_yticks(y)
+    ax.set_yticklabels([_short(v, 28) for v in t["Name"]], fontsize=9)
+    ax.set_xlim(0, mx * 1.6)
+    _style(ax, f"Top {len(t)} customers: revenue {label} vs last month (amber = buying less; "
+               f"% = share of {label} revenue)", _k, grid="x")
+    ax.legend(fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.12), ncol=2, frameon=False)
+    return _png(fig)
+
+
 def top_products(p, label, n=10):
     """Revenue by product this month vs last month, with customers and change in customers."""
     t = p.head(n).iloc[::-1]
