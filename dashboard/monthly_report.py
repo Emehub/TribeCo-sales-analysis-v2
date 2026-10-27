@@ -9,6 +9,7 @@ No Streamlit dependency.
 import numpy as np
 import pandas as pd
 
+import monthly_charts as mch
 import product_report
 import q_brief
 import report_pdf
@@ -196,6 +197,7 @@ def build_pdf(r, as_of):
     pdf.table(["Month", "Target", "Actual", "Variance (GHS)", "Attainment"],
               [_row(f"{l} {r['year']}", t, a) for l, t, a in zip(recent["Label"], recent["Target"], recent["Revenue"])],
               [40, 37, 37, 37, 32])
+    pdf.chart(mch.actual_vs_target(r))
     y = r["ytd"]
     pdf.section_title("2. Year to date vs target and the annual goal")
     pdf.table(["Period", "Target", "Actual", "Variance (GHS)", "Attainment"], [
@@ -205,8 +207,8 @@ def build_pdf(r, as_of):
     pdf.body(f"{y['on_target']} of {y['months_done']} months on or above target. "
              + (f"GHS {y['remaining']:,.0f} still needed for the annual goal; at the recent pace the year closes near "
                 f"GHS {y['projected']:,.0f} ({y['projected_pct']:.0f}% of goal)." if y["months_left"] else ""))
-    pdf.section_title("3. Trend: month by month", need=80)
-    pdf.chart(chart_months(r))
+    pdf.section_title("3. Progress to the annual goal", need=80)
+    pdf.chart(mch.cumulative(r))
     if len(r["vax"]):
         pdf.section_title("4. Vaccines delivered: year-to-date trend", need=80)
         pdf.chart(q_brief.chart_vaccines(r["vax"]))

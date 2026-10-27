@@ -9,6 +9,7 @@ to inv_scoped. No Streamlit dependency.
 import numpy as np
 import pandas as pd
 
+import monthly_charts as mch
 import stock_report as stk
 
 SLOW_DAYS = 60            # in stock, but no sale for this many days = slow mover
@@ -64,6 +65,8 @@ def by(L, month, key):
     g["share"] = g["revenue"] / g["revenue"].sum()
     g["prev_revenue"] = prv.groupby(key)["Revenue"].sum()
     g["prev_revenue"] = g["prev_revenue"].fillna(0)
+    g["prev_customers"] = prv.groupby(key)["Customer ID"].nunique()
+    g["prev_customers"] = g["prev_customers"].fillna(0).astype(int)
     g["growth"] = (g["revenue"] / g["prev_revenue"] - 1).where(g["prev_revenue"] > 0)
     return g.sort_values("revenue", ascending=False).reset_index()
 
@@ -221,10 +224,12 @@ def _growth(v):
 def pdf_section(pdf, r, n):
     """Append the product performance section to a ReportPDF; n = first section number."""
     t, p = r["totals"], r["products"]
-    pdf.section_title(f"{n}. Product performance: {r['label']}", need=70)
+    pdf.section_title(f"{n}. Product performance: {r['label']}", need=90)
     if not len(p):
         pdf.body("No product sales recorded in the month.")
         return n + 1
+    short = pd.Timestamp(r["month"]).strftime("%B")
+    pdf.chart(mch.top_products(p, short))
     pdf.table(["Product", "Units", "Revenue", "Share", "Margin", "vs last mth", "Customers"],
               [(_short(row.Product, 38), f"{row.units:,.0f}", f"GHS {row.revenue:,.0f}", f"{row.share * 100:.0f}%",
                 _pct(row.margin_pct), _growth(row.growth), f"{row.customers}") for row in p.head(12).itertuples()],
@@ -233,6 +238,8 @@ def pdf_section(pdf, r, n):
              f"gross margin {_pct(t['margin_pct'])} (last month {_pct(t['prev_margin_pct'])}). Product revenue is at list "
              f"price before invoice discounts, so it is slightly above invoiced revenue. Margin = (price - the order's "
              f"cost price) / price.")
+    pdf.sub_title("Who is buying: customers per product")
+    pdf.chart(mch.product_customers(p, short))
     if len(r["categories"]) > 1:
         c = r["categories"]
         pdf.sub_title("By category")
@@ -243,16 +250,17 @@ def pdf_section(pdf, r, n):
 
     cities = r["cities"]
     if len(cities):
-        pdf.section_title(f"{n}. Where products sold: top cities", need=60)
-        pdf.table(["City", "Revenue", "Share", "Customers", "Products", "vs last mth"],
-                  [(row.City[:34], f"GHS {row.revenue:,.0f}", f"{row.share * 100:.0f}%", f"{row.customers}",
-                    f"{row.products}", _growth(row.growth)) for row in cities.head(10).itertuples()],
-                  [55, 33, 20, 25, 23, 27])
+        pdf.section_title(f"{n}. Where products sold: top cities", need=90)
+        pdf.chart(mch.cities(cities, short))
+        known = cities[cities["City"] != "Not recorded"]
+        pdf.body(f"{len(known)} cities bought products in {short}; the top 10 shown make up "
+                 f"{known['share'].head(10).sum() * 100:.0f}% of product revenue.")
         n += 1
 
     s, sp = r["stock_summary"], r["stock"]
     if s:
-        pdf.section_title(f"{n}. Stock position today ({r['today']:%d %b %Y})", need=70)
+        pdf.section_title(f"{n}. Stock position today ({r['today']:%d %b %Y})", need=140)
+        pdf.chart(mch.stock_weeks(sp))
         pdf.table(["Product", "Remaining", "Sold/wk", "Weeks left", "Next expiry", "Status"],
                   [(_short(row.Product, 42), f"{row.remaining:,}", f"{row.pace:,.0f}",
                     f"{row.weeks_left:.0f}" if pd.notna(row.weeks_left) else "-",
