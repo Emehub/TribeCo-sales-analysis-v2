@@ -4084,11 +4084,13 @@ elif page == "Products":
             _ps_fig.add_bar(y=_ps_c["Product"], x=_ps_c["sold"], name="Sold", orientation="h",
                             marker=bar_marker(BRAND_GREEN))
             _ps_fig.add_bar(y=_ps_c["Product"], x=_ps_c["remaining"], name="Remaining", orientation="h",
-                            marker=bar_marker(BRAND_GOLD), text=_ps_c["remaining"].map("{:,}".format),
-                            textposition="outside")
+                            marker=bar_marker(BRAND_GOLD), text=_ps_c["remaining"].map("{:,} left".format),
+                            textposition="outside", cliponaxis=False, textfont=dict(size=12, color=CHART_FONT))
             _ps_lay = white_layout(height=max(320, 28 * len(_ps_c) + 80))
-            _ps_lay.update(barmode="stack", xaxis=dict(tickangle=0, gridcolor=CHART_GRID),
-                           yaxis=dict(automargin=True), legend=dict(orientation="h", y=1.04, x=0),
+            _ps_lay.update(barmode="stack", xaxis=dict(tickangle=0, gridcolor=CHART_GRID, tickformat=",.0f",
+                                                       range=[0, _ps_c["received"].max() * 1.25]),
+                           yaxis=dict(automargin=True, ticksuffix="  ", tickfont=dict(size=12, color=CHART_FONT)),
+                           legend=dict(orientation="h", y=1.04, x=0),
                            margin=dict(t=30, b=30, l=10, r=40))
             _ps_fig.update_layout(**_ps_lay)
             st.plotly_chart(_ps_fig, use_container_width=True, config=CHART_CFG)
@@ -4168,12 +4170,16 @@ elif page == "Products":
             _ps_top = _ps_ct.head(12).iloc[::-1]
             st.markdown(chart_wrap("Revenue by City", f"{_ps['label']}: top {len(_ps_top)} customer cities"),
                         unsafe_allow_html=True)
-            _ps_fig4 = go.Figure(go.Bar(y=_ps_top["City"], x=_ps_top["revenue"], orientation="h",
-                                        marker=bar_marker(BRAND_GREEN),
-                                        text=[f"GHS {v:,.0f}" for v in _ps_top["revenue"]], textposition="outside"))
-            _ps_lay4 = white_layout(height=max(300, 30 * len(_ps_top) + 60))
-            _ps_lay4.update(xaxis=dict(tickangle=0, gridcolor=CHART_GRID), yaxis=dict(automargin=True),
-                            margin=dict(t=10, b=30, l=10, r=80))
+            _ps_fig4 = go.Figure(go.Bar(
+                y=_ps_top["City"], x=_ps_top["revenue"], orientation="h", marker=bar_marker(BRAND_GREEN),
+                text=[f"GHS {v:,.0f}  ({sh * 100:.0f}%)" for v, sh in zip(_ps_top["revenue"], _ps_top["share"])],
+                textposition="outside", cliponaxis=False, textfont=dict(size=13, color=CHART_FONT),
+                hovertemplate="%{y}: GHS %{x:,.0f}<extra></extra>"))
+            _ps_lay4 = white_layout(height=max(320, 38 * len(_ps_top) + 60))
+            _ps_lay4.update(xaxis=dict(tickangle=0, gridcolor=CHART_GRID, range=[0, _ps_top["revenue"].max() * 1.45],
+                                       tickformat=",.0f"),
+                            yaxis=dict(automargin=True, ticksuffix="  ", tickfont=dict(size=13, color=CHART_FONT)),
+                            margin=dict(t=10, b=30, l=10, r=20), bargap=0.25)
             _ps_fig4.update_layout(**_ps_lay4)
             st.plotly_chart(_ps_fig4, use_container_width=True, config=CHART_CFG)
             st.markdown("</div>", unsafe_allow_html=True)
