@@ -2,12 +2,14 @@
 Monthly management report (emailed on the first Friday of each month, covering the previous month).
 
 Brief format: the month's targets vs actuals, year to date vs target and the annual goal, the
-month-by-month trend, vaccine doses year to date, key drivers and recommendations.
+month-by-month trend, vaccine doses year to date, key drivers and recommendations, then product
+performance (sales, margin, cities, stock, slow movers) when product data is passed in.
 No Streamlit dependency.
 """
 import numpy as np
 import pandas as pd
 
+import product_report
 import q_brief
 import report_pdf
 import weekly_report
@@ -31,7 +33,7 @@ def _ar_at(inv, rep, when):
 
 
 def compute(month, inv_scoped, rep_scoped, rc, il, prod, monthly_targets, full_hist,
-            window_days=28, terms_days=28):
+            window_days=28, terms_days=28, product_frames=None):
     year = int(month[:4])
     m_start = pd.Period(month, freq="M").start_time
     m_end = pd.Period(month, freq="M").end_time
@@ -97,6 +99,7 @@ def compute(month, inv_scoped, rep_scoped, rc, il, prod, monthly_targets, full_h
              ytd=ytd, ar=ar, ar_prev=ar_prev, dso=dso, past=past, coll=coll, terms_days=terms_days,
              movers=by, active=len(custs), new_c=new_c, vax=vax, vials=vials, data_end=data_end)
     r["drivers"], r["recs"] = drivers_recs(r)
+    r["prod"] = product_report.compute(month, inv_scoped, product_frames) if product_frames else None
     return r
 
 
@@ -212,6 +215,8 @@ def build_pdf(r, as_of):
     if r["recs"]:
         pdf.section_title("6. Recommendations")
         pdf.bullets(r["recs"], pdf._GOLD)
+    if r.get("prod"):
+        product_report.pdf_section(pdf, r["prod"], 7)
     pdf.body("Revenue = invoiced value after discount (Ghana FBC orders). Collections and receivables by actual "
              "payment date. Generated live from Metabase.")
     return pdf.output_bytes()
@@ -222,6 +227,8 @@ def email_html(r, dashboard_url=""):
     subject = (f"TribeCo Ghana monthly report: {r['label']} | revenue GHS {c['Revenue']:,.0f} "
                f"({c['Attainment %']:.0f}% of target)")
     points = r["drivers"][:3] + [f"Recommendation: {x}" for x in r["recs"][:2]]
+    if r.get("prod"):
+        points += product_report.email_points(r["prod"])
     return subject, weekly_report._html_email("Ghana Monthly Report", f"{r['label']}: Targets vs Actuals",
                                               _tiles(r), points, "The full report is attached as a PDF.",
                                               dashboard_url)

@@ -23,6 +23,7 @@ import qr_pptx as qrp
 import q_brief as qbf
 import admin_store
 import admin_page
+import product_report as prr
 import stock_report as stk
 warnings.filterwarnings("ignore")
 try:
@@ -468,9 +469,9 @@ def load_all():
     return dl.load(dict(st.secrets["metabase"]), DATA)
 
 
-@st.cache_data(ttl=300, show_spinner="Fetching stock from Metabase...")
-def load_stock():
-    return dl.load_stock(dict(st.secrets["metabase"]), DATA)
+@st.cache_data(ttl=300, show_spinner="Fetching product and stock data from Metabase...")
+def load_products():
+    return dl.load_products(dict(st.secrets["metabase"]), DATA)
 
 
 # ── Historical Sales Ledger loader (2023-2025 Excel files) ───────────────────────
@@ -1091,7 +1092,7 @@ if "active_page" not in st.session_state:
     st.session_state["active_page"] = "Overview"
 
 NAV_GROUPS = {
-    "Leadership":     ["Weekly Info", "YTD Review", "Quarterly Review", "Credit & Collections", "Product Stock",
+    "Leadership":     ["Weekly Info", "YTD Review", "Quarterly Review", "Credit & Collections", "Products",
                        "Data Export"],
     "Core Analytics": ["Overview", "Sales Performance"],
     "Business":       ["Customers", "Payments"],
@@ -3957,127 +3958,252 @@ elif page == "Credit & Collections":
                "on it (every invoice this year carries 30-day terms), so Credit Issued matches total "
                "invoice value. Sales Zone isn't held in Metabase and is left blank in the workbook.")
 
-elif page == "Product Stock":
+elif page == "Products":
     _ps_text = lambda html: st.markdown(
         f'<div style="font-size:13px;color:{_T["text_muted"]};margin:0 0 14px">{html}</div>',
         unsafe_allow_html=True)
-    _ps_raw, _ps_live, _ps_err = load_stock()
-    _ps_b = stk.batches(_ps_raw)
-    if _ps_b.empty:
-        st.info("No stock batches found for Ghana.")
+    _ps_frames, _ps_live, _ps_err = load_products()
+    _ps_months = sorted(prr.lines(inv_scoped, _ps_frames.get("lines"))["Month"].dropna().unique())[::-1] \
+        if len(_ps_frames.get("lines", [])) else []
+    if not _ps_months:
+        st.info("No product sales found.")
         st.stop()
-    _ps_w = stk.weekly_sales(inv, il, _ps_b["Product ID"].dropna().unique())
-    _ps_p = stk.products(_ps_b, _ps_w)
-    _ps_s = stk.summary(_ps_p)
-    _ps_text("Stock received into the Ghana central warehouse, what has been sold and what remains, by product "
-             "and by batch. Sales pace is the average units sold a week over the last "
-             f"{stk.PACE_WEEKS} complete weeks." + ("" if _ps_live else
-             " <b>Metabase is unavailable, so this shows the last saved copy.</b>"))
+    _ps_now_m = pd.Timestamp.now().strftime("%Y-%m")
+    _ps_c1, _ = st.columns([1, 3])
+    _ps_month = _ps_c1.selectbox(
+        "Month", _ps_months, key="ps_month",
+        index=1 if len(_ps_months) > 1 and _ps_months[0] == _ps_now_m else 0,
+        format_func=lambda m: pd.Period(m, freq="M").strftime("%B %Y") + (" (to date)" if m == _ps_now_m else ""))
+    _ps = prr.compute(_ps_month, inv_scoped, _ps_frames)
+    _ps_t, _ps_p, _ps_s = _ps["totals"], _ps["products"], _ps["stock_summary"]
+    _ps_text("Product sales, gross margin and where products sold for the chosen month; stock received, sold and "
+             "remaining as of today. The same figures go into the monthly management email."
+             + ("" if _ps_live else " <b>Metabase is unavailable, so this shows the last saved copy.</b>"))
 
-    _ps_sold_pct = _ps_s["sold"] / _ps_s["received"] * 100 if _ps_s["received"] else 0
-    _ps_row1 = kpi_card("Units Received", f"{_ps_s['received']:,}", f"{_ps_s['products']} products, "
-                        f"{len(_ps_b)} batches", BRAND_GREEN) + \
-               kpi_card("Units Sold", f"{_ps_s['sold']:,}", f"{_ps_sold_pct:.1f}% of units received", "#16a34a") + \
-               kpi_card("Units Remaining", f"{_ps_s['remaining']:,}", f"{_ps_s['in_stock']} products in stock",
-                        "#14b8a6") + \
-               kpi_card("Stock Value", f"GHS {_ps_s['value_price']:,.0f}",
-                        f"At selling price (GHS {_ps_s['value_cost']:,.0f} at cost)", BRAND_GOLD)
-    # Risk cards are shown even at zero (kpi_card hides plain zeros), so the page always answers "any risk?"
-    _ps_risk = lambda label, value, sub, color: (
+    # Findings first: what the CEO should know
+    with st.container(border=True):
+        st.markdown(f"**What is happening: {_ps['label']}**")
+        for _x in _ps["points"]:
+            st.markdown(f"- {_x}")
+        if _ps["recs"]:
+            st.markdown("**Actions**")
+            for _x in _ps["recs"]:
+                st.markdown(f"- {_x}")
+
+    _ps_card = lambda label, value, sub, color: (
         f'<div class="kpi-card" style="border-top-color:{color}"><div class="kpi-label">{label}</div>'
         f'<div class="kpi-value">{value}</div><div class="kpi-sub">{sub}</div></div>')
-    _ps_row2 = _ps_risk("Out of Stock", f"{_ps_s['out']}", "Products with nothing left", "#dc2626") + \
-               _ps_risk("Low Stock", f"{_ps_s['low']}", f"Under {stk.LOW_STOCK_WEEKS} weeks of sales left",
-                        "#f59e0b") + \
-               _ps_risk("Expiring Soon", f"{_ps_s['expiring_units']:,} units",
-                        f"Within {stk.EXPIRY_WARN_DAYS} days (GHS {_ps_s['expiring_value']:,.0f})", "#f97316") + \
-               _ps_risk("Expired", f"{_ps_s['expired_units']:,} units",
-                        f"Past expiry, unsold (GHS {_ps_s['expired_value']:,.0f})", "#991b1b")
-    st.markdown(kpi_grid(_ps_row1), unsafe_allow_html=True)
-    st.markdown(f'<div class="kpi-grid">{_ps_row2}</div>', unsafe_allow_html=True)
+    _ps_fmt_g = lambda v: f"{v * 100:+.1f}% vs last month" if pd.notna(v) else "no sales last month"
+    st.markdown('<div class="kpi-grid">' + "".join([
+        _ps_card("Product Revenue", f"GHS {_ps_t['revenue']:,.0f}", _ps_fmt_g(_ps_t["growth"]), BRAND_GREEN),
+        _ps_card("Gross Margin", f"{_ps_t['margin_pct'] * 100:.1f}%" if pd.notna(_ps_t["margin_pct"]) else "-",
+                 f"GHS {_ps_t['margin']:,.0f} gross profit", "#16a34a"),
+        _ps_card("Products Sold", f"{_ps_t['products']}",
+                 f"Top 3 = {_ps_t['top3_share'] * 100:.0f}% of revenue" if pd.notna(_ps_t["top3_share"]) else "",
+                 "#14b8a6"),
+        _ps_card("Cities Reached", f"{_ps_t['cities']}", f"{_ps_t['units']:,.0f} units sold", BRAND_GOLD),
+    ]) + "</div>", unsafe_allow_html=True)
 
-    # Sold vs remaining by product
-    _ps_c = _ps_p.sort_values("received")
-    st.markdown(chart_wrap("Sold and Remaining by Product", "Units since each batch was received"),
-                unsafe_allow_html=True)
-    _ps_fig = go.Figure()
-    _ps_fig.add_bar(y=_ps_c["Product"], x=_ps_c["sold"], name="Sold", orientation="h",
-                    marker=bar_marker(BRAND_GREEN))
-    _ps_fig.add_bar(y=_ps_c["Product"], x=_ps_c["remaining"], name="Remaining", orientation="h",
-                    marker=bar_marker(BRAND_GOLD), text=_ps_c["remaining"].map("{:,}".format),
-                    textposition="outside")
-    _ps_lay = white_layout(height=max(320, 28 * len(_ps_c) + 80))
-    _ps_lay.update(barmode="stack", xaxis=dict(tickangle=0, gridcolor=CHART_GRID), yaxis=dict(automargin=True),
-                   legend=dict(orientation="h", y=1.04, x=0), margin=dict(t=30, b=30, l=10, r=40))
-    _ps_fig.update_layout(**_ps_lay)
-    st.plotly_chart(_ps_fig, use_container_width=True, config=CHART_CFG)
-    st.markdown("</div>", unsafe_allow_html=True)
+    _ps_tab1, _ps_tab2, _ps_tab3, _ps_tab4 = st.tabs(["Sales and margin", "Stock", "Slow movers", "Cities"])
 
-    # Product table
-    st.markdown(chart_wrap("Stock by Product", "Most urgent first: out of stock, expired, expiring, low stock"),
-                unsafe_allow_html=True)
-    _ps_tbl = pd.DataFrame({
-        "Product": _ps_p["Product"],
-        "Status": _ps_p["status"],
-        "Received": _ps_p["received"],
-        "Sold": _ps_p["sold"],
-        "Remaining": _ps_p["remaining"],
-        "% Sold": (_ps_p["sold_pct"] * 100).round(1),
-        "Sold / Week": _ps_p["pace"].round(1),
-        "Weeks Left": _ps_p["weeks_left"].round(1),
-        "Next Expiry": _ps_p["next_expiry"].dt.strftime("%d %b %Y").fillna(""),
-        "Selling Price (GHS)": _ps_p["price"],
-        "Stock Value (GHS)": _ps_p["value_price"].round(0),
-    })
-    st.dataframe(_ps_tbl, use_container_width=True, hide_index=True,
-                 column_config={"% Sold": st.column_config.ProgressColumn("% Sold", min_value=0, max_value=100,
-                                                                          format="%.0f%%"),
-                                "Stock Value (GHS)": st.column_config.NumberColumn(format="localized"),
-                                "Selling Price (GHS)": st.column_config.NumberColumn(format="%.2f")})
-    st.markdown("</div>", unsafe_allow_html=True)
+    # ── Sales and margin ──
+    with _ps_tab1:
+        st.markdown(chart_wrap("Products", f"{_ps['label']}: revenue, margin and growth vs the month before"),
+                    unsafe_allow_html=True)
+        _ps_sales = pd.DataFrame({
+            "Product": _ps_p["Product"], "Category": _ps_p["category"], "Units": _ps_p["units"],
+            "Revenue (GHS)": _ps_p["revenue"].round(0), "Share %": (_ps_p["share"] * 100).round(1),
+            "Margin %": (_ps_p["margin_pct"] * 100).round(1), "Gross Profit (GHS)": _ps_p["margin"].round(0),
+            "Growth %": (_ps_p["growth"] * 100).round(0), "Customers": _ps_p["customers"],
+            "Cities": _ps_p["cities"], "Top City": _ps_p["top_city"]}) if len(_ps_p) else pd.DataFrame()
+        st.dataframe(_ps_sales, use_container_width=True, hide_index=True,
+                     column_config={"Revenue (GHS)": st.column_config.NumberColumn(format="localized"),
+                                    "Gross Profit (GHS)": st.column_config.NumberColumn(format="localized"),
+                                    "Units": st.column_config.NumberColumn(format="localized")})
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    # Weekly units sold
-    _ps_names = dict(zip(_ps_p["product_id"], _ps_p["Product"]))
-    _ps_pick = st.multiselect("Products in the weekly sales chart (leave empty for all)",
-                              sorted(_ps_p["Product"]), key="ps_pick")
-    _ps_ids = [i for i, n in _ps_names.items() if not _ps_pick or n in _ps_pick]
-    _ps_wk = _ps_w[[c for c in _ps_w.columns if c in _ps_ids]].sum(axis=1)
-    st.markdown(chart_wrap("Units Sold per Week", f"Last {len(_ps_wk)} complete weeks (Monday to Sunday)"),
-                unsafe_allow_html=True)
-    _ps_fig2 = go.Figure(go.Bar(x=[f"{d:%d %b}" for d in _ps_wk.index], y=_ps_wk.values,
-                                marker=bar_marker(BRAND_GREEN), text=[f"{v:,.0f}" for v in _ps_wk.values],
-                                textposition="outside"))
-    _ps_fig2.update_layout(**white_layout(height=300))
-    st.plotly_chart(_ps_fig2, use_container_width=True, config=CHART_CFG)
-    st.markdown("</div>", unsafe_allow_html=True)
+        _ps_cat = _ps["categories"]
+        if len(_ps_cat):
+            st.markdown(chart_wrap("By Category"), unsafe_allow_html=True)
+            st.dataframe(pd.DataFrame({
+                "Category": _ps_cat["Category"], "Products": _ps_cat["products"],
+                "Revenue (GHS)": _ps_cat["revenue"].round(0), "Share %": (_ps_cat["share"] * 100).round(1),
+                "Margin %": (_ps_cat["margin_pct"] * 100).round(1), "Growth %": (_ps_cat["growth"] * 100).round(0)}),
+                use_container_width=True, hide_index=True,
+                column_config={"Revenue (GHS)": st.column_config.NumberColumn(format="localized")})
+            st.markdown("</div>", unsafe_allow_html=True)
 
-    # Batch detail
-    with st.expander(f"Batch detail ({len(_ps_b)} batches)"):
-        _ps_only = st.toggle("Only batches with stock remaining", value=True, key="ps_only")
-        _ps_bt = _ps_b[_ps_b["Remaining"] > 0] if _ps_only else _ps_b
-        st.dataframe(pd.DataFrame({
-            "Product": _ps_bt["Product"], "Batch": _ps_bt["Batch"], "Received": _ps_bt["Received"],
-            "Sold": _ps_bt["Sold"], "Remaining": _ps_bt["Remaining"],
-            "Expiry": _ps_bt["Expiry"].dt.strftime("%d %b %Y"), "Days to Expiry": _ps_bt["Days to Expiry"],
-            "Storage": _ps_bt["Storage"],
-        }).sort_values("Days to Expiry"), use_container_width=True, hide_index=True)
+        # Revenue and margin trend, month by month
+        _ps_L = _ps["lines"]
+        _ps_tr = (_ps_L.groupby("Month").agg(rev=("Revenue", "sum"), cost=("Cost", "sum")).tail(12))
+        _ps_tr["mp"] = (1 - _ps_tr["cost"] / _ps_tr["rev"]) * 100
+        st.markdown(chart_wrap("Revenue and Gross Margin by Month", "Bars = revenue, line = margin %"),
+                    unsafe_allow_html=True)
+        _ps_fig3 = go.Figure()
+        _ps_fig3.add_bar(x=[pd.Period(m, freq="M").strftime("%b %y") for m in _ps_tr.index], y=_ps_tr["rev"],
+                         name="Revenue", marker=bar_marker(BRAND_GREEN))
+        _ps_fig3.add_scatter(x=[pd.Period(m, freq="M").strftime("%b %y") for m in _ps_tr.index], y=_ps_tr["mp"],
+                             name="Margin %", yaxis="y2", mode="lines+markers+text",
+                             text=[f"{v:.1f}%" for v in _ps_tr["mp"]], textposition="top center",
+                             line=dict(color=BRAND_GOLD, width=3))
+        _ps_lay3 = white_layout(height=320)
+        _ps_lay3.update(yaxis2=dict(overlaying="y", side="right", showgrid=False, range=[0, 50], ticksuffix="%"),
+                        legend=dict(orientation="h", y=1.1, x=0), xaxis=dict(tickangle=0))
+        _ps_fig3.update_layout(**_ps_lay3)
+        st.plotly_chart(_ps_fig3, use_container_width=True, config=CHART_CFG)
+        st.markdown("</div>", unsafe_allow_html=True)
 
+    # ── Stock ──
+    with _ps_tab2:
+        if not _ps_s:
+            st.info("No stock batches found for Ghana.")
+        else:
+            _ps_b, _ps_sp = _ps["batches"], _ps["stock"]
+            _ps_sold_pct = _ps_s["sold"] / _ps_s["received"] * 100 if _ps_s["received"] else 0
+            st.markdown('<div class="kpi-grid">' + "".join([
+                _ps_card("Units Received", f"{_ps_s['received']:,}",
+                         f"{_ps_s['products']} products, {len(_ps_b)} batches", BRAND_GREEN),
+                _ps_card("Units Sold", f"{_ps_s['sold']:,}", f"{_ps_sold_pct:.1f}% of units received", "#16a34a"),
+                _ps_card("Units Remaining", f"{_ps_s['remaining']:,}", f"{_ps_s['in_stock']} products in stock",
+                         "#14b8a6"),
+                _ps_card("Stock Value", f"GHS {_ps_s['value_price']:,.0f}",
+                         f"At selling price (GHS {_ps_s['value_cost']:,.0f} at cost)", BRAND_GOLD),
+                _ps_card("Out of Stock", f"{_ps_s['out']}", "Products with nothing left", "#dc2626"),
+                _ps_card("Low Stock", f"{_ps_s['low']}", f"Under {stk.LOW_STOCK_WEEKS} weeks of sales left",
+                         "#f59e0b"),
+                _ps_card("Expiring Soon", f"{_ps_s['expiring_units']:,} units",
+                         f"Within {stk.EXPIRY_WARN_DAYS} days (GHS {_ps_s['expiring_value']:,.0f})", "#f97316"),
+                _ps_card("Expired", f"{_ps_s['expired_units']:,} units",
+                         f"Past expiry, unsold (GHS {_ps_s['expired_value']:,.0f})", "#991b1b"),
+            ]) + "</div>", unsafe_allow_html=True)
+
+            _ps_c = _ps_sp.sort_values("received")
+            st.markdown(chart_wrap("Sold and Remaining by Product", "Units since each batch was received"),
+                        unsafe_allow_html=True)
+            _ps_fig = go.Figure()
+            _ps_fig.add_bar(y=_ps_c["Product"], x=_ps_c["sold"], name="Sold", orientation="h",
+                            marker=bar_marker(BRAND_GREEN))
+            _ps_fig.add_bar(y=_ps_c["Product"], x=_ps_c["remaining"], name="Remaining", orientation="h",
+                            marker=bar_marker(BRAND_GOLD), text=_ps_c["remaining"].map("{:,}".format),
+                            textposition="outside")
+            _ps_lay = white_layout(height=max(320, 28 * len(_ps_c) + 80))
+            _ps_lay.update(barmode="stack", xaxis=dict(tickangle=0, gridcolor=CHART_GRID),
+                           yaxis=dict(automargin=True), legend=dict(orientation="h", y=1.04, x=0),
+                           margin=dict(t=30, b=30, l=10, r=40))
+            _ps_fig.update_layout(**_ps_lay)
+            st.plotly_chart(_ps_fig, use_container_width=True, config=CHART_CFG)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            st.markdown(chart_wrap("Stock by Product", "Most urgent first: out of stock, expired, expiring, low stock"),
+                        unsafe_allow_html=True)
+            _ps_tbl = pd.DataFrame({
+                "Product": _ps_sp["Product"], "Status": _ps_sp["status"], "Received": _ps_sp["received"],
+                "Sold": _ps_sp["sold"], "Remaining": _ps_sp["remaining"], "% Sold": (_ps_sp["sold_pct"] * 100).round(1),
+                "Sold / Week": _ps_sp["pace"].round(1), "Weeks Left": _ps_sp["weeks_left"].round(1),
+                "Next Expiry": _ps_sp["next_expiry"].dt.strftime("%d %b %Y").fillna(""),
+                "Selling Price (GHS)": _ps_sp["price"], "Stock Value (GHS)": _ps_sp["value_price"].round(0)})
+            st.dataframe(_ps_tbl, use_container_width=True, hide_index=True,
+                         column_config={"% Sold": st.column_config.ProgressColumn("% Sold", min_value=0,
+                                                                                  max_value=100, format="%.0f%%"),
+                                        "Stock Value (GHS)": st.column_config.NumberColumn(format="localized"),
+                                        "Selling Price (GHS)": st.column_config.NumberColumn(format="%.2f")})
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            _ps_w = prr.weekly(_ps["lines"])
+            _ps_names = dict(zip(_ps_sp["product_id"], _ps_sp["Product"]))
+            _ps_pick = st.multiselect("Products in the weekly sales chart (leave empty for all stocked products)",
+                                      sorted(_ps_sp["Product"]), key="ps_pick")
+            _ps_ids = [i for i, n in _ps_names.items() if not _ps_pick or n in _ps_pick]
+            _ps_wk = _ps_w[[c for c in _ps_w.columns if c in _ps_ids]].sum(axis=1)
+            st.markdown(chart_wrap("Units Sold per Week", f"Last {len(_ps_wk)} complete weeks (Monday to Sunday)"),
+                        unsafe_allow_html=True)
+            _ps_fig2 = go.Figure(go.Bar(x=[f"{d:%d %b}" for d in _ps_wk.index], y=_ps_wk.values,
+                                        marker=bar_marker(BRAND_GREEN), text=[f"{v:,.0f}" for v in _ps_wk.values],
+                                        textposition="outside"))
+            _ps_fig2.update_layout(**white_layout(height=300))
+            st.plotly_chart(_ps_fig2, use_container_width=True, config=CHART_CFG)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            with st.expander(f"Batch detail ({len(_ps_b)} batches)"):
+                _ps_only = st.toggle("Only batches with stock remaining", value=True, key="ps_only")
+                _ps_bt = _ps_b[_ps_b["Remaining"] > 0] if _ps_only else _ps_b
+                st.dataframe(pd.DataFrame({
+                    "Product": _ps_bt["Product"], "Batch": _ps_bt["Batch"], "Received": _ps_bt["Received"],
+                    "Sold": _ps_bt["Sold"], "Remaining": _ps_bt["Remaining"],
+                    "Expiry": _ps_bt["Expiry"].dt.strftime("%d %b %Y"), "Days to Expiry": _ps_bt["Days to Expiry"],
+                    "Storage": _ps_bt["Storage"]}).sort_values("Days to Expiry"),
+                    use_container_width=True, hide_index=True)
+
+    # ── Slow movers ──
+    with _ps_tab3:
+        _ps_slow, _ps_stop = _ps["slow"], _ps["stopped"]
+        st.markdown(chart_wrap("In Stock but Not Selling",
+                               f"Stock left and no sale in the last {prr.SLOW_DAYS} days"), unsafe_allow_html=True)
+        if len(_ps_slow):
+            st.dataframe(pd.DataFrame({
+                "Product": _ps_slow["Product"], "Units Left": _ps_slow["remaining"],
+                "Stock Value (GHS)": _ps_slow["value_price"].round(0),
+                "Last Sold": _ps_slow["last_sale"].dt.strftime("%d %b %Y").fillna("Never"),
+                "Days Since Sale": _ps_slow["days_since"]}), use_container_width=True, hide_index=True)
+        else:
+            st.caption(f"None: every product in stock sold in the last {prr.SLOW_DAYS} days.")
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown(chart_wrap("Stopped Selling", f"Sold in the {prr.LOOKBACK_DAYS} days before, nothing in the "
+                                                   f"last {prr.SLOW_DAYS} days"), unsafe_allow_html=True)
+        if len(_ps_stop):
+            st.dataframe(pd.DataFrame({
+                "Product": _ps_stop["Product"], "Revenue Before (GHS)": _ps_stop["revenue"].round(0),
+                "Customers Before": _ps_stop["customers"],
+                "Last Sold": _ps_stop["last_sale"].dt.strftime("%d %b %Y"),
+                "Days Since Sale": _ps_stop["days_since"]}), use_container_width=True, hide_index=True,
+                column_config={"Revenue Before (GHS)": st.column_config.NumberColumn(format="localized")})
+        else:
+            st.caption("None.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Cities ──
+    with _ps_tab4:
+        _ps_ct = _ps["cities"]
+        if len(_ps_ct):
+            _ps_top = _ps_ct.head(12).iloc[::-1]
+            st.markdown(chart_wrap("Revenue by City", f"{_ps['label']}: top {len(_ps_top)} customer cities"),
+                        unsafe_allow_html=True)
+            _ps_fig4 = go.Figure(go.Bar(y=_ps_top["City"], x=_ps_top["revenue"], orientation="h",
+                                        marker=bar_marker(BRAND_GREEN),
+                                        text=[f"GHS {v:,.0f}" for v in _ps_top["revenue"]], textposition="outside"))
+            _ps_lay4 = white_layout(height=max(300, 30 * len(_ps_top) + 60))
+            _ps_lay4.update(xaxis=dict(tickangle=0, gridcolor=CHART_GRID), yaxis=dict(automargin=True),
+                            margin=dict(t=10, b=30, l=10, r=80))
+            _ps_fig4.update_layout(**_ps_lay4)
+            st.plotly_chart(_ps_fig4, use_container_width=True, config=CHART_CFG)
+            st.markdown("</div>", unsafe_allow_html=True)
+            st.dataframe(pd.DataFrame({
+                "City": _ps_ct["City"], "Revenue (GHS)": _ps_ct["revenue"].round(0),
+                "Share %": (_ps_ct["share"] * 100).round(1), "Customers": _ps_ct["customers"],
+                "Products": _ps_ct["products"], "Margin %": (_ps_ct["margin_pct"] * 100).round(1),
+                "Growth %": (_ps_ct["growth"] * 100).round(0)}), use_container_width=True, hide_index=True,
+                column_config={"Revenue (GHS)": st.column_config.NumberColumn(format="localized")})
+            st.caption("City = the customer city recorded on each invoice.")
+        else:
+            st.caption("No sales in the month.")
+
+    _ps_sheets = {"Products": _ps_sales, "Categories": _ps["categories"], "Cities": _ps["cities"],
+                  "Stock": _ps["stock"], "Batches": _ps["batches"], "Slow Movers": _ps["slow"],
+                  "Stopped Selling": _ps["stopped"]}
     st.download_button(
-        "Download stock report (.xlsx)",
-        data=make_excel({"Products": _ps_tbl, "Batches": _ps_b.drop(columns=["Product ID"]),
-                         "Weekly Units Sold": _ps_w.rename(columns=_ps_names).rename_axis("Week Start")
-                                                   .reset_index()}),
-        file_name=f"TribeCo_Ghana_Product_Stock_{pd.Timestamp.now():%Y-%m-%d}.xlsx",
+        "Download product report (.xlsx)",
+        data=make_excel({k: v for k, v in _ps_sheets.items() if isinstance(v, pd.DataFrame) and len(v)}),
+        file_name=f"TribeCo_Ghana_Products_{_ps_month}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    st.caption("Source: Metabase stock batches (received and sold per batch) and invoice lines for the weekly "
-               "sales pace. Remaining = received - sold. Stock value uses the catalogue selling price.")
+    st.caption("Sources: Metabase invoice lines (Ghana FBC, not cancelled) with the cost price from each invoice's "
+               "order, and stock batches for received / sold / remaining. Margin = (price - cost) / price.")
 
 elif page == "Admin" and IS_ADMIN:
     import mailer as _mailer
     _smtp = _mailer.config_from(_secrets_dict())
     admin_page.render(_get_store(), USER_EMAIL or "admin", list(_BOOT_ADMINS),
                       dict(inv=inv, inv_scoped=inv_scoped, rep_scoped=rep_scoped, rc=rc, il=il, prod=prod,
-                           data_dir=DATA), _smtp)
+                           data_dir=DATA, product_frames=load_products()[0]), _smtp)
 
 elif page == "Data Export":
     _de_text = lambda html: st.markdown(

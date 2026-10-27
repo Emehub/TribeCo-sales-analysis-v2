@@ -55,7 +55,8 @@ def due(kind, settings, now):
 
 
 def build(kind, d, period, settings, as_of=None):
-    """d: dict with inv, inv_scoped, rep_scoped, rc, il, prod, data_dir. Returns the email parts."""
+    """d: dict with inv, inv_scoped, rep_scoped, rc, il, prod, data_dir and optionally product_frames
+    (data_layer.load_products) for the monthly product section. Returns the email parts."""
     as_of = as_of or pd.Timestamp.now().strftime("%d %b %Y")
     url = settings.get("dashboard_url", "")
     if kind == "weekly":
@@ -67,7 +68,7 @@ def build(kind, d, period, settings, as_of=None):
     else:
         targets = pd.read_csv(os.path.join(d["data_dir"], "revenue_target.csv"))
         r = monthly_report.compute(period, d["inv_scoped"], d["rep_scoped"], d["rc"], d["il"], d["prod"],
-                                   targets, scoped_history(d["inv"]))
+                                   targets, scoped_history(d["inv"]), product_frames=d.get("product_frames"))
         subject, html = monthly_report.email_html(r, url)
         pdf = monthly_report.build_pdf(r, as_of)
         name = f"TribeCo_Ghana_Monthly_Report_{period}.pdf"

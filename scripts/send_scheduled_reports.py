@@ -101,6 +101,11 @@ def main():
     if not live:
         print(f"WARNING: Metabase unavailable ({err}); using saved CSVs")
     d = dict(inv=inv, inv_scoped=inv_scoped, rep_scoped=rep_scoped, rc=rc, il=il, prod=prod, data_dir=DATA)
+    if any(k == "monthly" for k, _ in todo) or any(o["report"] == "monthly" for o in oneoffs):
+        frames, p_live, p_err = dl.load_products(cfg["metabase"], DATA, save_csv=False)
+        if not p_live:
+            print(f"WARNING: product data from Metabase unavailable ({p_err}); using saved copies if any")
+        d["product_frames"] = frames
     to = [t.strip() for t in a.to.split(",")] if a.to else None
 
     failed = False

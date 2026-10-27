@@ -117,24 +117,43 @@ def fetch_raw(cfg, data_dir, save_csv=True):
 STOCK_SQL = """SELECT b.*, s.product_id AS catalog_product_id, s.cost_price, s.selling_price
     FROM batchorder b LEFT JOIN seller_product_catalog s ON s.id = b.seller_product_catalogid
     WHERE b.country_code = 'GH'"""
-STOCK_CSV = "stock_batches.csv"
+# Invoice lines with product name, category and unit cost. The cost comes from the order line the invoice
+# was raised from (every Ghana invoice links to an order through invoice.order_id).
+PRODUCT_LINES_SQL = """SELECT il.id AS line_id, il.invoice_id, il.product_id, il.quantity, il.price,
+        COALESCE(NULLIF(TRIM(p.brand_name), ''), p.generic_name) AS product, pc.name AS category,
+        oc.cost_price
+    FROM invoice i
+    JOIN invoice_line il ON il.invoice_id = i.id
+    LEFT JOIN product p ON p.id = il.product_id
+    LEFT JOIN product_category pc ON pc.id = p.category_id
+    LEFT JOIN LATERAL (SELECT x.cost_price FROM inventory_request_line x
+                       WHERE x.request_id::text = i.order_id::text AND x.product_id = il.product_id
+                       LIMIT 1) oc ON true
+    WHERE i.country_code = 'GH' AND i.created_at >= '2025-01-01'"""
+PRODUCT_FRAMES = {"batches": (STOCK_SQL, "stock_batches.csv"), "lines": (PRODUCT_LINES_SQL, "product_lines.csv")}
 
 
-def load_stock(cfg, data_dir, save_csv=True):
-    """Ghana stock batches live from Metabase, else the last saved copy. Returns (df, from_metabase, error)."""
+def load_products(cfg, data_dir, save_csv=True):
+    """Stock batches and costed invoice lines, live from Metabase, else the last saved copies.
+    Returns ({"batches": df, "lines": df}, from_metabase, error)."""
     try:
         mb = _Metabase(cfg)
         tok = mb.login()
-        df = _mb_sql(tok, mb.db_id(tok), STOCK_SQL, mb.base)
+        dbid = mb.db_id(tok)
+        frames = {k: _mb_sql(tok, dbid, sql, mb.base) for k, (sql, _) in PRODUCT_FRAMES.items()}
     except Exception as e:
-        path = os.path.join(data_dir, STOCK_CSV)
-        return (pd.read_csv(path) if os.path.exists(path) else pd.DataFrame()), False, f"{type(e).__name__}: {e}"
+        frames = {}
+        for k, (_, name) in PRODUCT_FRAMES.items():
+            path = os.path.join(data_dir, name)
+            frames[k] = pd.read_csv(path) if os.path.exists(path) else pd.DataFrame()
+        return frames, False, f"{type(e).__name__}: {e}"
     if save_csv:
         try:
-            df.to_csv(os.path.join(data_dir, STOCK_CSV), index=False, encoding="utf-8-sig")
+            for k, (_, name) in PRODUCT_FRAMES.items():
+                frames[k].to_csv(os.path.join(data_dir, name), index=False, encoding="utf-8-sig")
         except Exception:
             pass
-    return df, True, ""
+    return frames, True, ""
 
 
 def load(cfg, data_dir, save_csv=True):
