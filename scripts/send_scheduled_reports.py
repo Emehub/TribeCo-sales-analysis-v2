@@ -127,7 +127,9 @@ def main():
             if a.dry_run:
                 print(f"one-off #{o['id']}: would send (dry run)")
                 continue
-            parts = rj.send(o["report"], d, store, email_cfg, o["period"], triggered_by=f"one-off #{o['id']}",
+            only = [x.strip() for x in str(o.get("send_to", "")).split(",") if x.strip()] or None
+            parts = rj.send(o["report"], d, store, email_cfg, o["period"], recipients=only,
+                            triggered_by=f"one-off #{o['id']}",
                             idempotency_key=f"tribeco-oneoff-{o['id']}")
             store.set_oneoff_status(o["id"], "sent", f"to {len(parts['recipients'])} recipient(s)")
             print(f"one-off #{o['id']}: sent to {len(parts['recipients'])} recipient(s)")

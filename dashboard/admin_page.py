@@ -282,6 +282,10 @@ def render(store, me, bootstrap_admins, d, smtp):
             s_date = c3.date_input("Date", value=now.date(), min_value=now.date(), key="sch_date")
             with c4:
                 s_time = _time_pick("Time (Ghana)", _t("09:00"), "sch_time")
+            n_all = len(store.recipients(s_kind))
+            s_to = st.radio("Send to", ["everyone", "me"], horizontal=True, key="sch_to",
+                            format_func=lambda o: f"Everyone with the {s_kind} email ({n_all})" if o == "everyone"
+                            else f"Only me ({me}), for a test")
             when = pd.Timestamp.combine(s_date, s_time)
             if st.button("Schedule send", type="primary", key="sch_add"):
                 if not _ok_time(s_time):
@@ -289,9 +293,11 @@ def render(store, me, bootstrap_admins, d, smtp):
                 elif when < now.floor("h"):
                     st.error("Choose a time in the future.")
                 else:
-                    new_id = store.add_oneoff(s_kind, s_period, when.strftime("%Y-%m-%d %H:%M"), me)
+                    new_id = store.add_oneoff(s_kind, s_period, when.strftime("%Y-%m-%d %H:%M"), me,
+                                              send_to=me if s_to == "me" else "")
+                    who = f"to you only ({me})" if s_to == "me" else f"to everyone with the {s_kind} email"
                     st.success(f"Scheduled #{new_id}: the {s_kind} report for {_period_label(s_kind, s_period)} "
-                               f"on {when:%a %d %b %Y} at {_ampm(when)}.")
+                               f"on {when:%a %d %b %Y} at {_ampm(when)}, {who}.")
                     pending = [r for r in store.list_oneoffs() if r["status"] == "pending"]
             st.caption("Choose a time between 6:00 AM and 6:00 PM. It goes out within the hour after that time.")
 
@@ -299,9 +305,10 @@ def render(store, me, bootstrap_admins, d, smtp):
             _heading("Upcoming")
             if pending:
                 _table([{**r, "period": _period_label(r["report"], r["period"]), "report": r["report"].title(),
-                         "send_at": _when(r["send_at"])} for r in pending],
+                         "send_at": _when(r["send_at"]), "send_to": r.get("send_to") or "Everyone"}
+                        for r in pending],
                        {"id": "#", "report": "Report", "period": "Period", "send_at": "Send at",
-                        "created_by": "Scheduled by"})
+                        "send_to": "Send to", "created_by": "Scheduled by"})
                 cancel = st.selectbox("Cancel a scheduled send", ["None"] + [
                     f"#{r['id']} {r['report'].title()} {_period_label(r['report'], r['period'])} on {_when(r['send_at'])}"
                     for r in pending], key="sch_cancel_pick")

@@ -17,7 +17,8 @@ USER_COLS = ["email", "name", "role", "weekly", "monthly", "active", "added_by",
 LOG_COLS = ["timestamp", "report", "period", "recipients", "status", "detail", "triggered_by"]
 # One-off sends chosen on the Admin page. send_at is local (Ghana) time "YYYY-MM-DD HH:MM".
 # status: pending -> sent / failed / cancelled
-ONEOFF_COLS = ["id", "report", "period", "send_at", "status", "created_by", "created_at", "detail"]
+# send_to: comma-separated emails for a test send; empty = everyone with that report switched on
+ONEOFF_COLS = ["id", "report", "period", "send_at", "status", "created_by", "created_at", "detail", "send_to"]
 DEFAULT_SETTINGS = {
     "weekly_enabled": "yes", "monthly_enabled": "yes",
     "send_day": "Friday", "send_time": "09:00", "timezone": "Africa/Accra",
@@ -89,11 +90,11 @@ class _Base:
                           "detail": str(detail)[:500], "triggered_by": triggered_by})
 
     # ── one-off scheduled sends ──────────────────────────────────────────────
-    def add_oneoff(self, report, period, send_at, by):
+    def add_oneoff(self, report, period, send_at, by, send_to=""):
         rows = self.list_oneoffs()
         new_id = str(max([int(r["id"]) for r in rows if str(r["id"]).isdigit()] or [0]) + 1)
         rows.append({"id": new_id, "report": report, "period": period, "send_at": send_at, "status": "pending",
-                     "created_by": by, "created_at": _now(), "detail": ""})
+                     "created_by": by, "created_at": _now(), "detail": "", "send_to": send_to})
         self._save_oneoffs(rows)
         return new_id
 
