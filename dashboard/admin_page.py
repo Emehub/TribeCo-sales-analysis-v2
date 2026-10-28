@@ -64,10 +64,10 @@ def _ok_time(t):
 
 
 def _next_send(kind, settings, now):
-    """First hour from now when the regular schedule sends this report, or None if it is switched off."""
-    t = pd.Timestamp(now).floor("h")
+    """Next send moment of the regular schedule (the hour it becomes due), or None if it is switched off."""
+    t = pd.Timestamp(now).floor("h") + pd.Timedelta(hours=1)
     for _ in range(24 * 40):
-        if report_jobs.due(kind, settings, t)[0]:
+        if report_jobs.due(kind, settings, t)[0] and not report_jobs.due(kind, settings, t - pd.Timedelta(hours=1))[0]:
             return t
         t += pd.Timedelta(hours=1)
     return None

@@ -31,27 +31,35 @@ def now_local(settings):
     return datetime.now(ZoneInfo(settings.get("timezone", "Africa/Accra"))).replace(tzinfo=None)
 
 
-def _past(now, hhmm):
+CATCH_UP_HOURS = 48  # a late or skipped run still sends within this window after the planned time
+
+
+def _window(now, planned_day, hhmm):
+    """True from the planned moment (planned_day at hhmm) for CATCH_UP_HOURS."""
     hh, mm = (int(x) for x in str(hhmm).split(":")[:2])
-    return (now.hour, now.minute) >= (hh, mm)
+    planned = planned_day.replace(hour=hh, minute=mm, second=0, microsecond=0)
+    return 0 <= (now - planned).total_seconds() < CATCH_UP_HOURS * 3600
 
 
 def due(kind, settings, now):
     """(is_due, period). Weekly: on the send day at/after the send time. Monthly: either the first chosen
     weekday of the month or a fixed date (1-28), at/after the monthly time.
+    GitHub's scheduled runs are often late or skipped, so a report stays due for CATCH_UP_HOURS after
+    its planned time (within the same week / month); already_sent() stops a second send.
     Periods: last completed Monday-Sunday week / previous calendar month."""
     if settings.get(f"{kind}_enabled", "yes").lower() not in ("yes", "true", "1"):
         return False, None
     if kind == "weekly":
-        on_day = now.weekday() == DAYS.index(settings.get("send_day", "Friday"))
-        return on_day and _past(now, settings.get("send_time", "09:00")), weekly_report.last_completed_week(now)
+        back = now.weekday() - DAYS.index(settings.get("send_day", "Friday"))  # < 0: not reached this week
+        ok = back >= 0 and _window(now, now - pd.Timedelta(days=back), settings.get("send_time", "09:00"))
+        return ok, weekly_report.last_completed_week(now)
     if settings.get("monthly_rule", "first_weekday") == "day_of_month":
-        on_day = now.day == int(settings.get("monthly_date", "1"))
+        date = int(settings.get("monthly_date", "1"))
     else:
-        weekday = settings.get("monthly_day") or settings.get("send_day", "Friday")
-        on_day = now.weekday() == DAYS.index(weekday) and now.day <= 7
+        weekday = DAYS.index(settings.get("monthly_day") or settings.get("send_day", "Friday"))
+        date = 1 + (weekday - now.replace(day=1).weekday()) % 7
     hhmm = settings.get("monthly_time") or settings.get("send_time", "09:00")
-    return on_day and _past(now, hhmm), monthly_report.previous_month(now)
+    return _window(now, now.replace(day=date), hhmm), monthly_report.previous_month(now)
 
 
 def build(kind, d, period, settings, as_of=None):

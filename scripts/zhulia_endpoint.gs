@@ -9,6 +9,16 @@ const MIN_GAP_SECONDS = 600; // ignore calls within 10 minutes of the last accep
 function doGet(e) { return trigger_(); }
 function doPost(e) { return trigger_(); }
 
+// Hourly timer (GitHub's own schedule is often late or skipped). Run installHourly() once from the editor.
+function hourly() { trigger_(); }
+
+function installHourly() {
+  ScriptApp.getProjectTriggers()
+    .filter(function (t) { return t.getHandlerFunction() === "hourly"; })
+    .forEach(function (t) { ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger("hourly").timeBased().everyHours(1).nearMinute(5).create();
+}
+
 function trigger_() {
   const cache = CacheService.getScriptCache();
   if (cache.get("last_call")) return json_({ status: "skipped", reason: "called recently" });

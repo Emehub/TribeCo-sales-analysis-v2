@@ -111,8 +111,11 @@ class _Base:
         return [r for r in self.list_oneoffs() if r["status"] == "pending" and str(r["send_at"]) <= stamp]
 
     def already_sent(self, report, period):
+        """A full send (by the schedule, or by hand from the Admin page) already went out for this period.
+        Tests to one person and one-off sends do not count."""
         return any(l["report"] == report and l["period"] == period and l["status"] == "sent"
-                   and str(l.get("triggered_by", "")).startswith("schedule") for l in self.list_log(500))
+                   and str(l.get("triggered_by", "")).startswith(("schedule", "manual by"))
+                   for l in self.list_log(500))
 
 
 class LocalStore(_Base):
