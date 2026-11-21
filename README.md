@@ -181,6 +181,32 @@ To stop the dashboard press `Ctrl + C` in the terminal.
 
 ## Dashboard Pages
 
+The sidebar groups pages by purpose: **Dashboards** (Overview, Advanced Analytics, Sales
+Performance), **Leadership**, **Commercial**, **Operations** and **Archive**.
+
+### Advanced Analytics
+Statistical analysis of FBC invoices from the first month of sustained trading (pilot months
+are excluded from trends). Code: `dashboard/advanced_analytics.py` (calculations, plain
+pandas/numpy) and `dashboard/advanced_page.py` (layout).
+
+- **Headline KPIs:** 4-week revenue forecast with an 80% range, projected year-end revenue,
+  monthly revenue at risk from customers past their reorder rhythm, top-20% customer share
+- **Key findings:** sentences generated from the results below
+- **Forecast:** Holt damped-trend exponential smoothing on weekly revenue, with 80%/95%
+  prediction intervals, a back-test against a simple average (WAPE), and unusual weeks flagged
+  (more than 2.5 robust standard deviations from the model). The in-progress week is shown but
+  not used to fit the model.
+- **Customer segments:** RFM scoring (recency, frequency, spend, each 1–5) into seven
+  segments, each with a recommended action
+- **Churn risk:** each customer compared against their own median gap between orders; a
+  ranked call list of who is overdue and how much monthly revenue is at stake
+- **Cohorts:** retention heatmap by first-order month
+- **Concentration:** Lorenz curves, Gini and ABC classes for customers and products
+- **Growth drivers:** revenue bridges between two periods (30/60/90 days) by customer
+  (new, reactivated, grew, shrank, lost) and by product (volume, price, new, dropped)
+- **Cross-sell:** product pairs bought together, with support, confidence and lift
+- Everything downloads as one Excel file.
+
 ### 1. Overview
 The home page. Shows 12 KPI cards in three rows followed by four charts.
 

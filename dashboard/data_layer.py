@@ -162,6 +162,27 @@ def load(cfg, data_dir, save_csv=True):
     return process_raw(raw, target_year=None, from_metabase=from_mb, fetch_error=err)
 
 
+def fbc_invoices(inv):
+    """FBC sales invoices across every year loaded: Order Type 1, not BufferPesa, not cancelled
+    (Status 5), with Discountedvalue falling back to Total Order Value and an Outstanding column.
+    process_raw() narrows this to the dashboard year; analyses that need history use it whole."""
+    keep = pd.Series(True, index=inv.index)
+    if "Order Type" in inv.columns: keep &= (inv["Order Type"] == 1)
+    if "Channel"    in inv.columns: keep &= (inv["Channel"] != "BufferPesa")
+    if "Status"     in inv.columns: keep &= (inv["Status"] != 5)
+    out = inv[keep].copy()
+    if "Discountedvalue" in out.columns:
+        out["Discountedvalue"] = pd.to_numeric(out["Discountedvalue"], errors="coerce").fillna(0)
+        if "Total Order Value" in out.columns:
+            _tov = pd.to_numeric(out["Total Order Value"], errors="coerce").fillna(0)
+            out["Discountedvalue"] = out["Discountedvalue"].where(out["Discountedvalue"] > 0, _tov)
+    if "Totalrepaid" in out.columns:
+        out["Totalrepaid"] = pd.to_numeric(out["Totalrepaid"], errors="coerce").fillna(0)
+    if "Discountedvalue" in out.columns and "Totalrepaid" in out.columns:
+        out["Outstanding"] = (out["Discountedvalue"] - out["Totalrepaid"]).clip(lower=0)
+    return out
+
+
 def process_raw(_raw, target_year=None, from_metabase=True, fetch_error=""):
     """
     Convert a dict of raw DataFrames into the full set of processed variables.
@@ -277,19 +298,7 @@ def process_raw(_raw, target_year=None, from_metabase=True, fetch_error=""):
     if "Channel"    in inv.columns: _inv_fbc_filter &= (inv["Channel"] != "BufferPesa")
     inv_fbc_ids = set(inv[_inv_fbc_filter]["ID"].dropna()) if "ID" in inv.columns else set()
 
-    _scoped_filter = _inv_fbc_filter.copy()
-    if "Status" in inv.columns: _scoped_filter &= (inv["Status"] != 5)
-    inv_scoped = inv[_scoped_filter].copy()
-
-    if "Discountedvalue" in inv_scoped.columns:
-        inv_scoped["Discountedvalue"] = pd.to_numeric(inv_scoped["Discountedvalue"], errors="coerce").fillna(0)
-        if "Total Order Value" in inv_scoped.columns:
-            _tov = pd.to_numeric(inv_scoped["Total Order Value"], errors="coerce").fillna(0)
-            inv_scoped["Discountedvalue"] = inv_scoped["Discountedvalue"].where(inv_scoped["Discountedvalue"] > 0, _tov)
-    if "Totalrepaid" in inv_scoped.columns:
-        inv_scoped["Totalrepaid"] = pd.to_numeric(inv_scoped["Totalrepaid"], errors="coerce").fillna(0)
-    if "Discountedvalue" in inv_scoped.columns and "Totalrepaid" in inv_scoped.columns:
-        inv_scoped["Outstanding"] = (inv_scoped["Discountedvalue"] - inv_scoped["Totalrepaid"]).clip(lower=0)
+    inv_scoped = fbc_invoices(inv)
 
     # ── Year scope ──────────────────────────────────────────────────────────────
     if "Created At" in inv_scoped.columns:

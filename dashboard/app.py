@@ -25,6 +25,8 @@ import admin_store
 import admin_page
 import product_report as prr
 import stock_report as stk
+import advanced_page as aap
+from types import SimpleNamespace
 warnings.filterwarnings("ignore")
 try:
     import matplotlib
@@ -112,27 +114,6 @@ DSO_TERMS_DAYS  = 28   # standard payment term (Metabase invoices still record 3
 # `dashboard_frame=1` marks that nested render so it doesn't draw another switcher/iframe.
 _IS_PREVIEW_FRAME = st.query_params.get("dashboard_frame") == "1"
 
-if not _IS_PREVIEW_FRAME:
-    _dp_bar_l, _dp_bar_r = st.columns([5, 2])
-    with _dp_bar_r:
-        _device = st.segmented_control(
-            "Preview as", ["Desktop", "Tablet", "Mobile"],
-            default="Desktop", key="device_preview", label_visibility="collapsed",
-        )
-    if _device and _device != "Desktop":
-        _dp_dims = {"Tablet": (820, 1180), "Mobile": (390, 844)}
-        _dp_w, _dp_h = _dp_dims[_device]
-        st.markdown(f"""
-        <div style="display:flex;justify-content:center;padding:12px 0 30px">
-          <div style="border:3px solid #a8d9bf;border-radius:30px;
-                      box-shadow:0 24px 60px rgba(0,0,0,0.25);overflow:hidden;line-height:0">
-            <iframe src="?dashboard_frame=1&embed=true" width="{_dp_w}" height="{_dp_h}"
-                    style="border:none;display:block"></iframe>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.stop()
-
 # ── Metabase connection & data pipeline (shared with the scheduled email job) ───
 import data_layer as dl
 
@@ -150,40 +131,44 @@ THEME = "dark" if st.session_state["dark_mode"] else "light"
 
 _THEME_TOKENS = {
     "light": dict(
-        page_grad="linear-gradient(135deg, #f2f7f4 0%, #eaf5ee 45%, #fbf1e3 100%)",
-        card_bg="rgba(255,255,255,0.55)",
-        card_border="rgba(255,255,255,0.65)",
-        card_shadow="0 8px 32px rgba(2,75,48,0.10)",
-        kpi_shadow="0 1px 2px rgba(2,75,48,0.07), 0 12px 28px rgba(2,75,48,0.16)",
-        kpi_shadow_hover="0 4px 10px rgba(2,75,48,0.12), 0 20px 40px rgba(2,75,48,0.22)",
+        page_grad="linear-gradient(160deg, #f4f8f5 0%, #eef5f0 50%, #f8f4ec 100%)",
+        card_bg="rgba(255,255,255,0.86)",
+        card_border="rgba(2,75,48,0.09)",
+        card_shadow="0 1px 2px rgba(2,75,48,0.05), 0 6px 20px rgba(2,75,48,0.07)",
+        kpi_shadow="0 1px 2px rgba(2,75,48,0.05), 0 6px 20px rgba(2,75,48,0.07)",
+        kpi_shadow_hover="0 2px 6px rgba(2,75,48,0.08), 0 14px 32px rgba(2,75,48,0.13)",
         text_heading="#0d3b25",
         text_body="#374151",
         text_muted="#6b7280",
-        sidebar_bg="rgba(2,75,48,0.78)",
+        sidebar_bg="linear-gradient(180deg, #035a39 0%, #024b30 55%, #013a25 100%)",
         sidebar_border="rgba(255,255,255,0.14)",
         hr_color="rgba(2,75,48,0.15)",
-        badge_bg="rgba(255,255,255,0.55)",
+        badge_bg="#ffffff",
         badge_border="rgba(2,75,48,0.15)",
         dl_bg="rgba(255,255,255,0.55)",
         dl_border="rgba(2,75,48,0.25)",
         dl_text="#0d3b25",
-        widget_bg="rgba(255,255,255,0.6)",
+        widget_bg="#ffffff",
         widget_text="#111827",
         collapsed_bg="rgba(255,255,255,0.6)",
         collapsed_fill="#0d3b25",
         color_scheme="light",
+        input_border="rgba(2,75,48,0.16)",
+        card_bg_solid="#ffffff",
+        tab_bg="rgba(255,255,255,0.6)",
+        tab_active_bg="#ffffff",
     ),
     "dark": dict(
         page_grad="linear-gradient(135deg, #050f0a 0%, #0a1f14 45%, #17130a 100%)",
-        card_bg="rgba(15,35,26,0.55)",
-        card_border="rgba(255,255,255,0.10)",
+        card_bg="rgba(16,36,27,0.82)",
+        card_border="rgba(255,255,255,0.08)",
         card_shadow="0 8px 32px rgba(0,0,0,0.45)",
         kpi_shadow="0 1px 2px rgba(0,0,0,0.35), 0 12px 30px rgba(0,0,0,0.55)",
         kpi_shadow_hover="0 4px 10px rgba(0,0,0,0.45), 0 20px 44px rgba(0,0,0,0.65)",
         text_heading="#eef6f0",
         text_body="#d7ded9",
         text_muted="#9fb0a6",
-        sidebar_bg="rgba(1,18,12,0.82)",
+        sidebar_bg="linear-gradient(180deg, #08170f 0%, #050f0a 100%)",
         sidebar_border="rgba(255,255,255,0.08)",
         hr_color="rgba(255,255,255,0.12)",
         badge_bg="rgba(255,255,255,0.06)",
@@ -196,6 +181,10 @@ _THEME_TOKENS = {
         collapsed_bg="rgba(255,255,255,0.12)",
         collapsed_fill="#eef6f0",
         color_scheme="dark",
+        input_border="rgba(255,255,255,0.14)",
+        card_bg_solid="#0f231a",
+        tab_bg="rgba(255,255,255,0.04)",
+        tab_active_bg="rgba(255,255,255,0.10)",
     ),
 }
 _T = dict(_THEME_TOKENS[THEME], brand_green=BRAND_GREEN, brand_green_deep=BRAND_GREEN_DEEP,
@@ -206,252 +195,284 @@ _T = dict(_THEME_TOKENS[THEME], brand_green=BRAND_GREEN, brand_green_deep=BRAND_
 CHART_FONT = _T["text_body"]
 CHART_GRID = "rgba(255,255,255,0.12)" if THEME == "dark" else "rgba(2,75,48,0.10)"
 
+# One Plotly look for every chart: charts only override what they need, so anything they
+# leave unset (font, palette, hover box, gridlines, legend) now comes out the same everywhere.
+import plotly.io as pio
+CHART_COLORWAY = [BRAND_GREEN, BRAND_GOLD, "#14b8a6", "#6366f1", "#f97316", "#0ea5e9", "#a855f7", "#84cc16"]
+pio.templates["tribeco"] = go.layout.Template(layout=dict(
+    font=dict(family="Inter, Segoe UI, sans-serif", size=12, color=CHART_FONT),
+    colorway=CHART_COLORWAY,
+    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+    margin=dict(t=16, b=40, l=12, r=12),
+    hoverlabel=dict(font=dict(family="Inter, Segoe UI, sans-serif", size=12,
+                              color="#ffffff" if THEME == "light" else "#0d3b25"),
+                    bgcolor="#0d3b25" if THEME == "light" else "#eef6f0", bordercolor="rgba(0,0,0,0)"),
+    xaxis=dict(gridcolor=CHART_GRID, zeroline=False, linecolor=CHART_GRID, automargin=True),
+    yaxis=dict(gridcolor=CHART_GRID, zeroline=False, linecolor=CHART_GRID, automargin=True),
+    legend=dict(font=dict(size=11.5), bgcolor="rgba(0,0,0,0)"),
+    bargap=0.28,
+))
+pio.templates.default = "plotly_white+tribeco"
+
 # ── Global CSS (theme-aware: liquid glass + responsive + brand colors) ───────────
 _CSS_TEMPLATE = Template("""
 <style>
-/* ── Page backdrop — glass needs something behind it to blur ── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Spacing scale: 4 · 8 · 12 · 16 · 24 · 32. Every gap below uses one of these.
+   ════════════════════════════════════════════════════════════════════════════ */
+html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
+.stMarkdown, button, input, textarea, select {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+}
+/* Material Symbols must keep their own font, or icons render as words */
+[data-testid="stIconMaterial"] { font-family: 'Material Symbols Rounded' !important; }
+
+/* ── Page backdrop ── */
 [data-testid="stAppViewContainer"] {
-    padding-top: 0 !important;
     background: $page_grad !important;
     background-attachment: fixed !important;
 }
 [data-testid="stHeader"] { background: transparent !important; }
-.main { background: transparent !important; }
-
-/* ── Sidebar (glass) ── */
-[data-testid="stSidebar"] {
-    background: $sidebar_bg !important;
-    backdrop-filter: blur(18px) saturate(160%) !important;
-    -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
-    border-right: 1px solid $sidebar_border !important;
-    padding-top: 0 !important;
-    width: 190px !important;
-    min-width: 190px !important;
-    max-width: 190px !important;
-}
-[data-testid="stSidebar"] > div:first-child { width: 190px !important; }
-
-[data-testid="stSidebar"],
-[data-testid="stSidebar"] *,
-[data-testid="stSidebar"] p,
-[data-testid="stSidebar"] span,
-[data-testid="stSidebar"] div,
-[data-testid="stSidebar"] label {
-    color: #ffffff !important;
-}
-
-/* ── Nav buttons ── */
-[data-testid="stSidebar"] .stButton { margin: 0 !important; padding: 0 !important; }
-[data-testid="stSidebar"] .stButton button {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-    color: #ffffff !important;
-    font-size: 12.5px !important;
-    font-weight: 500 !important;
-    text-align: center !important;
-    justify-content: center !important;
-    padding: 9px 8px !important;
-    border-radius: 8px !important;
-    width: 100% !important;
-    cursor: pointer !important;
-    letter-spacing: 0.1px !important;
-    white-space: normal !important;
-    line-height: 1.25 !important;
-    transition: background 0.15s ease !important;
-}
-[data-testid="stSidebar"] .stButton button:hover {
-    background: rgba(255,255,255,0.10) !important;
-    color: #ffffff !important;
-    box-shadow: none !important;
-}
-[data-testid="stSidebar"] .stButton button:focus {
-    box-shadow: none !important;
-    outline: none !important;
-}
-[data-testid="stSidebar"] .stButton button[kind="primary"] {
-    background: rgba(201,151,90,0.28) !important;
-    border-left: 3px solid $brand_gold !important;
-    color: #ffffff !important;
-    font-weight: 700 !important;
-    border-radius: 0 8px 8px 0 !important;
-    box-shadow: none !important;
-}
-[data-testid="stSidebar"] .stButton button[kind="primary"]:hover {
-    background: rgba(201,151,90,0.4) !important;
-}
-
-/* ── Sidebar toggle switch (dark mode) ── */
-[data-testid="stSidebar"] [data-testid="stCheckbox"] label p { color: #ffffff !important; }
+.main, [data-testid="stMain"] { background: transparent !important; }
 
 /* ── Main layout ── */
-.main .block-container { padding: 1.5rem 2rem !important; max-width: 100% !important; }
-
-/* ── Top bar ── */
-.topbar {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 6px;
+.main .block-container, [data-testid="stMainBlockContainer"] {
+    padding: 32px 32px 48px !important;
+    max-width: 1480px !important;
 }
-.topbar-title { font-size: 22px; font-weight: 800; color: $text_heading; }
-.topbar-right { display: flex; align-items: center; gap: 10px; }
+[data-testid="stMain"] [data-testid="stVerticalBlock"] { gap: 16px; }
+[data-testid="stMain"] [data-testid="stHorizontalBlock"] { gap: 16px; }
+/* Streamlit pulls every markdown block up by 16px (to cancel paragraph margins). Our HTML
+   blocks have no paragraph margin, so that pull made KPI rows and labels collide. */
+[data-testid="stMarkdownContainer"]:has(> div, > span) { margin-bottom: 0 !important; }
+/* helpers that return "" (e.g. an all-zero KPI row) must not leave a 16px hole */
+[data-testid="stElementContainer"]:has([data-testid="stMarkdownContainer"]:empty) { display: none; }
+
+/* ════════════════════════════ Sidebar ════════════════════════════ */
+[data-testid="stSidebar"] {
+    background: $sidebar_bg !important;
+    border-right: 1px solid $sidebar_border !important;
+    width: 248px !important; min-width: 248px !important; max-width: 248px !important;
+}
+[data-testid="stSidebar"] > div:first-child { width: 248px !important; }
+[data-testid="stSidebarContent"] { padding: 0 12px 16px !important; }
+[data-testid="stSidebarHeader"] { height: 40px !important; min-height: 0 !important; padding: 8px 4px 0 !important; margin: 0 !important; }
+[data-testid="stSidebarUserContent"] { padding: 0 !important; }
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 2px !important; }
+[data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span,
+[data-testid="stSidebar"] div, [data-testid="stSidebar"] label { color: #ffffff; }
+
+.brand {
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 8px 16px; margin-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+}
+.brand-logo { width: 38px; height: 42px; border-radius: 8px; flex-shrink: 0; }
+.brand-name { font-size: 16px; font-weight: 800; letter-spacing: -0.2px; line-height: 1.2; color: #fff; }
+.brand-sub  { font-size: 11.5px; font-weight: 500; color: rgba(255,255,255,0.68) !important; line-height: 1.3; }
+
+.nav-group {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase;
+    color: rgba(255,255,255,0.50) !important;
+    padding: 20px 10px 8px;
+}
+.nav-sep { border-top: 1px solid rgba(255,255,255,0.12); margin: 16px 0 12px; }
+.nav-user { font-size: 11.5px; line-height: 1.5; color: rgba(255,255,255,0.75) !important; padding: 8px 10px; }
+.nav-status { font-size: 11px; color: rgba(255,255,255,0.6) !important; padding: 8px 10px 2px; display: flex; align-items: center; gap: 8px; }
+.nav-status-note { font-size: 10.5px; padding-top: 0; }
+.nav-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+[data-testid="stSidebar"] .stButton { margin: 0 !important; }
+[data-testid="stSidebar"] .stButton button {
+    background: transparent !important; border: none !important; box-shadow: none !important;
+    color: rgba(255,255,255,0.86) !important;
+    justify-content: flex-start !important; text-align: left !important;
+    min-height: 36px !important; height: 36px; padding: 0 10px !important;
+    border-radius: 8px !important; width: 100% !important;
+    transition: background 0.15s ease, color 0.15s ease !important;
+}
+[data-testid="stSidebar"] .stButton button > div { justify-content: flex-start !important; gap: 10px; width: 100%; }
+[data-testid="stSidebar"] .stButton button p {
+    font-size: 13.5px !important; font-weight: 500 !important;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+[data-testid="stSidebar"] .stButton button [data-testid="stIconMaterial"] {
+    font-size: 19px !important; color: rgba(255,255,255,0.62) !important;
+}
+[data-testid="stSidebar"] .stButton button:hover { background: rgba(255,255,255,0.08) !important; color: #fff !important; }
+[data-testid="stSidebar"] .stButton button:focus:not(:focus-visible) { box-shadow: none !important; }
+[data-testid="stSidebar"] .stButton button[kind="primary"] {
+    background: rgba(255,255,255,0.14) !important;
+    box-shadow: inset 3px 0 0 $brand_gold !important;
+    color: #fff !important;
+}
+[data-testid="stSidebar"] .stButton button[kind="primary"] p { font-weight: 650 !important; }
+[data-testid="stSidebar"] .stButton button[kind="primary"] [data-testid="stIconMaterial"] { color: $brand_gold_light !important; }
+[data-testid="stSidebar"] [data-testid="stCheckbox"] { padding: 4px 10px; }
+[data-testid="stSidebar"] [data-testid="stCheckbox"] label p { color: rgba(255,255,255,0.86) !important; font-size: 13px !important; }
+[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] svg,
+[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] span { color: rgba(255,255,255,0.7) !important; }
+
+/* Sidebar expand control (when collapsed) */
+[data-testid="stSidebarCollapsedControl"], [data-testid="stExpandSidebarButton"] {
+    background-color: $collapsed_bg !important; border-radius: 8px !important;
+}
+
+/* ════════════════════════════ Top bar ════════════════════════════ */
+.topbar { padding: 0 0 4px; }
+.topbar-crumb {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase;
+    color: $brand_green_light; margin-bottom: 4px;
+}
+.topbar-title { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.15; color: $text_heading; }
+.topbar-desc  { font-size: 13.5px; color: $text_muted; margin-top: 6px; }
+.topbar-right { display: flex; justify-content: flex-end; }
 .badge-date {
-    background: $badge_bg; color: $text_body; font-size: 12px; font-weight: 600;
-    padding: 5px 14px; border-radius: 20px; border: 1px solid $badge_border;
-    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    background: $badge_bg; color: $text_body; font-size: 12.5px; font-weight: 600;
+    padding: 7px 14px; border-radius: 999px; border: 1px solid $badge_border;
 }
+.st-key-device_preview [data-testid="stButtonGroup"] { display: flex; justify-content: flex-end; }
+.device-frame-wrap { display: flex; justify-content: center; padding: 8px 0 32px; }
+.device-frame { border: 3px solid #a8d9bf; border-radius: 30px; box-shadow: 0 24px 60px rgba(0,0,0,0.25); overflow: hidden; line-height: 0; }
+.device-frame iframe { border: none; display: block; }
 
-/* ── KPI cards (glass, responsive auto-fit grid) ── */
+/* ════════════════════════════ Section labels ════════════════════════════ */
+.section-label {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase;
+    color: $brand_green_light; margin: 8px 0 -6px;
+}
+.section-label::after { content: ""; flex: 1; height: 1px; background: $hr_color; }
+
+/* ════════════════════════════ Cards ════════════════════════════ */
+/* card_open() containers: one surface, one padding, one radius everywhere */
+[class*="st-key-card_"] {
+    background: $card_bg;
+    border: 1px solid $card_border;
+    border-radius: 14px;
+    box-shadow: $card_shadow;
+    padding: 20px 22px !important;
+    gap: 12px !important;
+}
+[class*="st-key-card_"] [class*="st-key-card_"] { box-shadow: none; padding: 16px !important; }
+.card-head { margin-bottom: 0; }
+.chart-title { font-size: 15px; font-weight: 700; color: $text_heading; letter-spacing: -0.1px; }
+.chart-sub   { font-size: 12.5px; color: $text_muted; margin-top: 2px; }
+
+/* ════════════════════════════ KPI cards ════════════════════════════ */
 .kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 14px; margin: 16px 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px; margin: 0;
 }
 .kpi-card {
-    background: $card_bg;
-    backdrop-filter: blur(14px) saturate(160%);
-    -webkit-backdrop-filter: blur(14px) saturate(160%);
-    border: 1px solid $card_border;
-    border-radius: 16px; padding: 20px 22px;
-    box-shadow: $kpi_shadow;
-    border-top: 4px solid $brand_green;
-    position: relative;
+    position: relative; overflow: hidden;
+    background: $card_bg; border: 1px solid $card_border; border-radius: 14px;
+    padding: 18px 20px 18px 22px; box-shadow: $kpi_shadow;
     container-type: inline-size;
     transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
-.kpi-card:hover {
-    transform: translateY(-3px);
-    box-shadow: $kpi_shadow_hover;
+.kpi-card::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+    background: var(--accent, $brand_green);
 }
-@media (prefers-reduced-motion: reduce) {
-    .kpi-card { transition: none; }
-    .kpi-card:hover { transform: none; }
-}
+.kpi-card:hover { transform: translateY(-2px); box-shadow: $kpi_shadow_hover; }
+@media (prefers-reduced-motion: reduce) { .kpi-card { transition: none; } .kpi-card:hover { transform: none; } }
 .kpi-label {
-    font-size: 11px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.6px; color: $text_muted; margin-bottom: 2px;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: $text_muted;
 }
-.kpi-badge {
-    font-size: 11px; font-weight: 700; margin-left: 6px;
-    padding: 1px 6px; border-radius: 10px;
-}
+.kpi-badge { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; letter-spacing: 0; margin-left: 0; }
 .kpi-value {
-    /* Scales with the card's own width (not the viewport) so full-precision
-       figures like "GHS 3,729,342.00" stay on one line instead of wrapping
-       mid-number as cards get squeezed in a dense grid. */
-    font-size: clamp(16px, 8.5cqi, 30px);
-    font-weight: 800; color: $text_heading;
-    margin: 8px 0 6px; line-height: 1.15;
-    white-space: nowrap;
+    font-size: clamp(16px, 8.5cqi, 28px); font-weight: 800; letter-spacing: -0.4px;
+    color: $text_heading; margin: 10px 0 4px; line-height: 1.15; white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
-.kpi-sub { font-size: 12px; color: $text_muted; }
+.kpi-sub { font-size: 12.5px; color: $text_muted; }
 
-/* ── Chart card (glass) ── */
-.chart-card {
-    background: $card_bg;
-    backdrop-filter: blur(14px) saturate(160%);
-    -webkit-backdrop-filter: blur(14px) saturate(160%);
-    border: 1px solid $card_border;
-    border-radius: 16px; padding: 20px 22px;
-    box-shadow: $card_shadow; margin-bottom: 16px;
+/* ════════════════════════════ Insight cards (Advanced Analytics) ════════════════════════════ */
+.insight-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.insight {
+    background: $card_bg; border: 1px solid $card_border; border-radius: 14px; padding: 16px 18px;
+    box-shadow: $card_shadow; display: flex; gap: 12px; align-items: flex-start;
 }
-.chart-title { font-size: 15px; font-weight: 700; color: $text_heading; margin-bottom: 2px; }
-.chart-sub   { font-size: 12px; color: $text_muted; margin-bottom: 12px; }
+.insight-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+.insight-title { font-size: 13.5px; font-weight: 700; color: $text_heading; margin-bottom: 4px; }
+.insight-text { font-size: 13px; line-height: 1.55; color: $text_body; }
+.method-note { font-size: 12px; color: $text_muted; line-height: 1.6; }
+.method-note b { color: $text_body; }
 
-/* ── Divider ── */
 hr { border: none; border-top: 1px solid $hr_color; margin: 12px 0; }
 
 /* ── Hide Streamlit chrome ── */
-#MainMenu { display: none !important; }
-footer { display: none !important; }
-.stDeployButton { display: none; }
+#MainMenu, footer, .stDeployButton, [data-testid="stAppDeployButton"] { display: none !important; }
 
-/* ── Download button (glass) ── */
+/* ════════════════════════════ Buttons & downloads ════════════════════════════ */
+[data-testid="stMain"] .stButton button, [data-testid="stDownloadButton"] button {
+    border-radius: 10px !important; min-height: 38px;
+}
+[data-testid="stMain"] .stButton button p, [data-testid="stDownloadButton"] button p { font-weight: 600 !important; font-size: 13px !important; }
 [data-testid="stDownloadButton"] button {
-    background: $dl_bg !important;
-    border: 1px solid $dl_border !important;
-    color: $dl_text !important;
-    font-size: 12px !important;
-    font-weight: 600 !important;
-    padding: 5px 14px !important;
-    border-radius: 8px !important;
-    width: auto !important;
-    min-width: 0 !important;
-    max-width: 220px !important;
-    box-shadow: none !important;
-    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    background: $dl_bg !important; border: 1px solid $dl_border !important; color: $dl_text !important;
+    padding: 6px 16px !important; width: auto !important; box-shadow: none !important;
     transition: background 0.15s ease, color 0.15s ease !important;
 }
-[data-testid="stDownloadButton"] button:hover {
-    background: $brand_green !important;
-    border-color: $brand_green !important;
-    color: #ffffff !important;
-}
+[data-testid="stDownloadButton"] button:hover { background: $brand_green !important; border-color: $brand_green !important; color: #fff !important; }
+[data-testid="stDownloadButton"] button:hover p { color: #fff !important; }
 
-/* ── Sidebar expand/collapse control ── */
-[data-testid="collapsedControl"],
-[data-testid="stSidebarCollapsedControl"],
-[data-testid="stSidebarCollapseButton"] {
-    background-color: $collapsed_bg !important;
-    border-radius: 0 8px 8px 0 !important;
-    top: 48px !important;
-    backdrop-filter: blur(10px);
-}
-[data-testid="collapsedControl"] svg,
-[data-testid="stSidebarCollapsedControl"] svg,
-[data-testid="stSidebarCollapseButton"] svg {
-    fill: $collapsed_fill !important;
-}
-
-/* ── Native widgets — best-effort theme awareness ── */
-[data-testid="stDataFrame"] { color-scheme: $color_scheme; }
-[data-testid="stMultiSelect"] > div > div,
-[data-testid="stSelectbox"] > div > div {
-    background: $widget_bg !important;
-    color: $widget_text !important;
-    border-color: $card_border !important;
+/* ════════════════════════════ Inputs ════════════════════════════ */
+[data-testid="stMain"] [data-testid="stWidgetLabel"] p { font-size: 12.5px !important; font-weight: 600 !important; color: $text_body !important; }
+[data-testid="stMultiSelect"] > div > div, [data-testid="stSelectbox"] > div > div,
+[data-testid="stDateInput"] > div > div, [data-testid="stTextInput"] > div > div, [data-testid="stNumberInput"] > div > div {
+    background: $widget_bg !important; color: $widget_text !important;
+    border-color: $input_border !important; border-radius: 10px !important;
 }
 div[data-baseweb="popover"] li, div[data-baseweb="popover"] div { color: $widget_text !important; }
-div[data-baseweb="popover"] ul { background: $card_bg !important; backdrop-filter: blur(14px); }
-/* st.popover() content (not the selectbox/multiselect dropdown above) always renders on
-   Streamlit's own white panel regardless of app theme, so force dark text unconditionally
-   rather than the theme-driven $widget_text color meant for the dropdown case. */
+div[data-baseweb="popover"] ul { background: $card_bg_solid !important; }
 div[data-baseweb="popover"][data-testid="stPopoverBody"] { color: #111827 !important; }
-div[data-baseweb="popover"][data-testid="stPopoverBody"] * {
-    color: #111827 !important; background: transparent !important; backdrop-filter: none !important;
+div[data-baseweb="popover"][data-testid="stPopoverBody"] * { color: #111827 !important; background: transparent !important; }
+[data-baseweb="tag"] { background: $brand_green !important; color: #fff !important; border-color: $brand_green !important; border-radius: 6px !important; }
+[data-testid="stCheckbox"] [role="switch"] { background: $brand_green !important; }
+[data-testid="stMain"] [data-testid="stButtonGroup"] button { border-color: $input_border !important; background: $widget_bg; }
+[data-testid="stMain"] [data-testid="stButtonGroup"] button p { color: $text_body !important; font-size: 13px !important; font-weight: 600 !important; }
+[data-testid="stMain"] [data-testid="stButtonGroup"] button[kind*="Active"] { background: $brand_green !important; border-color: $brand_green !important; }
+[data-testid="stMain"] [data-testid="stButtonGroup"] button[kind*="Active"] p { color: #fff !important; }
+
+/* ════════════════════════════ Tabs ════════════════════════════ */
+[data-testid="stTabs"] [data-baseweb="tab-list"] {
+    gap: 4px; background: $tab_bg; padding: 4px; border-radius: 12px; border: 1px solid $card_border;
+    width: fit-content; max-width: 100%; overflow-x: auto;
 }
-[data-baseweb="tag"] {
-    background: $brand_green !important;
-    color: #ffffff !important;
-    border-color: $brand_green !important;
+[data-testid="stTabs"] [data-baseweb="tab"] {
+    height: 36px; padding: 0 16px; border-radius: 9px; color: $text_body !important; background: transparent;
 }
-[data-testid="stCheckbox"] label[data-baseweb="checkbox"] span:first-child,
-[data-testid="stCheckbox"] [role="switch"] {
-    background: $brand_green !important;
-}
-[data-testid="stTabs"] [data-baseweb="tab"] { color: $text_body !important; }
-[data-testid="stTabs"] [aria-selected="true"] { color: $brand_green !important; border-bottom-color: $brand_green !important; }
-[data-testid="stSegmentedControl"] label[data-baseweb="radio"] { color: $text_body !important; }
-[data-testid="stSegmentedControl"] label[data-baseweb="radio"][aria-checked="true"] {
-    background: $brand_green !important; color: #ffffff !important;
-}
-[data-testid="stExpander"] {
+[data-testid="stTabs"] [data-baseweb="tab"] p { font-size: 13px; font-weight: 600; }
+[data-testid="stTabs"] [aria-selected="true"] { background: $tab_active_bg !important; color: $brand_green !important; box-shadow: 0 1px 3px rgba(0,0,0,0.10); }
+[data-testid="stTabs"] [data-baseweb="tab-highlight"], [data-testid="stTabs"] [data-baseweb="tab-border"] { display: none; }
+[data-testid="stTabs"] [data-baseweb="tab-panel"] { padding-top: 16px; }
+
+/* ════════════════════════════ Tables, expanders, alerts ════════════════════════════ */
+[data-testid="stDataFrame"] { color-scheme: $color_scheme; border-radius: 10px; overflow: hidden; border: 1px solid $card_border; }
+[data-testid="stExpander"] details {
     background: $card_bg !important; border: 1px solid $card_border !important; border-radius: 12px !important;
 }
+[data-testid="stExpander"] summary p { font-weight: 600; }
 [data-testid="stExpander"] summary, [data-testid="stExpander"] p { color: $text_body !important; }
+[data-testid="stAlert"] { border-radius: 12px; }
 
-/* ── Responsive breakpoints: tablet / mobile ── */
+/* ════════════════════════════ Responsive ════════════════════════════ */
 @media (max-width: 1024px) {
-    .main .block-container { padding: 1rem 1.1rem !important; }
-    .topbar-title { font-size: 19px; }
+    .main .block-container, [data-testid="stMainBlockContainer"] { padding: 24px 16px 40px !important; }
+    .topbar-title { font-size: 22px; }
+    [class*="st-key-card_"] { padding: 16px !important; }
 }
-@media (max-width: 480px) {
-    .main .block-container { padding: 0.75rem 0.6rem !important; }
-    .kpi-grid { grid-template-columns: 1fr !important; }
-    .topbar-title { font-size: 16px; }
-    .chart-title { font-size: 13px; }
-    [data-testid="stSidebar"] { width: 160px !important; min-width: 160px !important; max-width: 160px !important; }
-    [data-testid="stSidebar"] > div:first-child { width: 160px !important; }
+@media (max-width: 640px) {
+    .kpi-grid, .insight-grid { grid-template-columns: 1fr !important; }
+    .topbar-title { font-size: 20px; }
+    .topbar-right { justify-content: flex-start; }
+    .chart-title { font-size: 14px; }
 }
 </style>
 """)
@@ -589,7 +610,7 @@ def kpi_card(label, value, subtitle, color, badge="", badge_color=""):
             pass
     badge_html = f'<span class="kpi-badge" style="background:{badge_color}22;color:{badge_color}">{badge}</span>' if badge else ""
     return f"""
-    <div class="kpi-card" style="border-top-color:{color}">
+    <div class="kpi-card" style="--accent:{color}">
         <div class="kpi-label">{label}{badge_html}</div>
         <div class="kpi-value">{value}</div>
         <div class="kpi-sub">{subtitle}</div>
@@ -603,15 +624,44 @@ def kpi_grid(html, max_cols=4):
     return f'<div class="kpi-grid">{html}</div>'
 
 def chart_wrap(title, subtitle=""):
+    """Card header HTML only. Use card_open()/card_close() to put widgets inside a card."""
     sub = f'<div class="chart-sub">{subtitle}</div>' if subtitle else ""
-    return f'<div class="chart-card"><div class="chart-title">{title}</div>{sub}'
+    return f'<div class="chart-title">{title}</div>{sub}'
 
-def year_filter(key="year"):
+# Streamlit renders every st.markdown call in its own element, so an HTML "<div class=card>"
+# opened in one call can never wrap the charts and widgets that follow -- it closes itself
+# straight away and leaves an empty box with the content spilling out underneath. A real
+# st.container does wrap them, so cards are containers styled by their key (.st-key-card_N).
+# card_open/card_close are the bracketing pair; they must sit in the same block, like a `with`.
+_CARD_STACK = []
+_CARD_SEQ = [0]
+
+def card_open(title="", subtitle=""):
+    _CARD_SEQ[0] += 1
+    box = st.container(key=f"card_{_CARD_SEQ[0]}")
+    box.__enter__()
+    _CARD_STACK.append(box)
+    if title or subtitle:
+        st.markdown(f'<div class="card-head">{chart_wrap(title, subtitle)}</div>', unsafe_allow_html=True)
+    return box
+
+def card_close():
+    if _CARD_STACK:
+        _CARD_STACK.pop().__exit__(None, None, None)
+
+def section_label(text):
+    st.markdown(f'<div class="section-label">{text}</div>', unsafe_allow_html=True)
+
+def year_filter(key="year", inline=False):
+    """inline=True draws just the selectbox, for pages that place it inside their own filter row."""
     options = ["All"] + [str(y) for y in all_years]
     default_idx = options.index("2026") if "2026" in options else 0
-    col_y, _ = st.columns([1, 5])
-    with col_y:
+    if inline:
         selected = st.selectbox("Year", options, index=default_idx, key=key)
+    else:
+        col_y, _ = st.columns([1, 5])
+        with col_y:
+            selected = st.selectbox("Year", options, index=default_idx, key=key)
     yr = selected if selected == "All" else int(selected) if selected is not None else "All"
     st.session_state["current_year"] = yr
     return yr
@@ -1091,40 +1141,44 @@ if _PDF_AVAIL:
 if "active_page" not in st.session_state:
     st.session_state["active_page"] = "Overview"
 
+# Grouped by what the page is for, so the menu reads top-down from summary to detail.
 NAV_GROUPS = {
-    "Leadership":     ["Weekly Info", "YTD Review", "Quarterly Review", "Credit & Collections", "Products",
-                       "Data Export"],
-    "Core Analytics": ["Overview", "Sales Performance"],
-    "Business":       ["Customers", "Payments"],
-    "Phase 1":        ["Weekly Scorecard", "Reconciliation", "Data Quality"],
-    "Phase 2":        ["Reliability", "Segmentation", "Campaigns"],
-    "History":        ["Historical Analysis"],
+    "Dashboards":  ["Overview", "Advanced Analytics", "Sales Performance"],
+    "Leadership":  ["Weekly Info", "YTD Review", "Quarterly Review", "Credit & Collections"],
+    "Commercial":  ["Products", "Customers", "Payments", "Segmentation", "Campaigns"],
+    "Operations":  ["Weekly Scorecard", "Reconciliation", "Data Quality", "Reliability"],
+    "Archive":     ["Historical Analysis", "Data Export"],
 }
 if IS_ADMIN:
-    NAV_GROUPS["Admin"] = ["Admin"]
+    NAV_GROUPS["Settings"] = ["Admin"]
 if st.session_state.get("active_page") == "Admin" and not IS_ADMIN:
     st.session_state["active_page"] = "Overview"
 
+# One icon family (Material Symbols, rendered by Streamlit) so every menu row lines up.
 NAV_ICONS = {
-    "Weekly Info":        "🧭",
-    "YTD Review":         "📊",
-    "Quarterly Review":    "🎯",
-    "Credit & Collections": "🧾",
-    "Admin":               "🔐",
-    "Data Export":         "🗂️",
-    "Overview":            "🏠",
-    "Sales Performance":   "📈",
-    "Products":            "📦",
-    "Customers":           "👥",
-    "Payments":            "💳",
-    "Weekly Scorecard":    "📋",
-    "Reconciliation":      "⚖️",
-    "Data Quality":        "🔍",
-    "Reliability":         "🛡️",
-    "Segmentation":        "🎯",
-    "Campaigns":           "📣",
-    "Historical Analysis": "📂",
+    "Overview":             ":material/space_dashboard:",
+    "Advanced Analytics":   ":material/insights:",
+    "Sales Performance":    ":material/trending_up:",
+    "Weekly Info":          ":material/explore:",
+    "YTD Review":           ":material/calendar_month:",
+    "Quarterly Review":     ":material/flag:",
+    "Credit & Collections": ":material/receipt_long:",
+    "Products":             ":material/inventory_2:",
+    "Customers":            ":material/groups:",
+    "Payments":             ":material/payments:",
+    "Segmentation":         ":material/donut_large:",
+    "Campaigns":            ":material/campaign:",
+    "Weekly Scorecard":     ":material/fact_check:",
+    "Reconciliation":       ":material/balance:",
+    "Data Quality":         ":material/rule:",
+    "Reliability":          ":material/verified:",
+    "Historical Analysis":  ":material/history:",
+    "Data Export":          ":material/download:",
+    "Admin":                ":material/admin_panel_settings:",
 }
+PAGE_GROUP = {p: g for g, items in NAV_GROUPS.items() for p in items}
+if st.session_state["active_page"] not in PAGE_GROUP:
+    st.session_state["active_page"] = "Overview"
 
 with st.sidebar:
     _logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "tribeco_logo.png")
@@ -1132,33 +1186,34 @@ with st.sidebar:
     if os.path.exists(_logo_path):
         with open(_logo_path, "rb") as _f:
             _logo_b64 = base64.b64encode(_f.read()).decode()
-    _logo_img = (f'<img src="data:image/png;base64,{_logo_b64}" '
-                 f'style="width:40px;height:44px;border-radius:8px;flex-shrink:0" />') if _logo_b64 else ""
+    _logo_img = (f'<img class="brand-logo" src="data:image/png;base64,{_logo_b64}" alt="" />') if _logo_b64 else ""
     st.markdown(f"""
-    <div style="padding:16px 10px 12px;border-bottom:1px solid rgba(255,255,255,0.14);margin-bottom:4px;
-                display:flex;align-items:center;gap:10px">
+    <div class="brand">
         {_logo_img}
         <div>
-            <div style="font-size:14px;font-weight:800;color:white;line-height:1.2">TribeCo</div>
-            <div style="font-size:10.5px;font-weight:500;color:rgba(255,255,255,0.75);line-height:1.2">Ghana Data Analysis</div>
+            <div class="brand-name">TribeCo</div>
+            <div class="brand-sub">Ghana Data Analysis</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    if USER_EMAIL:
-        st.markdown(f'<div style="color:rgba(255,255,255,0.85);font-size:12px;padding:2px 4px 8px">'
-                    f'Signed in as <b>{USER_EMAIL}</b><br>Role: {USER_ROLE}</div>', unsafe_allow_html=True)
-        if _AUTH_ON and st.button("Sign out", key="nav_signout", use_container_width=True):
-            st.logout()
-    st.toggle("🌙 Dark mode", key="dark_mode")
+    for _group, _items in NAV_GROUPS.items():
+        st.markdown(f'<div class="nav-group">{_group}</div>', unsafe_allow_html=True)
+        for item in _items:
+            is_active = st.session_state["active_page"] == item
+            if st.button(item, key=f"nav_{item}", use_container_width=True,
+                         type="primary" if is_active else "secondary", icon=NAV_ICONS.get(item)):
+                st.session_state["active_page"] = item
+                st.rerun()
 
-    all_pages = [item for items in NAV_GROUPS.values() for item in items]
-    for item in all_pages:
-        is_active = st.session_state["active_page"] == item
-        kind      = "primary" if is_active else "secondary"
-        if st.button(item, key=f"nav_{item}", use_container_width=True, type=kind):
-            st.session_state["active_page"] = item
-            st.rerun()
+    st.markdown('<div class="nav-sep"></div>', unsafe_allow_html=True)
+    st.toggle("Dark mode", key="dark_mode")
+    if USER_EMAIL:
+        st.markdown(f'<div class="nav-user">Signed in as <b>{USER_EMAIL}</b><br>Role: {USER_ROLE}</div>',
+                    unsafe_allow_html=True)
+        if _AUTH_ON and st.button("Sign out", key="nav_signout", use_container_width=True,
+                                  icon=":material/logout:"):
+            st.logout()
 
     # ── Auto-refresh: re-fetches data from Metabase every 5 minutes ─────────────
     @st.fragment(run_every=300)
@@ -1170,18 +1225,14 @@ with st.sidebar:
         source    = "Metabase" if live else "cached CSV"
         label     = f"Live · {source} · {ts}" if ts else "Live · auto-refresh on"
         st.markdown(
-            f'<div style="color:rgba(255,255,255,0.55);font-size:11px;'
-            f'padding:10px 16px 6px;border-top:1px solid rgba(255,255,255,0.1);margin-top:6px">'
-            f'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;'
-            f'background:{dot_color};margin-right:5px;vertical-align:middle"></span>'
+            f'<div class="nav-status"><span class="nav-dot" style="background:{dot_color}"></span>'
             f'{label}</div>',
             unsafe_allow_html=True,
         )
         if err:
             import html as _html
             st.markdown(
-                f'<div style="color:rgba(255,255,255,0.55);font-size:10px;'
-                f'padding:2px 16px 8px" title="{_html.escape(err)}">'
+                f'<div class="nav-status nav-status-note" title="{_html.escape(err)}">'
                 f'Live connection unavailable &mdash; showing the last cached data pull.</div>',
                 unsafe_allow_html=True,
             )
@@ -1214,32 +1265,79 @@ else:
 if len(_inv_yr):
     _from = _inv_yr["Created At"].min().strftime("%b %Y")
     _to   = _inv_yr["Created At"].max().strftime("%b %Y")
-    _date_range = f"{_from}, {_to}"
+    _date_range = _from if _from == _to else f"{_from} – {_to}"
 else:
     _date_range = str(_yr)
 
 # ── Top bar ──────────────────────────────────────────────────────────────────────
-st.markdown(f"""
-<div class="topbar">
-    <div class="topbar-title">{page}</div>
-    <div class="topbar-right">
-        <span class="badge-date">{_date_range}</span>
+PAGE_DESC = {
+    "Overview":             "Headline sales, collections and partner KPIs for the selected period.",
+    "Advanced Analytics":   "Forecast, customer segments, churn risk, cohorts, concentration and growth drivers.",
+    "Sales Performance":    "Sales by month, week, channel and city against targets.",
+    "Weekly Info":          "The weekly leadership pack: sales, collections and DSO for one week.",
+    "YTD Review":           "Year-to-date performance against plan.",
+    "Quarterly Review":     "Quarter results with exportable Word and PowerPoint packs.",
+    "Credit & Collections": "Receivables, ageing and collection efficiency.",
+    "Products":             "Product sales, margin, stock cover and slow movers.",
+    "Customers":            "Who is buying, how often and how much.",
+    "Payments":             "Payment volumes, methods and success rates.",
+    "Segmentation":         "Partner portfolio segments and their performance.",
+    "Campaigns":            "Pre-order campaign results.",
+    "Weekly Scorecard":     "Week-by-week operating scorecard.",
+    "Reconciliation":       "Orders matched to payments, and the gaps.",
+    "Data Quality":         "Missing and inconsistent records to fix at source.",
+    "Reliability":          "Inventory request fulfilment reliability.",
+    "Historical Analysis":  "2023–2025 sales ledgers.",
+    "Data Export":          "Download the underlying tables.",
+    "Admin":                "Users, roles and scheduled reports.",
+}
+_tb_l, _tb_r = st.columns([5, 4], vertical_alignment="center")
+with _tb_l:
+    st.markdown(f"""
+    <div class="topbar">
+        <div class="topbar-crumb">{PAGE_GROUP.get(page, "")}</div>
+        <div class="topbar-title">{page}</div>
+        <div class="topbar-desc">{PAGE_DESC.get(page, "")}</div>
     </div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+with _tb_r:
+    _tb_badge, _tb_dev = st.columns([4, 5], vertical_alignment="center")
+    with _tb_badge:
+        st.markdown(f'<div class="topbar-right"><span class="badge-date">{_date_range}</span></div>',
+                    unsafe_allow_html=True)
+    with _tb_dev:
+        _device = None
+        if not _IS_PREVIEW_FRAME:
+            _device = st.segmented_control(
+                "Preview as", ["Desktop", "Tablet", "Mobile"],
+                default="Desktop", key="device_preview", label_visibility="collapsed",
+            )
+
+# Device preview: Streamlit cannot fake a viewport width, so the app is rendered a second
+# time inside an iframe of that exact width (dashboard_frame=1 marks the nested render).
+if _device and _device != "Desktop":
+    _dp_w, _dp_h = {"Tablet": (820, 1180), "Mobile": (390, 844)}[_device]
+    st.markdown(f"""
+    <div class="device-frame-wrap">
+      <div class="device-frame">
+        <iframe src="?dashboard_frame=1&embed=true" width="{_dp_w}" height="{_dp_h}"></iframe>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.stop()
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
 # PAGE — OVERVIEW
 # ══════════════════════════════════════════════════════════════════════════════════
 if page == "Overview":
-    yr    = year_filter("yr_overview")
+    # ── Filter bar ──────────────────────────────────────────────────────────────
+    card_open("Filters", "Refine every KPI, chart and table below")
+    _ov_f0, _ov_f1, _ov_f2, _ov_f3 = st.columns([1, 2, 2, 2])
+    with _ov_f0:
+        yr = year_filter("yr_overview", inline=True)
     inv_y = apply_year(inv_scoped, yr)
     rep_y = apply_year(rep_scoped, yr)
-
-    # ── Filter bar ──────────────────────────────────────────────────────────────
-    st.markdown(chart_wrap("Filters", "Refine every KPI, chart and table below"), unsafe_allow_html=True)
-    _ov_f1, _ov_f2, _ov_f3 = st.columns(3)
     with _ov_f1:
         _ov_months = sorted(inv_y["Month"].dropna().unique())
         _ov_sel_months = st.multiselect("Month", _ov_months, default=[], key="ov_f_month",
@@ -1253,7 +1351,7 @@ if page == "Overview":
         _ov_city_opts = sorted(c for c in inv_y["Customer City"].dropna().unique() if c)
         _ov_sel_cities = st.multiselect("City / Region", _ov_city_opts, default=[], key="ov_f_city",
                                          placeholder="All cities")
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
     if _ov_sel_months:
         inv_y = inv_y[inv_y["Month"].isin(_ov_sel_months)]
@@ -1338,7 +1436,7 @@ if page == "Overview":
     st.markdown(kpi_grid(row1), unsafe_allow_html=True)
 
     # Row 2 — MERL KPIs
-    st.markdown("<div style='font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#3fa873;margin:16px 0 6px'>MERL Performance Indicators</div>", unsafe_allow_html=True)
+    section_label("MERL Performance Indicators")
     row2 = kpi_card("New Partners Signed", f"{new_signed:,}",
                     "Agrovets/Providers registered", BRAND_GREEN) + \
            kpi_card("Activation Rate (90d)", f"{activation_rate:.1f}%",
@@ -1386,10 +1484,7 @@ if page == "Overview":
         else:
             _older_html += _card
     if _recent_html or _older_html:
-        st.markdown(
-            "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
-            "letter-spacing:1px;color:#3fa873;margin:16px 0 6px'>Monthly Revenue</div>",
-            unsafe_allow_html=True)
+        section_label("Monthly Revenue")
         if _recent_html:
             st.markdown(
                 f'<div class="kpi-grid" style="grid-template-columns:repeat(2,1fr)">'
@@ -1398,14 +1493,14 @@ if page == "Overview":
         if _older_html:
             with st.expander("Show previous months"):
                 st.markdown(
-                    f'<div class="kpi-grid" style="grid-template-columns:repeat(6,1fr)">'
+                    f'<div class="kpi-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">'
                     f'{_older_html}</div>',
                     unsafe_allow_html=True)
 
     col1, col2 = st.columns([3, 2])
 
     with col1:
-        st.markdown(chart_wrap("Monthly Revenue Trend", f"GHS revenue by month ({date_range})"), unsafe_allow_html=True)
+        card_open("Monthly Revenue Trend", f"GHS revenue by month ({date_range})")
         monthly = inv_y.groupby("Month")["Discountedvalue"].sum().reset_index()
         monthly["prev"] = monthly["Discountedvalue"].shift(1)
         monthly["pct"]  = (((monthly["Discountedvalue"] - monthly["prev"]) / monthly["prev"]).astype(float) * 100).round(1)
@@ -1427,10 +1522,10 @@ if page == "Overview":
         fig.update_layout(**white_layout(300),
                           legend=dict(orientation="h", y=-0.28, x=0))
         st.plotly_chart(fig, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     with col2:
-        st.markdown(chart_wrap("Sales by City", "Top Ghana cities by order value"), unsafe_allow_html=True)
+        card_open("Sales by City", "Top Ghana cities by order value")
         city_sales = (inv_y.groupby("Customer City")["Discountedvalue"]
                            .sum().reset_index()
                            .rename(columns={"Customer City":"City","Discountedvalue":"Sales"})
@@ -1446,11 +1541,11 @@ if page == "Overview":
                            showlegend=True, font=dict(color=CHART_FONT),
                            legend=dict(orientation="v", x=1.02, y=0.5, font=dict(size=11, color=CHART_FONT)))
         st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     col3, col4 = st.columns(2)
     with col3:
-        st.markdown(chart_wrap("Repayment Status", "Invoice repayment breakdown"), unsafe_allow_html=True)
+        card_open("Repayment Status", "Invoice repayment breakdown")
         rs = inv_y["Repayment Status"].value_counts().reset_index()
         rs.columns = ["Status", "Count"]
         clrs = {"Open":BRAND_GOLD,"Repaid":"#16a34a","Overdue":"#dc2626","Due Soon":"#f59e0b"}
@@ -1461,10 +1556,10 @@ if page == "Overview":
         fig3.update_layout(**white_layout(240))
         fig3.update_layout(showlegend=False, xaxis=dict(tickangle=0))
         st.plotly_chart(fig3, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     with col4:
-        st.markdown(chart_wrap("Payment Mode", "Collection method split"), unsafe_allow_html=True)
+        card_open("Payment Mode", "Collection method split")
         pm = rep_y["Payment Method"].value_counts().reset_index()
         pm.columns = ["Method", "Count"]
         pm_clrs = {"Mobile Money":BRAND_GOLD,"Bank Transfer":"#16a34a","Cash":"#f59e0b","Mpesa":"#8b5cf6"}
@@ -1478,11 +1573,11 @@ if page == "Overview":
                            showlegend=True, font=dict(color=CHART_FONT),
                            legend=dict(orientation="v", x=1.02, y=0.5, font=dict(size=11, color=CHART_FONT)))
         st.plotly_chart(fig4, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     # ── Monthly Revenue Breakdown table ──────────────────────────────────────────
-    st.markdown(chart_wrap("Monthly Revenue Breakdown",
-                           "Sales, collected and outstanding by month"), unsafe_allow_html=True)
+    card_open("Monthly Revenue Breakdown",
+                           "Sales, collected and outstanding by month")
     _rep_y_m  = rep_y.copy()
     _rep_y_m["Month"] = _rep_y_m["Created At"].dt.to_period("M").astype(str)
     _mb_coll  = _rep_y_m.groupby("Month")["Amount"].sum().reset_index().rename(columns={"Amount":"Collected"})
@@ -1504,12 +1599,11 @@ if page == "Overview":
         lambda v: f"+{v:.1f}%" if pd.notna(v) and v >= 0 else (f"{v:.1f}%" if pd.notna(v) else "-"))
     st.dataframe(_disp[["Month","Invoices","Revenue","Collected","Outstanding","Collection %","MoM Change"]],
                  use_container_width=True, hide_index=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
     # ── Vaccines Delivered by Disease ─────────────────────────────────────────────
-    st.markdown(chart_wrap("Vaccines Delivered by Disease",
-                           "Monthly doses distributed by disease  Poultry · Goats & Sheep · Cattle"),
-                unsafe_allow_html=True)
+    card_open("Vaccines Delivered by Disease",
+                           "Monthly doses distributed by disease  Poultry · Goats & Sheep · Cattle")
 
     # Disease mapping (product generic name → disease label)
     _DISEASE_MAP = {
@@ -1591,7 +1685,7 @@ if page == "Overview":
             )
     else:
         st.info("No vaccine delivery data found for the selected period.")
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
     # ── Download ──────────────────────────────────────────────────────────────────
     _ov_sheets = {
@@ -1631,6 +1725,19 @@ if page == "Overview":
                          "Vaccines Delivered")
         _ov_pdf = bytes(_p.output())
     dl_row(_ov_sheets, f"Overview_{yr}.xlsx", _ov_pdf, f"Overview_{yr}.pdf", "Overview")
+
+
+# ══════════════════════════════════════════════════════════════════════════════════
+# PAGE — ADVANCED ANALYTICS (dashboard/advanced_page.py, maths in advanced_analytics.py)
+# ══════════════════════════════════════════════════════════════════════════════════
+elif page == "Advanced Analytics":
+    aap.render(SimpleNamespace(
+        inv_fbc=dl.fbc_invoices(inv), rc_names=rc_names, il=il, prod=prod,
+        card_open=card_open, card_close=card_close, section_label=section_label,
+        kpi_card=kpi_card, kpi_grid=kpi_grid, dl_button=dl_button,
+        chart_cfg=CHART_CFG, chart_font=CHART_FONT, chart_grid=CHART_GRID,
+        green=BRAND_GREEN, green_light=BRAND_GREEN_LIGHT, gold=BRAND_GOLD,
+    ))
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
@@ -1681,10 +1788,7 @@ elif page == "Sales Performance":
         else:
             _sp_older_html += _card
     if _sp_recent_html or _sp_older_html:
-        st.markdown(
-            "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
-            "letter-spacing:1px;color:#3fa873;margin:16px 0 6px'>Monthly Revenue</div>",
-            unsafe_allow_html=True)
+        section_label("Monthly Revenue")
         if _sp_recent_html:
             st.markdown(
                 f'<div class="kpi-grid" style="grid-template-columns:repeat(2,1fr)">'
@@ -1693,13 +1797,13 @@ elif page == "Sales Performance":
         if _sp_older_html:
             with st.expander("Show previous months"):
                 st.markdown(
-                    f'<div class="kpi-grid" style="grid-template-columns:repeat(6,1fr)">'
+                    f'<div class="kpi-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">'
                     f'{_sp_older_html}</div>',
                     unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown(chart_wrap("Monthly Revenue"), unsafe_allow_html=True)
+        card_open("Monthly Revenue")
         # Reindex against every selected month (not just ones with invoices) so a
         # month with a target but no sales yet — e.g. the current month — still
         # shows up as GHS 0 instead of silently dropping off the chart.
@@ -1749,10 +1853,10 @@ elif page == "Sales Performance":
             else:
                 st.info("No revenue target set for the selected months.")
 
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     with col2:
-        st.markdown(chart_wrap("Weekly Sales Trend"), unsafe_allow_html=True)
+        card_open("Weekly Sales Trend")
         w = inv_f.groupby("Week")["Discountedvalue"].sum().reset_index().tail(16)
         w["Week Label"] = w["Week"].apply(week_label)
         fig2 = go.Figure()
@@ -1764,9 +1868,9 @@ elif page == "Sales Performance":
         fig2.update_layout(xaxis=dict(tickangle=-45, nticks=8),
                            legend=dict(orientation="h", y=-0.3))
         st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
-    st.markdown(chart_wrap("Monthly Sales Summary"), unsafe_allow_html=True)
+    card_open("Monthly Sales Summary")
     summary = m.copy()
     summary["Sales"]      = summary["Discountedvalue"].apply(lambda x: f"GHS {x:,.2f}")
     summary["MoM Change"] = summary.apply(
@@ -1774,7 +1878,7 @@ elif page == "Sales Performance":
         else (f"+{r['Change %']:.1f}%" if r["Change %"] >= 0 else f"{r['Change %']:.1f}%"),
         axis=1)
     st.dataframe(summary[["Month","Sales","MoM Change"]], use_container_width=True, hide_index=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
     # ── Download ──────────────────────────────────────────────────────────────────
     _sp_monthly = inv_f.groupby("Month")["Discountedvalue"].agg(Invoices="count", Revenue="sum").reset_index()
@@ -1871,7 +1975,7 @@ elif page == "Customers":
 
     col1, col2 = st.columns([3, 2])
     with col1:
-        st.markdown(chart_wrap("Top 10 Customers by Order Value"), unsafe_allow_html=True)
+        card_open("Top 10 Customers by Order Value")
         fig = px.bar(top_cust.sort_values("Total Value"), x="Total Value", y="Customer",
                      orientation="h", text="Total Value",
                      color="Total Value", color_continuous_scale=["#e3f2e8",BRAND_GREEN])
@@ -1883,10 +1987,10 @@ elif page == "Customers":
                           coloraxis_showscale=False,
                           xaxis=dict(gridcolor=CHART_GRID), yaxis=dict(color=CHART_FONT))
         st.plotly_chart(fig, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     with col2:
-        st.markdown(chart_wrap("Active vs Inactive"), unsafe_allow_html=True)
+        card_open("Active vs Inactive")
         sdf = pd.DataFrame({"Status":["Active","Inactive"],"Count":[active_customers, inactive]})
         fig2 = px.pie(sdf, names="Status", values="Count", hole=0.55,
                       color="Status", color_discrete_map={"Active":BRAND_GREEN,"Inactive":"#e0e7ff"})
@@ -1897,10 +2001,10 @@ elif page == "Customers":
                            margin=dict(t=10, b=10, l=10, r=10), height=300, showlegend=False,
                            font=dict(color=CHART_FONT))
         st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     # New partners timeline
-    st.markdown(chart_wrap("New Partner Registrations by Month", "Agrovets & Providers signed per month"), unsafe_allow_html=True)
+    card_open("New Partner Registrations by Month", "Agrovets & Providers signed per month")
     rc_dated["Month"] = rc_dated["Created At"].dt.to_period("M").astype(str)
     rc_month = rc_dated[rc_dated["Created At"].dt.year == yr] if yr != "All" else rc_dated
     rc_month_grp = rc_month.groupby(["Month","Segment Type"])["ID"].count().to_frame("Count").reset_index()
@@ -1912,7 +2016,7 @@ elif page == "Customers":
     fig3.update_layout(**white_layout(260), legend=dict(orientation="h", y=-0.3))
     fig3.update_layout(xaxis=dict(tickangle=-30))
     st.plotly_chart(fig3, use_container_width=True, config=CHART_CFG)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
     def _extract_region(val):
         try:
@@ -1921,8 +2025,8 @@ elif page == "Customers":
         except Exception:
             return val
 
-    st.markdown(chart_wrap(f"New Customers Onboarded in {yr}",
-                           "Agrovets & Providers signed this year, for review"), unsafe_allow_html=True)
+    card_open(f"New Customers Onboarded in {yr}",
+                           "Agrovets & Providers signed this year, for review")
     new_cust_df = new_partners_y.copy()
     new_cust_df["Region"] = new_cust_df["Customer Address"].apply(_extract_region)
     new_cust_df = new_cust_df.sort_values("Created At", ascending=True)
@@ -1931,16 +2035,16 @@ elif page == "Customers":
     new_cust_df = new_cust_df[["Name", "Segment Type", "Region", "Phone", "Date Joined"]].reset_index(drop=True)
     new_cust_df.index = pd.RangeIndex(1, len(new_cust_df) + 1)
     st.dataframe(new_cust_df, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
-    st.markdown(chart_wrap("Customer Leaderboard"), unsafe_allow_html=True)
+    card_open("Customer Leaderboard")
     lb = top_cust.copy()
     lb.index = pd.RangeIndex(1, len(lb)+1)
     lb["Total Value"] = lb["Total Value"].apply(lambda x: f"GHS {x:,.2f}")
     st.dataframe(lb, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
-    st.markdown(chart_wrap("Active Customers Directory", f"All {active_customers} active registered customers"), unsafe_allow_html=True)
+    card_open("Active Customers Directory", f"All {active_customers} active registered customers")
     dir_df = rc[rc["Status"] == "Active"][[
         "Name", "Segment Type", "Customer Address",
         "Phone Number", "Created At"
@@ -1957,7 +2061,7 @@ elif page == "Customers":
     dir_df = dir_df[["Name", "Segment Type", "Region", "Phone", "Date Joined"]]
     dir_df.index = pd.RangeIndex(1, len(dir_df) + 1)
     st.dataframe(dir_df, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
     # ── Download ──────────────────────────────────────────────────────────────────
     _cust_revenue = (inv_y.merge(rc_names, left_on="Customer ID", right_on="ID", how="left")
@@ -2018,7 +2122,7 @@ elif page == "Payments":
 
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown(chart_wrap("Payment Mode Distribution", "By number of transactions"), unsafe_allow_html=True)
+        card_open("Payment Mode Distribution", "By number of transactions")
         pm = rep_y["Payment Method"].value_counts().reset_index()
         pm.columns = ["Method", "Count"]
         pm_clrs = {"Mobile Money":BRAND_GOLD,"Bank Transfer":"#16a34a","Cash":"#f59e0b","Mpesa":"#8b5cf6"}
@@ -2032,10 +2136,10 @@ elif page == "Payments":
                           showlegend=True, font=dict(color=CHART_FONT),
                           legend=dict(orientation="v", x=1.02, y=0.5, font=dict(size=11, color=CHART_FONT)))
         st.plotly_chart(fig, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     with col2:
-        st.markdown(chart_wrap("Monthly Collections vs Invoiced"), unsafe_allow_html=True)
+        card_open("Monthly Collections vs Invoiced")
         rep2 = rep_y.copy()
         rep2["Month"] = rep2["Created At"].dt.to_period("M").astype(str)
         monthly_col  = rep2.groupby("Month")["Amount"].sum().reset_index()
@@ -2048,9 +2152,9 @@ elif page == "Payments":
         fig2.update_layout(barmode="overlay", **white_layout(300),
                            legend=dict(orientation="h", y=-0.3))
         st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
-    st.markdown(chart_wrap("Payment Method Summary"), unsafe_allow_html=True)
+    card_open("Payment Method Summary")
     pm_s = rep_y.groupby("Payment Method").agg(
         Transactions=("Amount","count"),
         Total_Collected=("Amount","sum"),
@@ -2060,13 +2164,13 @@ elif page == "Payments":
     pm_s["Avg_Amount"]      = pm_s["Avg_Amount"].apply(lambda x: f"GHS {x:,.2f}")
     st.dataframe(pm_s.rename(columns={"Payment Method":"Method","Total_Collected":"Total Collected","Avg_Amount":"Avg per Transaction"}),
                  use_container_width=True, hide_index=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
-    st.markdown(chart_wrap("Recent Collections"), unsafe_allow_html=True)
+    card_open("Recent Collections")
     st.dataframe(rep.sort_values("Created At", ascending=False)
                     [["Created At","Amount","Payment Method","Repayment Route","Country Code"]].head(30),
                  use_container_width=True, hide_index=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
     # ── Download ──────────────────────────────────────────────────────────────────
     _pay_monthly = (rep_y.assign(Month=rep_y["Created At"].dt.to_period("M").astype(str))
@@ -2137,7 +2241,7 @@ elif page == "Weekly Scorecard":
 
     col1, col2 = st.columns([3, 2])
     with col1:
-        st.markdown(chart_wrap("Weekly Orders & Sales Trend", "Last 16 weeks"), unsafe_allow_html=True)
+        card_open("Weekly Orders & Sales Trend", "Last 16 weeks")
 
         _wk_target_path = f"{DATA}/weekly_revenue_target.csv"
         _wk_target = (pd.read_csv(_wk_target_path)[["Week", "Target"]]
@@ -2196,10 +2300,10 @@ elif page == "Weekly Scorecard":
             else:
                 st.info("No weekly revenue target set.")
 
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     with col2:
-        st.markdown(chart_wrap("Week-over-Week Sales Change", "Last 8 weeks"), unsafe_allow_html=True)
+        card_open("Week-over-Week Sales Change", "Last 8 weeks")
         ww = (inv_y.groupby("Week")["Discountedvalue"].sum().reset_index().tail(8))
         ww["Prev"]   = ww["Discountedvalue"].shift(1)
         ww["Change"] = ((ww["Discountedvalue"] - ww["Prev"]) / ww["Prev"] * 100).round(1)
@@ -2217,9 +2321,9 @@ elif page == "Weekly Scorecard":
             yaxis=dict(title="% Change", gridcolor="#f3f4f6")
         )
         st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
-    st.markdown(chart_wrap("Weekly Breakdown", "Orders, invoiced value and collections per week"), unsafe_allow_html=True)
+    card_open("Weekly Breakdown", "Orders, invoiced value and collections per week")
     weekly_inv = (inv_y.groupby("Week")
                        .agg(Orders=("ID","count"), Invoice_Total=("Discountedvalue","sum"))
                        .reset_index())
@@ -2243,9 +2347,9 @@ elif page == "Weekly Scorecard":
         [["Date", "Week Number", "Orders", "Value GHS", "Sales Collected (GHS)", "Collection Rate"]]
         .reset_index(drop=True))
     st.dataframe(weekly_tbl, use_container_width=True, hide_index=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
-    st.markdown(chart_wrap("Overdue Invoice Exceptions", "Invoices requiring immediate follow-up"), unsafe_allow_html=True)
+    card_open("Overdue Invoice Exceptions", "Invoices requiring immediate follow-up")
     if len(overdue_inv):
         exc = overdue_inv.merge(rc_names[["ID","Name"]], left_on="Customer ID", right_on="ID", how="left")
         exc = exc[["Created At","Name","Discountedvalue","Due Date","Repayment Status"]].copy()
@@ -2258,7 +2362,7 @@ elif page == "Weekly Scorecard":
         st.dataframe(exc, use_container_width=True)
     else:
         st.success("No overdue invoices in the selected period.")
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
     # ── Download ──────────────────────────────────────────────────────────────────
     _wk_sheets = {
@@ -2419,10 +2523,7 @@ elif page == "Weekly Info":
         st.markdown(kpi_grid(r2, max_cols=3), unsafe_allow_html=True)
 
         # ── Behind the Numbers — revenue bridge, margin/DSO workings, SKU & discount detail ──
-        st.markdown(
-            "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
-            "letter-spacing:1px;color:#3fa873;margin:22px 0 6px'>Behind the Numbers</div>",
-            unsafe_allow_html=True)
+        section_label("Behind the Numbers")
 
         _co_predisc_rev = inv_wk["Total Order Value"].sum() if "Total Order Value" in inv_wk.columns else _co_revenue
         _co_discount_given = _co_predisc_rev - _co_revenue
@@ -2444,9 +2545,8 @@ elif page == "Weekly Info":
                 f'<span style="font-weight:700;text-align:right;color:{_T["text_heading"]}">{v}</span></div>'
                 for k, v in rows)
 
-        st.markdown(chart_wrap("DSO, How It's Calculated",
-                               f"Outstanding AR ÷ trailing {DSO_WINDOW_DAYS}-day sales × {DSO_WINDOW_DAYS}"),
-                    unsafe_allow_html=True)
+        card_open("DSO, How It's Calculated",
+                               f"Outstanding AR ÷ trailing {DSO_WINDOW_DAYS}-day sales × {DSO_WINDOW_DAYS}")
         st.markdown(_co_kv_rows([
             ("Outstanding AR as of week-end", f"GHS {_co_ar_asof:,.2f}"),
             (f"Sales, trailing {DSO_WINDOW_DAYS} days", f"GHS {_co_sales_win:,.2f}"),
@@ -2454,12 +2554,11 @@ elif page == "Weekly Info":
             ("Standard payment terms",         f"{_co_terms_days} days"),
             ("Days beyond terms",              f"{_co_days_beyond_terms:+.1f} days" if _co_days_beyond_terms is not None else "N/A"),
         ]), unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
         # ── AR Aging — turns the DSO number into an actionable chase list ────────
-        st.markdown(chart_wrap("AR Aging, Collections Chase List",
-                                f"Every unpaid invoice as of week-end, by how overdue it is"),
-                    unsafe_allow_html=True)
+        card_open("AR Aging, Collections Chase List",
+                                f"Every unpaid invoice as of week-end, by how overdue it is")
         _co_ar_detail = _co_inv_asof.merge(inv_scoped[["ID", "Customer ID", "Due Date"]], on="ID", how="left")
         _co_ar_detail["Outstanding"] = (_co_ar_detail["Discountedvalue"] - _co_ar_detail["Repaid"]).clip(lower=0)
         _co_ar_detail = _co_ar_detail[_co_ar_detail["Outstanding"] > 0.01].copy()
@@ -2523,13 +2622,12 @@ elif page == "Weekly Info":
                 st.success("No overdue invoices as of week-end, everything outstanding isn't due yet.")
         else:
             st.success("No outstanding receivables as of week-end.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
         # ── SKU performance ──────────────────────────────────────────────────────
-        st.markdown(chart_wrap("SKU Performance This Week",
+        card_open("SKU Performance This Week",
                                 f"{_co_il_cost['Sku'].nunique()} distinct SKUs · "
-                                f"{int(_co_il_cost['Quantity'].sum())} units sold"),
-                    unsafe_allow_html=True)
+                                f"{int(_co_il_cost['Quantity'].sum())} units sold")
         # Cost/margin columns intentionally left out here -- gross margin is a monthly
         # figure by agreement (to properly account for Zipline sales), not weekly.
         _sku_tbl = (_co_il_cost.groupby("Sku").agg(
@@ -2558,10 +2656,10 @@ elif page == "Weekly Info":
             st.dataframe(_sku_disp, use_container_width=True, hide_index=True)
         else:
             st.info("No line-item data for this week.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
         # ── Discounts given ──────────────────────────────────────────────────────
-        st.markdown(chart_wrap("Discounts Given This Week"), unsafe_allow_html=True)
+        card_open("Discounts Given This Week")
         _disc_tbl = inv_wk[inv_wk["Discount"].fillna(0) > 0][["ID", "Total Order Value", "Discount", "Discountedvalue"]].copy()
         if len(_disc_tbl):
             _disc_tbl["Discount Given"] = _disc_tbl["Total Order Value"] - _disc_tbl["Discountedvalue"]
@@ -2578,13 +2676,10 @@ elif page == "Weekly Info":
                        f"totaling GHS {_disc_tbl['Discount Given'].sum():,.2f}.")
         else:
             st.success("No discounts were given this week.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
         # ── Business Read — patterns computed from the data, not written commentary ──
-        st.markdown(
-            "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
-            "letter-spacing:1px;color:#3fa873;margin:22px 0 6px'>Business Read</div>",
-            unsafe_allow_html=True)
+        section_label("Business Read")
 
         _insights = []
 
@@ -3023,10 +3118,7 @@ elif page == "YTD Review":
             st.warning("PDF export isn't available in this environment (fpdf2/matplotlib not installed).")
 
         # ── Executive Summary ────────────────────────────────────────────────────
-        st.markdown(
-            "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
-            "letter-spacing:1px;color:#3fa873;margin:22px 0 6px'>Executive Summary</div>",
-            unsafe_allow_html=True)
+        section_label("Executive Summary")
         _yr_summary = [
             ("🎯", "Revenue trajectory", BRAND_GOLD,
              f"Attainment: " + ", ".join(f"{r['Month Label']} {r['Attain']:.0f}%"
@@ -3053,8 +3145,8 @@ elif page == "YTD Review":
                 unsafe_allow_html=True)
 
         # ── 1. Revenue vs Target ─────────────────────────────────────────────────
-        st.markdown(chart_wrap("1. Commercial Performance, Revenue vs Target",
-                                "Monthly revenue against target, January to date"), unsafe_allow_html=True)
+        card_open("1. Commercial Performance, Revenue vs Target",
+                                "Monthly revenue against target, January to date")
         _yr_fig1 = go.Figure()
         _yr_fig1.add_bar(x=_yr_mo["Month Label"], y=_yr_mo["Discountedvalue"], marker=bar_marker(BRAND_GREEN), name="Revenue")
         _yr_fig1.add_bar(x=_yr_mo["Month Label"], y=_yr_mo["Target"], marker=bar_marker("#eab308"), name="Target")
@@ -3067,11 +3159,11 @@ elif page == "YTD Review":
             "Target": _yr_mo["Target"].apply(lambda x: f"GHS {x:,.2f}" if pd.notna(x) else "n/a"),
             "Attainment": _yr_mo["Attain"].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "n/a"),
         }), use_container_width=True, hide_index=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
         # ── 2. Customer & Order Behaviour ─────────────────────────────────────────
-        st.markdown(chart_wrap("2. Customer and Order Behaviour",
-                                "Active Agrovets, new vs. repeat customers, average order value"), unsafe_allow_html=True)
+        card_open("2. Customer and Order Behaviour",
+                                "Active Agrovets, new vs. repeat customers, average order value")
         _yr_fig2 = go.Figure()
         _yr_fig2.add_bar(x=_yr_cust_df["Month Label"], y=_yr_cust_df["New"], marker=bar_marker(BRAND_GOLD), name="New")
         _yr_fig2.add_bar(x=_yr_cust_df["Month Label"], y=_yr_cust_df["Repeat"], marker=bar_marker(BRAND_GREEN), name="Repeat")
@@ -3090,19 +3182,19 @@ elif page == "YTD Review":
                 "New Customers": _yr_cohort_df["CohortSize"],
                 "Repeat Rate (30d)": _yr_cohort_df["Rate"].apply(lambda x: f"{x:.0f}%" if pd.notna(x) else "n/a"),
             }), use_container_width=True, hide_index=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
         # ── 3. Multi-SKU Adoption ─────────────────────────────────────────────────
-        st.markdown(chart_wrap("3. Multi-SKU Adoption", "Share of orders with 2+ distinct products"), unsafe_allow_html=True)
+        card_open("3. Multi-SKU Adoption", "Share of orders with 2+ distinct products")
         _yr_fig3 = go.Figure(go.Bar(x=_yr_msku_df["Month Label"], y=_yr_msku_df["Pct"], marker=bar_marker(BRAND_GREEN),
                                     text=_yr_msku_df["Pct"].apply(lambda x: f"{x:.0f}%" if pd.notna(x) else ""),
                                     textposition="outside"))
         _yr_fig3.update_layout(**white_layout(280))
         st.plotly_chart(_yr_fig3, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
         # ── 4. Product Portfolio Mix ──────────────────────────────────────────────
-        st.markdown(chart_wrap("4. Product Portfolio Mix", "Share of YTD revenue by product"), unsafe_allow_html=True)
+        card_open("4. Product Portfolio Mix", "Share of YTD revenue by product")
         _yr_pcol1, _yr_pcol2 = st.columns([2, 3])
         with _yr_pcol1:
             _yr_top_n = 6
@@ -3129,11 +3221,11 @@ elif page == "YTD Review":
         _yr_text(f"Product revenue mix is reliable (built from actual sale prices). Margin-by-product would "
                  f"only cover {_yr_cost_cov_sold_n} of the {_yr_cost_cov_sold_total} products actually sold "
                  f"this year ({_yr_cost_cov_sold_n/_yr_cost_cov_sold_total*100:.0f}%) with cost data on file.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
         # ── 5. Collections and Receivables ────────────────────────────────────────
-        st.markdown(chart_wrap("5. Collections and Receivables",
-                                "No collections budget exists, shown as trends, not attainment"), unsafe_allow_html=True)
+        card_open("5. Collections and Receivables",
+                                "No collections budget exists, shown as trends, not attainment")
         _yr_col_c1, _yr_col_c2 = st.columns(2)
         with _yr_col_c1:
             _yr_text(f"<b>DSO vs. the {_yr_terms_days}-day term</b>", muted=False, size=14, margin="4px 0 8px")
@@ -3176,10 +3268,10 @@ elif page == "YTD Review":
             st.plotly_chart(_yr_fig7, use_container_width=True, config=CHART_CFG)
         _yr_text("This ageing view is a current snapshot, not yet a historical trend, treat it as the "
                  "baseline for tracking going forward.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
         # ── 6. Key Observations ───────────────────────────────────────────────────
-        st.markdown(chart_wrap("6. Key Observations"), unsafe_allow_html=True)
+        card_open("6. Key Observations")
         _yr_text(f"• <b>Customer concentration:</b> top 5 customers = {_yr_top5_pct:.1f}% of YTD revenue; "
                  f"top 10 = {_yr_top10_pct:.1f}%, out of {_yr_n_customers_ytd} customers who ordered at all this year.",
                  muted=False)
@@ -3187,7 +3279,7 @@ elif page == "YTD Review":
                  f"of products actually sold this year ({_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}% of the "
                  f"full, mostly-unsold catalogue). Agrovet tagging is {_yr_agro_note_short}.",
                  muted=False)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
@@ -3846,11 +3938,10 @@ elif page == "Quarterly Review":
 
     _qr_part(f"Suggested focus for {_qr_next}", "Where the numbers say to act")
     _qr_box("Focus", _qr_focus, BRAND_GOLD)
-    st.markdown(chart_wrap("Data Gaps and Figures to Validate", "Flag these before the numbers are presented"),
-                unsafe_allow_html=True)
+    card_open("Data Gaps and Figures to Validate", "Flag these before the numbers are presented")
     for _t, _x in _qr_gaps:
         st.markdown(f"**{_t}.** {_x}")
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
 elif page == "Credit & Collections":
     _cc_text = lambda html: st.markdown(
@@ -3915,8 +4006,7 @@ elif page == "Credit & Collections":
     _cc_inv = _cc["invoices"]
     _cc_a, _cc_b = st.columns(2)
     with _cc_a:
-        st.markdown(chart_wrap("Aging of Gross Outstanding", f"As of {_cc['cutoff']:%d %b %Y}"),
-                    unsafe_allow_html=True)
+        card_open("Aging of Gross Outstanding", f"As of {_cc['cutoff']:%d %b %Y}")
         _cc_age = (_cc_inv.groupby("Aging Bucket")["Gross Outstanding"].agg(["size", "sum"])
                    .reindex(ccr.AGING_ORDER).fillna(0))
         _cc_age_tot = _cc_age["sum"].sum()
@@ -3927,9 +4017,9 @@ elif page == "Credit & Collections":
             "Share": (_cc_age["sum"] / _cc_age_tot * 100 if _cc_age_tot else _cc_age["sum"] * 0)
                      .apply(lambda x: f"{x:.1f}%").values,
         }), use_container_width=True, hide_index=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
     with _cc_b:
-        st.markdown(chart_wrap("Portfolio Status", "Invoices by payment status"), unsafe_allow_html=True)
+        card_open("Portfolio Status", "Invoices by payment status")
         _cc_st = (_cc_inv.groupby("Status").agg(n=("Invoice Number", "size"), val=("Invoice Total", "sum"),
                                                  out=("Gross Outstanding", "sum"))
                   .reindex(ccr.STATUS_ORDER).fillna(0))
@@ -3939,10 +4029,9 @@ elif page == "Credit & Collections":
             "Invoice Value": _cc_st["val"].apply(lambda x: f"GHS {x:,.2f}").values,
             "Outstanding": _cc_st["out"].apply(lambda x: f"GHS {x:,.2f}").values,
         }), use_container_width=True, hide_index=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
-    st.markdown(chart_wrap("Top Credit Exposures", "Largest credit customers in the period"),
-                unsafe_allow_html=True)
+    card_open("Top Credit Exposures", "Largest credit customers in the period")
     _cc_top = _cc["customers"].head(10)
     st.dataframe(pd.DataFrame({
         "Customer": _cc_top["Customer Name"],
@@ -3953,7 +4042,7 @@ elif page == "Credit & Collections":
         "Overdue": _cc_top["Overdue Balance"].apply(lambda x: f"GHS {x:,.2f}"),
         "Risk Flag": _cc_top["Risk Flag"],
     }), use_container_width=True, hide_index=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
     st.caption("Built from Metabase only. An invoice counts as Credit when Metabase records payment terms "
                "on it (every invoice this year carries 30-day terms), so Credit Issued matches total "
                "invoice value. Sales Zone isn't held in Metabase and is left blank in the workbook.")
@@ -3991,7 +4080,7 @@ elif page == "Products":
                 st.markdown(f"- {_x}")
 
     _ps_card = lambda label, value, sub, color: (
-        f'<div class="kpi-card" style="border-top-color:{color}"><div class="kpi-label">{label}</div>'
+        f'<div class="kpi-card" style="--accent:{color}"><div class="kpi-label">{label}</div>'
         f'<div class="kpi-value">{value}</div><div class="kpi-sub">{sub}</div></div>')
     _ps_fmt_g = lambda v: f"{v * 100:+.1f}% vs last month" if pd.notna(v) else "no sales last month"
     st.markdown('<div class="kpi-grid">' + "".join([
@@ -4008,8 +4097,7 @@ elif page == "Products":
 
     # ── Sales and margin ──
     with _ps_tab1:
-        st.markdown(chart_wrap("Products", f"{_ps['label']}: revenue, margin and growth vs the month before"),
-                    unsafe_allow_html=True)
+        card_open("Products", f"{_ps['label']}: revenue, margin and growth vs the month before")
         _ps_sales = pd.DataFrame({
             "Product": _ps_p["Product"], "Category": _ps_p["category"], "Units": _ps_p["units"],
             "Revenue (GHS)": _ps_p["revenue"].round(0), "Share %": (_ps_p["share"] * 100).round(1),
@@ -4020,25 +4108,24 @@ elif page == "Products":
                      column_config={"Revenue (GHS)": st.column_config.NumberColumn(format="localized"),
                                     "Gross Profit (GHS)": st.column_config.NumberColumn(format="localized"),
                                     "Units": st.column_config.NumberColumn(format="localized")})
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
         _ps_cat = _ps["categories"]
         if len(_ps_cat):
-            st.markdown(chart_wrap("By Category"), unsafe_allow_html=True)
+            card_open("By Category")
             st.dataframe(pd.DataFrame({
                 "Category": _ps_cat["Category"], "Products": _ps_cat["products"],
                 "Revenue (GHS)": _ps_cat["revenue"].round(0), "Share %": (_ps_cat["share"] * 100).round(1),
                 "Margin %": (_ps_cat["margin_pct"] * 100).round(1), "Growth %": (_ps_cat["growth"] * 100).round(0)}),
                 use_container_width=True, hide_index=True,
                 column_config={"Revenue (GHS)": st.column_config.NumberColumn(format="localized")})
-            st.markdown("</div>", unsafe_allow_html=True)
+            card_close()
 
         # Revenue and margin trend, month by month
         _ps_L = _ps["lines"]
         _ps_tr = (_ps_L.groupby("Month").agg(rev=("Revenue", "sum"), cost=("Cost", "sum")).tail(12))
         _ps_tr["mp"] = (1 - _ps_tr["cost"] / _ps_tr["rev"]) * 100
-        st.markdown(chart_wrap("Revenue and Gross Margin by Month", "Bars = revenue, line = margin %"),
-                    unsafe_allow_html=True)
+        card_open("Revenue and Gross Margin by Month", "Bars = revenue, line = margin %")
         _ps_fig3 = go.Figure()
         _ps_fig3.add_bar(x=[pd.Period(m, freq="M").strftime("%b %y") for m in _ps_tr.index], y=_ps_tr["rev"],
                          name="Revenue", marker=bar_marker(BRAND_GREEN))
@@ -4051,7 +4138,7 @@ elif page == "Products":
                         legend=dict(orientation="h", y=1.1, x=0), xaxis=dict(tickangle=0))
         _ps_fig3.update_layout(**_ps_lay3)
         st.plotly_chart(_ps_fig3, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     # ── Stock ──
     with _ps_tab2:
@@ -4078,8 +4165,7 @@ elif page == "Products":
             ]) + "</div>", unsafe_allow_html=True)
 
             _ps_c = _ps_sp.sort_values("received")
-            st.markdown(chart_wrap("Sold and Remaining by Product", "Units since each batch was received"),
-                        unsafe_allow_html=True)
+            card_open("Sold and Remaining by Product", "Units since each batch was received")
             _ps_fig = go.Figure()
             _ps_fig.add_bar(y=_ps_c["Product"], x=_ps_c["sold"], name="Sold", orientation="h",
                             marker=bar_marker(BRAND_GREEN))
@@ -4094,10 +4180,9 @@ elif page == "Products":
                            margin=dict(t=30, b=30, l=10, r=40))
             _ps_fig.update_layout(**_ps_lay)
             st.plotly_chart(_ps_fig, use_container_width=True, config=CHART_CFG)
-            st.markdown("</div>", unsafe_allow_html=True)
+            card_close()
 
-            st.markdown(chart_wrap("Stock by Product", "Most urgent first: out of stock, expired, expiring, low stock"),
-                        unsafe_allow_html=True)
+            card_open("Stock by Product", "Most urgent first: out of stock, expired, expiring, low stock")
             _ps_tbl = pd.DataFrame({
                 "Product": _ps_sp["Product"], "Status": _ps_sp["status"], "Received": _ps_sp["received"],
                 "Sold": _ps_sp["sold"], "Remaining": _ps_sp["remaining"], "% Sold": (_ps_sp["sold_pct"] * 100).round(1),
@@ -4109,7 +4194,7 @@ elif page == "Products":
                                                                                   max_value=100, format="%.0f%%"),
                                         "Stock Value (GHS)": st.column_config.NumberColumn(format="localized"),
                                         "Selling Price (GHS)": st.column_config.NumberColumn(format="%.2f")})
-            st.markdown("</div>", unsafe_allow_html=True)
+            card_close()
 
             _ps_w = prr.weekly(_ps["lines"])
             _ps_names = dict(zip(_ps_sp["product_id"], _ps_sp["Product"]))
@@ -4117,14 +4202,13 @@ elif page == "Products":
                                       sorted(_ps_sp["Product"]), key="ps_pick")
             _ps_ids = [i for i, n in _ps_names.items() if not _ps_pick or n in _ps_pick]
             _ps_wk = _ps_w[[c for c in _ps_w.columns if c in _ps_ids]].sum(axis=1)
-            st.markdown(chart_wrap("Units Sold per Week", f"Last {len(_ps_wk)} complete weeks (Monday to Sunday)"),
-                        unsafe_allow_html=True)
+            card_open("Units Sold per Week", f"Last {len(_ps_wk)} complete weeks (Monday to Sunday)")
             _ps_fig2 = go.Figure(go.Bar(x=[f"{d:%d %b}" for d in _ps_wk.index], y=_ps_wk.values,
                                         marker=bar_marker(BRAND_GREEN), text=[f"{v:,.0f}" for v in _ps_wk.values],
                                         textposition="outside"))
             _ps_fig2.update_layout(**white_layout(height=300))
             st.plotly_chart(_ps_fig2, use_container_width=True, config=CHART_CFG)
-            st.markdown("</div>", unsafe_allow_html=True)
+            card_close()
 
             with st.expander(f"Batch detail ({len(_ps_b)} batches)"):
                 _ps_only = st.toggle("Only batches with stock remaining", value=True, key="ps_only")
@@ -4139,8 +4223,8 @@ elif page == "Products":
     # ── Slow movers ──
     with _ps_tab3:
         _ps_slow, _ps_stop = _ps["slow"], _ps["stopped"]
-        st.markdown(chart_wrap("In Stock but Not Selling",
-                               f"Stock left and no sale in the last {prr.SLOW_DAYS} days"), unsafe_allow_html=True)
+        card_open("In Stock but Not Selling",
+                               f"Stock left and no sale in the last {prr.SLOW_DAYS} days")
         if len(_ps_slow):
             st.dataframe(pd.DataFrame({
                 "Product": _ps_slow["Product"], "Units Left": _ps_slow["remaining"],
@@ -4149,9 +4233,9 @@ elif page == "Products":
                 "Days Since Sale": _ps_slow["days_since"]}), use_container_width=True, hide_index=True)
         else:
             st.caption(f"None: every product in stock sold in the last {prr.SLOW_DAYS} days.")
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown(chart_wrap("Stopped Selling", f"Sold in the {prr.LOOKBACK_DAYS} days before, nothing in the "
-                                                   f"last {prr.SLOW_DAYS} days"), unsafe_allow_html=True)
+        card_close()
+        card_open("Stopped Selling", f"Sold in the {prr.LOOKBACK_DAYS} days before, nothing in the "
+                                                   f"last {prr.SLOW_DAYS} days")
         if len(_ps_stop):
             st.dataframe(pd.DataFrame({
                 "Product": _ps_stop["Product"], "Revenue Before (GHS)": _ps_stop["revenue"].round(0),
@@ -4161,15 +4245,14 @@ elif page == "Products":
                 column_config={"Revenue Before (GHS)": st.column_config.NumberColumn(format="localized")})
         else:
             st.caption("None.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     # ── Cities ──
     with _ps_tab4:
         _ps_ct = _ps["cities"]
         if len(_ps_ct):
             _ps_top = _ps_ct.head(12).iloc[::-1]
-            st.markdown(chart_wrap("Revenue by City", f"{_ps['label']}: top {len(_ps_top)} customer cities"),
-                        unsafe_allow_html=True)
+            card_open("Revenue by City", f"{_ps['label']}: top {len(_ps_top)} customer cities")
             _ps_fig4 = go.Figure(go.Bar(
                 y=_ps_top["City"], x=_ps_top["revenue"], orientation="h", marker=bar_marker(BRAND_GREEN),
                 text=[f"GHS {v:,.0f}  ({sh * 100:.0f}%)" for v, sh in zip(_ps_top["revenue"], _ps_top["share"])],
@@ -4182,7 +4265,7 @@ elif page == "Products":
                             margin=dict(t=10, b=30, l=10, r=20), bargap=0.25)
             _ps_fig4.update_layout(**_ps_lay4)
             st.plotly_chart(_ps_fig4, use_container_width=True, config=CHART_CFG)
-            st.markdown("</div>", unsafe_allow_html=True)
+            card_close()
             st.dataframe(pd.DataFrame({
                 "City": _ps_ct["City"], "Revenue (GHS)": _ps_ct["revenue"].round(0),
                 "Share %": (_ps_ct["share"] * 100).round(1), "Customers": _ps_ct["customers"],
@@ -4351,7 +4434,7 @@ elif page == "Reconciliation":
 
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown(chart_wrap("Reconciliation Status", "Invoice match rate"), unsafe_allow_html=True)
+        card_open("Reconciliation Status", "Invoice match rate")
         recon_df = pd.DataFrame({
             "Status": ["Reconciled","Unreconciled"],
             "Count":  [matched_count, unmatched_count]
@@ -4366,10 +4449,10 @@ elif page == "Reconciliation":
                           margin=dict(t=10,b=10,l=10,r=10), height=300, showlegend=False,
                           font=dict(color=CHART_FONT))
         st.plotly_chart(fig, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     with col2:
-        st.markdown(chart_wrap("Value: Reconciled vs Unreconciled"), unsafe_allow_html=True)
+        card_open("Value: Reconciled vs Unreconciled")
         val_df = pd.DataFrame({
             "Category": ["Reconciled","Unreconciled"],
             "Value":    [matched_val, unmatched_val]
@@ -4383,9 +4466,9 @@ elif page == "Reconciliation":
         fig2.update_layout(**white_layout(300))
         fig2.update_layout(showlegend=False, xaxis=dict(tickangle=0))
         st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
-    st.markdown(chart_wrap("Repayment Status Breakdown", "Distribution of invoice repayment statuses"), unsafe_allow_html=True)
+    card_open("Repayment Status Breakdown", "Distribution of invoice repayment statuses")
     rs = inv_y["Repayment Status"].value_counts().reset_index()
     rs.columns = ["Status","Count"]
     clrs = {"Open":BRAND_GREEN,"Repaid":"#16a34a","Overdue":"#dc2626","Due Soon":"#f59e0b"}
@@ -4396,9 +4479,9 @@ elif page == "Reconciliation":
     fig3.update_layout(**white_layout(240))
     fig3.update_layout(showlegend=False, xaxis=dict(tickangle=0))
     st.plotly_chart(fig3, use_container_width=True, config=CHART_CFG)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
-    st.markdown(chart_wrap("Unreconciled Invoices", "Top invoices with no repayment record"), unsafe_allow_html=True)
+    card_open("Unreconciled Invoices", "Top invoices with no repayment record")
     unmatched_df = inv_y[inv_y["ID"].isin(unmatched_ids)].copy()
     if len(unmatched_df):
         unmatched_df = unmatched_df.merge(rc_names[["ID","Name"]], left_on="Customer ID", right_on="ID", how="left")
@@ -4411,7 +4494,7 @@ elif page == "Reconciliation":
         st.dataframe(show_cols, use_container_width=True)
     else:
         st.success("All invoices in this period are reconciled.")
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
     # ── Download ──────────────────────────────────────────────────────────────────
     _recon_matched = inv_y[inv_y["ID"].isin(matched_ids)].merge(rc_names[["ID","Name"]], left_on="Customer ID", right_on="ID", how="left")[["Created At","Name","Discountedvalue","Repayment Status"]].copy()
@@ -4520,20 +4603,20 @@ elif page == "Data Quality":
 
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown(chart_wrap("Invoice Table — Field Completeness"), unsafe_allow_html=True)
+        card_open("Invoice Table — Field Completeness")
         st.plotly_chart(completeness_bar(inv_fields, 320), use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     with col2:
-        st.markdown(chart_wrap("Customer Table — Field Completeness"), unsafe_allow_html=True)
+        card_open("Customer Table — Field Completeness")
         st.plotly_chart(completeness_bar(rc_fields, 320), use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
-    st.markdown(chart_wrap("Repayment Table — Field Completeness"), unsafe_allow_html=True)
+    card_open("Repayment Table — Field Completeness")
     st.plotly_chart(completeness_bar(rep_fields, 240), use_container_width=True, config=CHART_CFG)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
-    st.markdown(chart_wrap("Data Quality Summary"), unsafe_allow_html=True)
+    card_open("Data Quality Summary")
     all_rows = (
         [{"Table":"Invoice",   "Field": k, "Completeness %": round(v,1)} for k, v in inv_fields.items()] +
         [{"Table":"Customer",  "Field": k, "Completeness %": round(v,1)} for k, v in rc_fields.items()] +
@@ -4546,7 +4629,7 @@ elif page == "Data Quality":
     dq_df = dq_df.sort_values(["Table","Status"])
     dq_df.index = pd.RangeIndex(1, len(dq_df)+1)
     st.dataframe(dq_df, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
     # ── Download ──────────────────────────────────────────────────────────────────
     _dq_pdf = None
@@ -4598,7 +4681,7 @@ elif page == "Reliability":
                   "Orders not yet completed", "#f59e0b")
     st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
-    st.markdown(chart_wrap("Fulfillment Status Breakdown", "Derived from FBC order status"), unsafe_allow_html=True)
+    card_open("Fulfillment Status Breakdown", "Derived from FBC order status")
     irf_s = ir_all_fbc["Fulfillment Label"].value_counts().reset_index()
     irf_s.columns = ["Status","Count"]
     irf_colors = {"Completed":"#16a34a","Not Started":"#f59e0b","Scheduled":BRAND_GOLD,
@@ -4613,7 +4696,7 @@ elif page == "Reliability":
                        font=dict(color=CHART_FONT),
                        legend=dict(orientation="v", x=1.02, y=0.5, font=dict(size=11, color=CHART_FONT)))
     st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
     # ── Download ──────────────────────────────────────────────────────────────────
     _ir_dl = ir_all_fbc[["ID","Created At","Status","Fulfillment Label","Channel","Fulfillment Type"]].copy()
@@ -4698,7 +4781,7 @@ elif page == "Segmentation":
 
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown(chart_wrap("Sales by Customer Segment", "Total order value per segment"), unsafe_allow_html=True)
+        card_open("Sales by Customer Segment", "Total order value per segment")
         fig = px.bar(by_segment, x="Segment Type", y="Sales", color="Segment Type",
                      color_discrete_map=seg_colors, text="Sales")
         fig.update_traces(texttemplate="GHS %{text:,.2f}", textposition="outside", textfont=dict(size=10),
@@ -4706,10 +4789,10 @@ elif page == "Segmentation":
         fig.update_layout(**white_layout(300))
         fig.update_layout(showlegend=False, xaxis=dict(tickangle=0))
         st.plotly_chart(fig, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     with col2:
-        st.markdown(chart_wrap("Revenue per Purchase by Segment", "Avg order value per account type"), unsafe_allow_html=True)
+        card_open("Revenue per Purchase by Segment", "Avg order value per account type")
         rpp = by_segment[by_segment["Segment Type"] != "Unclassified"].copy()
         fig2 = px.bar(rpp, x="Segment Type", y="Rev/Purchase", color="Segment Type",
                       color_discrete_map=seg_colors, text="Rev/Purchase")
@@ -4719,12 +4802,12 @@ elif page == "Segmentation":
         fig2.update_layout(showlegend=False, xaxis=dict(tickangle=0),
                            yaxis=dict(title="Avg Rev/Purchase (GHS)", gridcolor="#f3f4f6"))
         st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     col3, col4 = st.columns(2)
     with col3:
-        st.markdown(chart_wrap("Revenue Concentration — Top Customers",
-                               "Cumulative share of total sales"), unsafe_allow_html=True)
+        card_open("Revenue Concentration — Top Customers",
+                               "Cumulative share of total sales")
         crev_df = crev.reset_index()
         crev_df.columns = ["Customer ID","Sales"]
         crev_df["Cumulative %"] = crev_df["Sales"].cumsum() / total_sales * 100
@@ -4747,10 +4830,10 @@ elif page == "Segmentation":
                            xaxis=dict(title="Customer Rank", tickangle=0, gridcolor=CHART_GRID),
                            yaxis=dict(title="Cumulative Revenue %", gridcolor=CHART_GRID))
         st.plotly_chart(fig3, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     with col4:
-        st.markdown(chart_wrap("Order Value Distribution", "High-frequency small orders analysis"), unsafe_allow_html=True)
+        card_open("Order Value Distribution", "High-frequency small orders analysis")
         fig4 = go.Figure()
         fig4.add_histogram(x=inv_y["Discountedvalue"], nbinsx=30,
                            marker_color=BRAND_GREEN, opacity=0.8)
@@ -4764,16 +4847,16 @@ elif page == "Segmentation":
                            xaxis=dict(title="Order Value (GHS)", tickangle=0, gridcolor=CHART_GRID),
                            yaxis=dict(title="# Orders", gridcolor=CHART_GRID))
         st.plotly_chart(fig4, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
-    st.markdown(chart_wrap("Portfolio Segmentation Summary — MERL"), unsafe_allow_html=True)
+    card_open("Portfolio Segmentation Summary — MERL")
     seg_tbl = by_segment.copy()
     seg_tbl["Sales"]        = seg_tbl["Sales"].apply(lambda x: f"GHS {x:,.2f}")
     seg_tbl["Rev/Purchase"] = seg_tbl["Rev/Purchase"].apply(lambda x: f"GHS {x:,.2f}")
     seg_tbl.columns = ["Segment","Orders","Total Sales","Customers","Rev/Purchase (AOV)"]
     seg_tbl.index = pd.RangeIndex(1, len(seg_tbl)+1)
     st.dataframe(seg_tbl, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
     # ── Download ──────────────────────────────────────────────────────────────────
     _seg_detail = seg_inv[["ID","Created At","Month","Customer ID","Segment Type","Discountedvalue"]].copy()
@@ -4824,7 +4907,7 @@ elif page == "Campaigns":
                   span_label, "#f59e0b")
     st.markdown(kpi_grid(r1), unsafe_allow_html=True)
 
-    st.markdown(chart_wrap("Campaign Timeline", "Pre-order campaign periods and status"), unsafe_allow_html=True)
+    card_open("Campaign Timeline", "Pre-order campaign periods and status")
     camp_colors = {"Active":"#16a34a","Completed":BRAND_GOLD,"Cancelled":"#dc2626","Unknown":"#9ca3af"}
     fig = px.timeline(camp, x_start="Start Date", x_end="End Date", y="Name",
                       color="Status Label", color_discrete_map=camp_colors,
@@ -4836,9 +4919,9 @@ elif page == "Campaigns":
                       legend=dict(orientation="h", y=-0.3, font=dict(size=11, color=CHART_FONT)),
                       font=dict(family="Inter, sans-serif", size=12, color=CHART_FONT))
     st.plotly_chart(fig, use_container_width=True, config=CHART_CFG)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
-    st.markdown(chart_wrap("Campaign Details"), unsafe_allow_html=True)
+    card_open("Campaign Details")
     camp_show = camp[["Name","Start Date","End Date","Status Label"]].copy()
     camp_show["Duration (days)"] = (camp["End Date"] - camp["Start Date"]).dt.days
     camp_show["Start Date"] = camp_show["Start Date"].dt.strftime("%Y-%m-%d")
@@ -4846,9 +4929,9 @@ elif page == "Campaigns":
     camp_show.columns = ["Campaign Name","Start Date","End Date","Status","Duration (days)"]
     camp_show.index = pd.RangeIndex(1, len(camp_show)+1)
     st.dataframe(camp_show, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
-    st.markdown(chart_wrap("Campaign Status Distribution"), unsafe_allow_html=True)
+    card_open("Campaign Status Distribution")
     status_dist = camp["Status Label"].value_counts().reset_index()
     status_dist.columns = ["Status","Count"]
     fig2 = px.bar(status_dist, x="Status", y="Count", color="Status",
@@ -4858,7 +4941,7 @@ elif page == "Campaigns":
     fig2.update_layout(**white_layout(240))
     fig2.update_layout(showlegend=False, xaxis=dict(tickangle=0))
     st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
     # ── Download ──────────────────────────────────────────────────────────────────
     _camp_dl = camp[["ID","Status Label","Start Date","End Date","Created At"]].copy() if len(camp) else pd.DataFrame()
@@ -4951,8 +5034,8 @@ elif page == "Historical Analysis":
 
     # ── Revenue by Year (when All Years selected) ─────────────────────────────────
     if _h_yr == "All Years":
-        st.markdown(chart_wrap("Annual Revenue Comparison",
-                               "Total sales revenue by year — GHS"), unsafe_allow_html=True)
+        card_open("Annual Revenue Comparison",
+                               "Total sales revenue by year — GHS")
         _yr_rev = (_h_so.groupby("Year")["Invoice Total"].sum().reset_index()
                         .rename(columns={"Year": "Year", "Invoice Total": "Revenue GHS"}))
         _yr_rev["Year"] = _yr_rev["Year"].astype(str)
@@ -4964,11 +5047,11 @@ elif page == "Historical Analysis":
                              marker_cornerradius=6, marker_line=dict(color="rgba(255,255,255,0.55)", width=1))
         fig_yr.update_layout(**white_layout(320))
         st.plotly_chart(fig_yr, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     # ── Monthly Revenue ───────────────────────────────────────────────────────────
-    st.markdown(chart_wrap("Monthly Revenue (GHS)",
-                           "Revenue trend by month"), unsafe_allow_html=True)
+    card_open("Monthly Revenue (GHS)",
+                           "Revenue trend by month")
     _mo_rev = (h_so.groupby("Month")["Invoice Total"].sum().reset_index()
                    .rename(columns={"Invoice Total": "Revenue GHS"})
                    .sort_values("Month"))
@@ -4980,12 +5063,12 @@ elif page == "Historical Analysis":
     fig_mo.update_traces(marker_cornerradius=6, marker_line=dict(color="rgba(255,255,255,0.55)", width=1))
     fig_mo.update_layout(**white_layout(300))
     st.plotly_chart(fig_mo, use_container_width=True, config=CHART_CFG)
-    st.markdown("</div>", unsafe_allow_html=True)
+    card_close()
 
     # ── Side-by-side: Top Products & Top Customers ───────────────────────────────
     _c1, _c2 = st.columns(2)
     with _c1:
-        st.markdown(chart_wrap("Top 10 Products", "by revenue GHS"), unsafe_allow_html=True)
+        card_open("Top 10 Products", "by revenue GHS")
         _tp = (h_so.groupby("Item Name")["Invoice Total"].sum()
                    .sort_values(ascending=False).head(10).reset_index()
                    .rename(columns={"Invoice Total": "Revenue GHS"}))
@@ -4996,10 +5079,10 @@ elif page == "Historical Analysis":
         fig_tp.update_layout(**white_layout(360))
         fig_tp.update_layout(yaxis=dict(autorange="reversed"))
         st.plotly_chart(fig_tp, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     with _c2:
-        st.markdown(chart_wrap("Top 10 Customers", "by revenue GHS"), unsafe_allow_html=True)
+        card_open("Top 10 Customers", "by revenue GHS")
         _tc = (h_so.groupby("Customer Name")["Invoice Total"].sum()
                    .sort_values(ascending=False).head(10).reset_index()
                    .rename(columns={"Invoice Total": "Revenue GHS"}))
@@ -5010,12 +5093,12 @@ elif page == "Historical Analysis":
         fig_tc.update_layout(**white_layout(360))
         fig_tc.update_layout(yaxis=dict(autorange="reversed"))
         st.plotly_chart(fig_tc, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     # ── Sales by Region & Delivery Method ────────────────────────────────────────
     _c3, _c4 = st.columns(2)
     with _c3:
-        st.markdown(chart_wrap("Revenue by Region", ""), unsafe_allow_html=True)
+        card_open("Revenue by Region", "")
         if "Region" in h_so.columns:
             _reg = (h_so.groupby("Region")["Invoice Total"].sum()
                         .sort_values(ascending=False).head(10).reset_index()
@@ -5027,10 +5110,10 @@ elif page == "Historical Analysis":
             st.plotly_chart(fig_reg, use_container_width=True, config=CHART_CFG)
         else:
             st.info("Region data not available for this selection.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     with _c4:
-        st.markdown(chart_wrap("Revenue by Product Category", ""), unsafe_allow_html=True)
+        card_open("Revenue by Product Category", "")
         if "Product Category" in h_so.columns:
             _cat = (h_so.groupby("Product Category")["Invoice Total"].sum()
                         .sort_values(ascending=False).reset_index()
@@ -5040,11 +5123,11 @@ elif page == "Historical Analysis":
             fig_cat.update_traces(textposition="inside", textinfo="percent+label")
             fig_cat.update_layout(**white_layout(300))
             st.plotly_chart(fig_cat, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     # ── Payment Mode Breakdown ────────────────────────────────────────────────────
     if "Mode of Payment" in h_pay.columns:
-        st.markdown(chart_wrap("Payment Mode Breakdown", "How customers paid"), unsafe_allow_html=True)
+        card_open("Payment Mode Breakdown", "How customers paid")
         _pm = (h_pay.groupby("Mode of Payment")["Amount Received"].sum()
                    .sort_values(ascending=False).reset_index()
                    .rename(columns={"Amount Received": "Amount GHS"}))
@@ -5054,7 +5137,7 @@ elif page == "Historical Analysis":
                              marker_cornerradius=6, marker_line=dict(color="rgba(255,255,255,0.55)", width=1))
         fig_pm.update_layout(**white_layout(280))
         st.plotly_chart(fig_pm, use_container_width=True, config=CHART_CFG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        card_close()
 
     # ── Monthly Breakdown Table ───────────────────────────────────────────────────
     st.markdown("#### Monthly Sales Breakdown")
