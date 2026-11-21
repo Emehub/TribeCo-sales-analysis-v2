@@ -32,14 +32,14 @@ def list_tables(engine):
 
 def export_table(engine, table_name):
     df = pd.read_sql(f"SELECT * FROM {table_name}", engine)
-    out_path = f"d:/company-dashboard/data/{table_name}.csv"
+    out_path = f"d:/company-dashboard-v2/data/{table_name}.csv"
     df.to_csv(out_path, index=False)
     print(f"Exported {len(df)} rows → {out_path}")
     return df
 
 def export_custom_query(engine, query, filename):
     df = pd.read_sql(query, engine)
-    out_path = f"d:/company-dashboard/data/{filename}.csv"
+    out_path = f"d:/company-dashboard-v2/data/{filename}.csv"
     df.to_csv(out_path, index=False)
     print(f"Exported {len(df)} rows → {out_path}")
     return df
@@ -52,4 +52,4 @@ if __name__ == "__main__":
     for table in tables:
         export_table(engine, table)
 
-    print("\nAll tables exported to d:/company-dashboard/data/")
+    print("\nAll tables exported to d:/company-dashboard-v2/data/")

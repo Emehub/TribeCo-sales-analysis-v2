@@ -66,7 +66,7 @@ def list_tables(token, db_id):
 def export_table(token, db_id, table):
     """Export a full table using paginated requests to bypass the 2,000-row API limit."""
     safe_name = table["name"].replace(" ", "_")
-    out_path  = f"d:/company-dashboard/data/{safe_name}.csv"
+    out_path  = f"d:/company-dashboard-v2/data/{safe_name}.csv"
     headers   = get_headers(token)
     all_rows  = []
     cols      = None
@@ -143,7 +143,7 @@ def export_saved_questions(token, db_id):
             r.raise_for_status()
             df = pd.read_csv(StringIO(r.text))
             safe_name = "".join(c if c.isalnum() or c in " _-" else "_" for c in q["name"])
-            out_path = f"d:/company-dashboard/data/question_{safe_name}.csv"
+            out_path = f"d:/company-dashboard-v2/data/question_{safe_name}.csv"
             df.to_csv(out_path, index=False, encoding="utf-8-sig")
             print(f"  Exported '{q['name']}' -- {len(df):,} rows -> {out_path}")
         except Exception as e:
@@ -163,4 +163,4 @@ if __name__ == "__main__":
 
     export_saved_questions(token, db_id)
 
-    print("\nDone. All data saved to d:/company-dashboard/data/")
+    print("\nDone. All data saved to d:/company-dashboard-v2/data/")

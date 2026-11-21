@@ -1,6 +1,6 @@
 """
 CowTribe Sales Dashboard
-Run: python -m streamlit run d:/company-dashboard/dashboard/app.py
+Run: python -m streamlit run d:/company-dashboard-v2/dashboard/app.py
 """
 import os
 import io
