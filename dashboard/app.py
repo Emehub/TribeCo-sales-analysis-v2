@@ -45,7 +45,13 @@ st.set_page_config(
 )
 
 DATA      = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
-CHART_CFG = {"displayModeBar": False}
+# Charts are interactive: a small toolbar appears on hover (zoom, pan, reset, save as PNG).
+CHART_CFG = {
+    "displayModeBar": "hover", "displaylogo": False, "scrollZoom": False,
+    "modeBarButtonsToRemove": ["select2d", "lasso2d", "autoScale2d", "toggleSpikelines",
+                               "hoverClosestCartesian", "hoverCompareCartesian"],
+    "toImageButtonOptions": {"format": "png", "scale": 2, "filename": "tribeco_chart"},
+}
 
 
 # ── Sign-in and roles ────────────────────────────────────────────────────────────
@@ -157,6 +163,8 @@ _THEME_TOKENS = {
         card_bg_solid="#ffffff",
         tab_bg="rgba(255,255,255,0.6)",
         tab_active_bg="#ffffff",
+        pos="#15803d", neg="#b91c1c", track="rgba(2,75,48,0.08)",
+        modebar_bg="rgba(255,255,255,0.9)",
     ),
     "dark": dict(
         page_grad="linear-gradient(135deg, #050f0a 0%, #0a1f14 45%, #17130a 100%)",
@@ -185,6 +193,8 @@ _THEME_TOKENS = {
         card_bg_solid="#0f231a",
         tab_bg="rgba(255,255,255,0.04)",
         tab_active_bg="rgba(255,255,255,0.10)",
+        pos="#4ade80", neg="#f87171", track="rgba(255,255,255,0.09)",
+        modebar_bg="rgba(15,35,26,0.9)",
     ),
 }
 _T = dict(_THEME_TOKENS[THEME], brand_green=BRAND_GREEN, brand_green_deep=BRAND_GREEN_DEEP,
@@ -198,6 +208,22 @@ CHART_GRID = "rgba(255,255,255,0.12)" if THEME == "dark" else "rgba(2,75,48,0.10
 # One Plotly look for every chart: charts only override what they need, so anything they
 # leave unset (font, palette, hover box, gridlines, legend) now comes out the same everywhere.
 import plotly.io as pio
+# Streamlit's chart theme would repaint every figure (grey plot area, its own palette);
+# render Plotly as designed so the tribeco template below is what you actually see.
+_orig_plotly_chart = st.plotly_chart
+def _plotly_chart(fig, *a, **kw):
+    kw.setdefault("theme", None)
+    # Streamlit fills in the app background when a figure leaves these unset (template values
+    # don't count), which put a grey box behind every chart. Charts sit on cards: keep them clear.
+    try:
+        if fig.layout.paper_bgcolor is None:
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)")
+        if fig.layout.plot_bgcolor is None:
+            fig.update_layout(plot_bgcolor="rgba(0,0,0,0)")
+    except AttributeError:
+        pass
+    return _orig_plotly_chart(fig, *a, **kw)
+st.plotly_chart = _plotly_chart
 CHART_COLORWAY = [BRAND_GREEN, BRAND_GOLD, "#14b8a6", "#6366f1", "#f97316", "#0ea5e9", "#a855f7", "#84cc16"]
 pio.templates["tribeco"] = go.layout.Template(layout=dict(
     font=dict(family="Inter, Segoe UI, sans-serif", size=12, color=CHART_FONT),
@@ -207,10 +233,15 @@ pio.templates["tribeco"] = go.layout.Template(layout=dict(
     hoverlabel=dict(font=dict(family="Inter, Segoe UI, sans-serif", size=12,
                               color="#ffffff" if THEME == "light" else "#0d3b25"),
                     bgcolor="#0d3b25" if THEME == "light" else "#eef6f0", bordercolor="rgba(0,0,0,0)"),
-    xaxis=dict(gridcolor=CHART_GRID, zeroline=False, linecolor=CHART_GRID, automargin=True),
-    yaxis=dict(gridcolor=CHART_GRID, zeroline=False, linecolor=CHART_GRID, automargin=True),
-    legend=dict(font=dict(size=11.5), bgcolor="rgba(0,0,0,0)"),
-    bargap=0.28,
+    xaxis=dict(gridcolor=CHART_GRID, zeroline=False, linecolor=CHART_GRID, automargin=True,
+               showgrid=False, ticks="", tickfont=dict(color=_T["text_muted"], size=11.5),
+               title=dict(font=dict(color=_T["text_muted"], size=11.5))),
+    yaxis=dict(gridcolor=CHART_GRID, griddash="dot", zeroline=False, showline=False, automargin=True,
+               ticks="", tickfont=dict(color=_T["text_muted"], size=11.5),
+               title=dict(font=dict(color=_T["text_muted"], size=11.5))),
+    legend=dict(font=dict(size=11.5), bgcolor="rgba(0,0,0,0)", itemclick="toggle", itemdoubleclick="toggleothers"),
+    bargap=0.32,
+    hoverdistance=40,
 ))
 pio.templates.default = "plotly_white+tribeco"
 
@@ -327,7 +358,7 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
     color: $brand_green_light; margin-bottom: 4px;
 }
 .topbar-title { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.15; color: $text_heading; }
-.topbar-desc  { font-size: 13.5px; color: $text_muted; margin-top: 6px; }
+.topbar-desc  { font-size: 14px; font-weight: 600; color: $text_body; margin-top: 6px; }
 .topbar-right { display: flex; justify-content: flex-end; }
 .badge-date {
     display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
@@ -352,15 +383,44 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
 [class*="st-key-card_"] {
     background: $card_bg;
     border: 1px solid $card_border;
-    border-radius: 14px;
+    border-radius: 16px;
     box-shadow: $card_shadow;
     padding: 20px 22px !important;
     gap: 12px !important;
+    transition: box-shadow 0.2s ease;
+    animation: cardIn 0.36s cubic-bezier(.2,.8,.2,1) both;
 }
-[class*="st-key-card_"] [class*="st-key-card_"] { box-shadow: none; padding: 16px !important; }
+[class*="st-key-card_"]:hover { box-shadow: $kpi_shadow_hover; }
+@keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+[class*="st-key-card_"] [class*="st-key-card_"] { box-shadow: none; padding: 16px !important; animation: none; }
 .card-head { margin-bottom: 0; }
-.chart-title { font-size: 15px; font-weight: 700; color: $text_heading; letter-spacing: -0.1px; }
-.chart-sub   { font-size: 12.5px; color: $text_muted; margin-top: 2px; }
+.chart-title { font-size: 15.5px; font-weight: 750; color: $text_heading; letter-spacing: -0.2px; }
+.chart-sub   { font-size: 12.5px; font-weight: 550; color: $text_body; opacity: 0.85; margin-top: 3px; }
+.page-note {
+    font-size: 14px; font-weight: 650; line-height: 1.55; color: $text_heading;
+    background: $card_bg_solid; border: 1px solid $card_border; border-left: 4px solid $brand_green;
+    border-radius: 12px; padding: 12px 16px; margin: 0 0 4px; box-shadow: $card_shadow;
+}
+.page-note b { color: $neg; }
+.brief-head { font-size: 16px; font-weight: 800; color: $text_heading; letter-spacing: -0.2px; margin: 0 0 8px; }
+.brief-sub  { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.7px; margin: 14px 0 6px; }
+.brief-list { margin: 0; padding-left: 20px; }
+.brief-list li { font-size: 14px; line-height: 1.6; color: $text_body; margin: 0 0 6px; }
+.brief-list li::marker { color: $brand_green; }
+.brief-act li::marker { color: $brand_gold; }
+.brief-act li { font-weight: 600; color: $text_heading; }
+/* chart toolbar (zoom, pan, reset, save) — only on hover, matched to the card */
+.js-plotly-plot .modebar { background: transparent !important; }
+.js-plotly-plot .modebar-group { background: $modebar_bg !important; border-radius: 8px; padding: 2px 4px !important; box-shadow: 0 2px 10px rgba(0,0,0,0.12); }
+.js-plotly-plot .modebar-btn path { fill: $text_muted !important; }
+.js-plotly-plot .modebar-btn:hover path, .js-plotly-plot .modebar-btn.active path { fill: $brand_green !important; }
+/* chart control bar: small segmented toggles inside a card */
+[class*="st-key-ctl_"] [data-testid="stButtonGroup"] button { min-height: 30px !important; padding: 2px 12px !important; }
+[class*="st-key-ctl_"] [data-testid="stButtonGroup"] button p { font-size: 12.5px !important; }
+[class*="st-key-ctl_"] [data-testid="stHorizontalBlock"] { gap: 12px !important; flex-wrap: wrap; }
+.chart-stat { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0; }
+.chart-stat div { font-size: 12px; color: $text_muted; }
+.chart-stat b { display: block; font-size: 18px; font-weight: 750; color: $text_heading; letter-spacing: -0.3px; font-variant-numeric: tabular-nums; margin-top: 2px; }
 
 /* ════════════════════════════ KPI cards ════════════════════════════ */
 .kpi-grid {
@@ -368,29 +428,77 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
     gap: 16px; margin: 0;
 }
 .kpi-card {
-    position: relative; overflow: hidden;
-    background: $card_bg; border: 1px solid $card_border; border-radius: 14px;
-    padding: 18px 20px 18px 22px; box-shadow: $kpi_shadow;
+    --accent: $brand_green;
+    position: relative; overflow: hidden; isolation: isolate;
+    display: flex; flex-direction: column;
+    background: $card_bg_solid; border: 1px solid $card_border; border-radius: 16px;
+    padding: 16px 18px 14px; box-shadow: $kpi_shadow; min-height: 132px;
     container-type: inline-size;
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    transition: transform 0.2s cubic-bezier(.2,.8,.2,1), box-shadow 0.2s ease, border-color 0.2s ease;
+    animation: kpiIn 0.32s cubic-bezier(.2,.8,.2,1) both;
 }
+/* soft accent glow in the corner, tinted by the card's own colour */
 .kpi-card::before {
-    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
-    background: var(--accent, $brand_green);
+    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+    background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 0%, transparent) 85%);
+    pointer-events: none;
 }
-.kpi-card:hover { transform: translateY(-2px); box-shadow: $kpi_shadow_hover; }
-@media (prefers-reduced-motion: reduce) { .kpi-card { transition: none; } .kpi-card:hover { transform: none; } }
+.kpi-card:hover {
+    transform: translateY(-3px); box-shadow: $kpi_shadow_hover;
+    border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.kpi-grid > .kpi-card:nth-child(2) { animation-delay: 40ms; }
+.kpi-grid > .kpi-card:nth-child(3) { animation-delay: 80ms; }
+.kpi-grid > .kpi-card:nth-child(4) { animation-delay: 120ms; }
+.kpi-grid > .kpi-card:nth-child(n+5) { animation-delay: 160ms; }
+@keyframes kpiIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.kpi-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.kpi-icon {
+    width: 32px; height: 32px; border-radius: 10px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent);
+}
+.kpi-icon svg { width: 17px; height: 17px; }
 .kpi-label {
-    display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
-    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: $text_muted;
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 12px; font-weight: 650; letter-spacing: 0.1px; color: $text_muted;
 }
-.kpi-badge { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; letter-spacing: 0; margin-left: 0; }
+.kpi-badge {
+    font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+    background: color-mix(in srgb, var(--b) 14%, transparent); color: var(--b);
+}
 .kpi-value {
-    font-size: clamp(16px, 8.5cqi, 28px); font-weight: 800; letter-spacing: -0.4px;
-    color: $text_heading; margin: 10px 0 4px; line-height: 1.15; white-space: nowrap;
+    font-size: clamp(18px, 10cqi, 30px); font-weight: 800; letter-spacing: -0.6px;
+    color: $text_heading; margin: 14px 0 6px; line-height: 1.1; white-space: nowrap;
     font-variant-numeric: tabular-nums;
 }
-.kpi-sub { font-size: 12.5px; color: $text_muted; }
+.kpi-unit { font-size: 0.5em; font-weight: 700; color: $text_muted; letter-spacing: 0.2px; margin-right: 5px; vertical-align: 0.32em; }
+.kpi-dec  { font-size: 0.62em; font-weight: 700; color: $text_muted; letter-spacing: 0; }
+.kpi-foot { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.kpi-sub  { font-size: 12.5px; color: $text_muted; line-height: 1.35; }
+.kpi-note { font-size: 11.5px; color: $text_muted; margin-top: -6px; }
+.kpi-delta {
+    display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0;
+    font-size: 11.5px; font-weight: 700; padding: 2px 8px 2px 6px; border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+}
+.kpi-delta svg { width: 12px; height: 12px; }
+.kpi-delta.up   { background: rgba(22,163,74,0.13); color: $pos; }
+.kpi-delta.down { background: rgba(220,38,38,0.12); color: $neg; }
+.kpi-delta.flat { background: rgba(107,114,128,0.14); color: $text_muted; }
+.kpi-spark { display: block; width: calc(100% + 36px); height: 36px; margin: 10px -18px -14px; margin-top: auto; padding-top: 10px; box-sizing: content-box; }
+.kpi-progress { margin-top: auto; padding-top: 12px; }
+.kpi-track { height: 6px; border-radius: 999px; background: $track; overflow: hidden; }
+.kpi-track span {
+    display: block; height: 100%; border-radius: 999px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 65%, #ffffff), var(--accent));
+    transform-origin: left; animation: barIn 0.6s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes barIn { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) {
+    .kpi-card, .kpi-track span, [class*="st-key-card_"] { transition: none; animation: none; }
+    .kpi-card:hover { transform: none; }
+}
 
 /* ════════════════════════════ Insight cards (Advanced Analytics) ════════════════════════════ */
 .insight-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
@@ -429,6 +537,10 @@ hr { border: none; border-top: 1px solid $hr_color; margin: 12px 0; }
     background: $widget_bg !important; color: $widget_text !important;
     border-color: $input_border !important; border-radius: 10px !important;
 }
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div {
+    background: $widget_bg !important; border-color: $input_border !important; border-radius: 10px !important;
+}
+[data-testid="stMultiSelect"] [data-baseweb="select"] input, [data-testid="stMultiSelect"] [data-baseweb="select"] div { color: $widget_text !important; }
 div[data-baseweb="popover"] li, div[data-baseweb="popover"] div { color: $widget_text !important; }
 div[data-baseweb="popover"] ul { background: $card_bg_solid !important; }
 div[data-baseweb="popover"][data-testid="stPopoverBody"] { color: #111827 !important; }
@@ -598,23 +710,160 @@ all_years     = sorted(inv_scoped["Created At"].dt.year.dropna().unique().astype
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
-def kpi_card(label, value, subtitle, color, badge="", badge_color=""):
+# ── Scorecards ────────────────────────────────────────────────────────────────────
+# Line icons (24×24, stroke) picked from the card label, so every existing call site
+# gets an icon without being touched. Pass icon="name" to choose one explicitly.
+_ICON_PATHS = {
+    "wallet":   '<path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3v3a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V5"/><path d="M20 12v4h-3a2 2 0 0 1 0-4z"/>',
+    "check":    '<circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/>',
+    "alert":    '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
+    "cart":     '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2 2h3l2.7 12.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/>',
+    "users":    '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
+    "userplus": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>',
+    "zap":      '<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>',
+    "repeat":   '<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
+    "link":     '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
+    "pie":      '<path d="M21.2 15.9A10 10 0 1 1 8 2.8"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>',
+    "trend":    '<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>',
+    "calendar": '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    "box":      '<path d="M21 8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.7z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/>',
+    "clock":    '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    "target":   '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+    "chart":    '<path d="M3 3v18h18"/><path d="M7 16v-4M12 16V8M17 16v-7"/>',
+    "pin":      '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>',
+    "percent":  '<path d="M19 5 5 19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
+}
+_MONTHS = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
+_ICON_RULES = [
+    (("outstanding", "overdue", "risk", "unpaid", "late", "lapsed", "churn"), "alert"),
+    (("collect", "repaid", "paid", "repayment"), "check"),
+    (("forecast", "projection", "growth", "trend", "projected"), "trend"),
+    (("conc", "share", "top-", "top ", "gini", "mix"), "pie"),
+    (("cit", "region", "location", "zone"), "pin"),
+    (("margin", "rate", "ratio"), "percent"),
+    (("activation",), "zap"),
+    (("repeat", "reorder", "retention"), "repeat"),
+    (("reconcil", "match"), "link"),
+    (("partner", "signed", "new "), "userplus"),
+    (("customer", "active", "buyer", "account"), "users"),
+    (("aov", "basket", "order", "small"), "cart"),
+    (("product", "stock", "dose", "vaccine", "sku", "unit", "qty", "quantity"), "box"),
+    (("day", "dso", "age", "gap", "week"), "clock"),
+    (("target", "goal", "achiev"), "target"),
+    (("sales", "revenue", "invoic", "value", "ghs", "amount"), "wallet"),
+]
+
+
+def _icon_svg(name):
+    return (f'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+            f'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{_ICON_PATHS[name]}</svg>')
+
+
+def _pick_icon(label):
+    l = str(label).lower()
+    if l[:3] in _MONTHS:
+        return "calendar"
+    for keys, name in _ICON_RULES:
+        if any(k in l for k in keys):
+            return name
+    return "chart"
+
+
+_SPARK_SEQ = [0]
+
+
+def _spark_svg(values, color):
+    """Small trend line + soft area for the bottom of a scorecard."""
+    vals = [float(v) for v in values if v is not None and pd.notna(v)]
+    if len(vals) < 2:
+        return ""
+    _SPARK_SEQ[0] += 1
+    gid = f"spk{_SPARK_SEQ[0]}"
+    w, h = 200.0, 36.0
+    lo, hi = min(vals), max(vals)
+    rng = (hi - lo) or 1.0
+    n = len(vals)
+    pts = [(i * w / (n - 1), h - 3 - (v - lo) / rng * (h - 8)) for i, v in enumerate(vals)]
+    line = " ".join(f"{'M' if i == 0 else 'L'}{x:.1f},{y:.1f}" for i, (x, y) in enumerate(pts))
+    area = f"{line} L{w:.1f},{h:.1f} L0,{h:.1f} Z"
+    lx, ly = pts[-1]
+    return (f'<svg class="kpi-spark" viewBox="0 0 {w:.0f} {h:.0f}" preserveAspectRatio="none" aria-hidden="true">'
+            f'<defs><linearGradient id="{gid}" x1="0" y1="0" x2="0" y2="1">'
+            f'<stop offset="0%" stop-color="{color}" stop-opacity="0.28"/>'
+            f'<stop offset="100%" stop-color="{color}" stop-opacity="0"/></linearGradient></defs>'
+            f'<path d="{area}" fill="url(#{gid})"/>'
+            f'<path d="{line}" fill="none" stroke="{color}" stroke-width="2" vector-effect="non-scaling-stroke" '
+            f'stroke-linejoin="round" stroke-linecap="round"/>'
+            f'<circle cx="{lx:.1f}" cy="{ly:.1f}" r="2.6" fill="{color}" vector-effect="non-scaling-stroke"/></svg>')
+
+
+import re as _re
+
+
+def _fmt_value(value):
+    """Make the number the hero: shrink the 'GHS' unit and the decimals around it."""
+    s = str(value).strip()
+    m = _re.match(r"^(GHS|GH₵|₵)\s*(-?[\d,]+)(\.\d+)?(\s*[kKmMbB])?$", s)
+    if m:
+        return (f'<span class="kpi-unit">{m.group(1)}</span>{m.group(2)}'
+                f'<span class="kpi-dec">{(m.group(3) or "")}{(m.group(4) or "").strip()}</span>')
+    m = _re.match(r"^(-?[\d,]+(?:\.\d+)?)\s*%$", s)
+    if m:
+        return f'{m.group(1)}<span class="kpi-dec">%</span>'
+    return s
+
+
+def _delta_pill(delta, label="", invert=False):
+    if delta is None or not pd.notna(delta):
+        return ""
+    up = delta >= 0
+    good = (not up) if invert else up
+    cls = "up" if good else "down"
+    if abs(delta) < 0.05:
+        cls = "flat"
+    arrow = ('<path d="M12 19V5M5 12l7-7 7 7"/>' if up else '<path d="M12 5v14M19 12l-7 7-7-7"/>')
+    sign = "+" if up else "−"
+    tip = f' title="{label}"' if label else ""
+    return (f'<span class="kpi-delta {cls}"{tip}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+            f'stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">{arrow}</svg>'
+            f'{sign}{abs(delta):.1f}%</span>')
+
+
+def kpi_card(label, value, subtitle, color, badge="", badge_color="",
+             delta=None, delta_label="", invert=False, spark=None, progress=None, icon=None, show_zero=False):
+    """Scorecard. The first six arguments are unchanged, so every existing card keeps working.
+    delta: % change (arrow pill; invert=True when a rise is bad, e.g. Outstanding)
+    spark: list of values for the mini trend line · progress: 0–100 bar (auto for % values)."""
     v_str = str(value)
     # Hide cards whose value is a plain zero (skip percentage cards — 0% is meaningful)
-    if "%" not in v_str:
+    if "%" not in v_str and not show_zero:
         v_clean = v_str.replace("GHS", "").replace(",", "").replace(" ", "").strip()
         try:
             if float(v_clean) == 0:
                 return ""
         except (ValueError, TypeError):
             pass
-    badge_html = f'<span class="kpi-badge" style="background:{badge_color}22;color:{badge_color}">{badge}</span>' if badge else ""
-    return f"""
-    <div class="kpi-card" style="--accent:{color}">
-        <div class="kpi-label">{label}{badge_html}</div>
-        <div class="kpi-value">{value}</div>
-        <div class="kpi-sub">{subtitle}</div>
-    </div>"""
+    if progress is None and spark is None:
+        m = _re.match(r"^\s*(-?[\d.]+)\s*%\s*$", v_str)
+        if m:
+            progress = float(m.group(1))
+    # A badge that only repeats the value (e.g. "46%" on a "46.2%" card) adds noise: drop it.
+    if badge and progress is not None and str(badge).rstrip("%").split(".")[0] == v_str.rstrip("%").split(".")[0]:
+        badge = ""
+    badge_html = (f'<span class="kpi-badge" style="--b:{badge_color or color}">{badge}</span>' if badge else "")
+    foot_extra = ""
+    if spark is not None:
+        foot_extra = _spark_svg(spark, color)
+    elif progress is not None:
+        p = max(0.0, min(100.0, float(progress)))
+        foot_extra = f'<div class="kpi-progress"><div class="kpi-track"><span style="width:{p:.1f}%"></span></div></div>'
+    sub_html = f'<span class="kpi-sub">{subtitle}</span>' if subtitle else ""
+    return (f'<div class="kpi-card" style="--accent:{color}">'
+            f'<div class="kpi-top"><span class="kpi-icon">{_icon_svg(icon or _pick_icon(label))}</span>'
+            f'<span class="kpi-label">{label}</span>{badge_html}</div>'
+            f'<div class="kpi-value">{_fmt_value(value)}</div>'
+            f'<div class="kpi-foot">{_delta_pill(delta, delta_label, invert)}{sub_html}</div>'
+            f'{foot_extra}</div>')
 
 def kpi_grid(html, max_cols=4):
     """max_cols is kept for call-site compatibility but no longer forces a fixed column
@@ -648,6 +897,41 @@ def card_open(title="", subtitle=""):
 def card_close():
     if _CARD_STACK:
         _CARD_STACK.pop().__exit__(None, None, None)
+
+def compact(v, prefix="GHS "):
+    """1234567 -> 'GHS 1.23M' for chart labels and hover text."""
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return str(v)
+    a = abs(v)
+    for div, suf in ((1e9, "B"), (1e6, "M"), (1e3, "k")):
+        if a >= div:
+            return f"{prefix}{v / div:,.{2 if a < 10 * div else 1}f}{suf}"
+    return f"{prefix}{v:,.0f}"
+
+
+def month_series(df, col, how="sum", date_col="Created At"):
+    """Complete months only (the month in progress would read as a sudden drop)."""
+    if df is None or df.empty or col not in df.columns:
+        return pd.Series(dtype=float)
+    d = df.dropna(subset=[date_col])
+    s = d.groupby(d[date_col].dt.to_period("M"))[col].agg(how).sort_index()
+    return s[s.index < pd.Timestamp.today().to_period("M")]
+
+
+def mom_change(s):
+    """(% change of the last complete month vs the one before, 'Oct vs Sep')."""
+    if len(s) < 2 or not s.iloc[-2]:
+        return None, ""
+    return (s.iloc[-1] / s.iloc[-2] - 1) * 100, f"{s.index[-1].strftime('%b')} vs {s.index[-2].strftime('%b')}"
+
+
+def donut_center(fig, big, small):
+    fig.add_annotation(text=f"<b style='font-size:17px'>{big}</b><br><span style='font-size:11px'>{small}</span>",
+                       x=0.5, y=0.5, xref="paper", yref="paper", showarrow=False,
+                       font=dict(color=_T["text_heading"]))
+
 
 def section_label(text):
     st.markdown(f'<div class="section-label">{text}</div>', unsafe_allow_html=True)
@@ -695,8 +979,8 @@ def white_layout(height=300):
     return dict(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                 margin=dict(t=10, b=40, l=10, r=10), height=height,
                 font=dict(family="Inter, sans-serif", size=12, color=CHART_FONT),
-                yaxis=dict(gridcolor=CHART_GRID, gridwidth=1),
-                xaxis=dict(tickangle=-35))
+                yaxis=dict(gridcolor=CHART_GRID, gridwidth=1, griddash="dot"),
+                xaxis=dict(tickangle=-35, showgrid=False))
 
 def make_excel(sheets: dict) -> bytes:
     """Build a multi-sheet Excel file in memory and return bytes for download."""
@@ -1426,14 +1710,25 @@ if page == "Overview":
     hfso_rate  = (inv_y["Discountedvalue"] <= low_thresh).mean() * 100 if len(inv_y) else 0
 
 
-    # Row 1 — Core financials
-    row1 = kpi_card("Total Sales",    f"GHS {total_revenue:,.2f}",   f"{total_orders:,} orders",            BRAND_GREEN) + \
-           kpi_card("Collected",      f"GHS {total_repaid:,.2f}",    f"{collection_pct:.1f}% collection rate","#16a34a",
-                    f"{collection_pct:.1f}%","#16a34a") + \
-           kpi_card("Outstanding",    f"GHS {outstanding_val:,.2f}", f"{outstanding_pct:.1f}% outstanding",  "#dc2626",
-                    f"{outstanding_pct:.1f}%","#dc2626") + \
-           kpi_card("Basket Size (AOV)",f"GHS {avg_order_value:,.2f}","Avg order value",                    "#f59e0b")
+    # Row 1 — Core financials: each card carries its monthly trend and last-month change
+    _s_sales = month_series(inv_y, "Discountedvalue")
+    _s_coll  = month_series(rep_y, "Amount")
+    _s_aov   = month_series(inv_y, "Discountedvalue", "mean")
+    _d_sales, _l_sales = mom_change(_s_sales)
+    _d_coll,  _l_coll  = mom_change(_s_coll)
+    _d_aov,   _l_aov   = mom_change(_s_aov)
+    row1 = kpi_card("Total Sales",    f"GHS {total_revenue:,.2f}",   f"{total_orders:,} orders",            BRAND_GREEN,
+                    delta=_d_sales, delta_label=_l_sales, spark=_s_sales.tail(9).tolist()) + \
+           kpi_card("Collected",      f"GHS {total_repaid:,.2f}",    f"{collection_pct:.1f}% collected",    "#16a34a",
+                    delta=_d_coll, delta_label=_l_coll, spark=_s_coll.tail(9).tolist()) + \
+           kpi_card("Outstanding",    f"GHS {outstanding_val:,.2f}", f"{outstanding_pct:.1f}% of sales unpaid", "#dc2626",
+                    progress=outstanding_pct) + \
+           kpi_card("Basket Size (AOV)",f"GHS {avg_order_value:,.2f}","Avg order value",                    "#f59e0b",
+                    delta=_d_aov, delta_label=_l_aov, spark=_s_aov.tail(9).tolist())
     st.markdown(kpi_grid(row1), unsafe_allow_html=True)
+    if _l_sales:
+        st.markdown(f'<div class="kpi-note">Arrows compare {_l_sales.replace(" vs ", " with ")} (last two complete months). '
+                    f'Lines show the monthly trend.</div>', unsafe_allow_html=True)
 
     # Row 2 — MERL KPIs
     section_label("MERL Performance Indicators")
@@ -1456,7 +1751,7 @@ if page == "Overview":
                     f"GHS {rev_top10/100*total_invoiced:,.2f} from top 10","#dc2626") + \
            kpi_card("Active Customers",    f"{active_customers}",
                     f"of {total_customers} registered", "#3b82f6",
-                    f"{active_pct:.0f}%","#3b82f6") + \
+                    progress=active_pct) + \
            kpi_card("High-Freq Small Orders", f"{hfso_rate:.1f}%",
                     f"Orders ≤ GHS {low_thresh:,.2f}", "#9ca3af")
     st.markdown(kpi_grid(row3), unsafe_allow_html=True)
@@ -1476,9 +1771,10 @@ if page == "Overview":
         _yr_lbl = _parts[0] if len(_parts) == 2 else ""
         _mo_lbl = _MO_ABBR.get(_parts[1], _parts[1]) if len(_parts) == 2 else _r["Month"]
         _label  = f"{_mo_lbl} {_yr_lbl}"
-        _sub    = (f"+{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) and _r["pct"] >= 0
-                   else (f"{_r['pct']:.0f}% vs prev" if pd.notna(_r["pct"]) else "First month"))
-        _card = kpi_card(_label, f"GHS {_r['Discountedvalue']:,.2f}", _sub, _MONTH_COLORS[_i % 6])
+        _is_cur = str(_r["Month"]) == str(pd.Timestamp.today().to_period("M"))
+        _sub    = ("Month to date" if _is_cur else ("vs previous month" if pd.notna(_r["pct"]) else "First month"))
+        _card = kpi_card(_label, f"GHS {_r['Discountedvalue']:,.2f}", _sub, _MONTH_COLORS[_i % 6],
+                         delta=None if _is_cur else _r["pct"])
         if _i >= len(_m_rev_list) - 2:
             _recent_html += _card
         else:
@@ -1497,81 +1793,202 @@ if page == "Overview":
                     f'{_older_html}</div>',
                     unsafe_allow_html=True)
 
-    col1, col2 = st.columns([3, 2])
+    # ── Performance trend: one flexible chart instead of a fixed monthly bar ──────
+    monthly = inv_y.groupby("Month")["Discountedvalue"].sum().reset_index()   # kept for the PDF export
+    card_open("Performance Trend", "Pick a measure, a time grain and a chart style. Hover for detail; drag to zoom.")
+    with st.container(key="ctl_trend"):
+        _c1, _c2, _c3 = st.columns([3, 2, 2])
+        with _c1:
+            _tr_metric = st.segmented_control("Measure", ["Revenue", "Collected", "Orders", "Avg order", "Customers"],
+                                              default="Revenue", key="ov_tr_metric", label_visibility="collapsed")
+        with _c2:
+            _tr_grain = st.segmented_control("Grain", ["Monthly", "Weekly"], default="Monthly",
+                                             key="ov_tr_grain", label_visibility="collapsed")
+        with _c3:
+            _tr_style = st.segmented_control("Style", ["Bars", "Area", "Line"], default="Bars",
+                                             key="ov_tr_style", label_visibility="collapsed")
+    _tr_metric = _tr_metric or "Revenue"
+    _tr_grain = _tr_grain or "Monthly"
+    _tr_style = _tr_style or "Bars"
 
-    with col1:
-        card_open("Monthly Revenue Trend", f"GHS revenue by month ({date_range})")
-        monthly = inv_y.groupby("Month")["Discountedvalue"].sum().reset_index()
-        monthly["prev"] = monthly["Discountedvalue"].shift(1)
-        monthly["pct"]  = (((monthly["Discountedvalue"] - monthly["prev"]) / monthly["prev"]).astype(float) * 100).round(1)
-        monthly["Month Label"] = monthly["Month"].apply(month_label)
+    _freq = "M" if _tr_grain == "Monthly" else "W"
+    def _bucket(d):
+        return d["Created At"].dt.to_period(_freq).dt.start_time
+    if _tr_metric == "Collected":
+        _src = rep_y.dropna(subset=["Created At"])
+        _ser = _src.groupby(_bucket(_src))["Amount"].sum()
+    else:
+        _src = inv_y.dropna(subset=["Created At"])
+        _g = _src.groupby(_bucket(_src))
+        _ser = {"Revenue": _g["Discountedvalue"].sum(), "Orders": _g.size(),
+                "Avg order": _g["Discountedvalue"].mean(),
+                "Customers": _g["Customer ID"].nunique()}[_tr_metric]
+    _ser = _ser.sort_index()
+    _money = _tr_metric in ("Revenue", "Collected", "Avg order")
+    _cur_start = pd.Timestamp.today().to_period(_freq).start_time
+    _is_partial = [ix == _cur_start for ix in _ser.index]
+    _full = _ser[[not p for p in _is_partial]]
+    _avg = _full.mean() if len(_full) else None
+    _fmt = (lambda v: compact(v)) if _money else (lambda v: f"{v:,.0f}")
 
+    # headline figures for the selection
+    if len(_ser):
+        _best_ix = _full.idxmax() if len(_full) else _ser.idxmax()
+        _lbl = (lambda ix: ix.strftime("%b %Y")) if _freq == "M" else (lambda ix: "w/c " + ix.strftime("%d %b"))
+        _chg, _ = mom_change(_full) if len(_full) >= 2 else (None, "")
+        _chg_txt = (f"{'+' if _chg >= 0 else '−'}{abs(_chg):.1f}%" if _chg is not None else "–")
+        _tot_txt = _fmt(_ser.sum()) if _tr_metric in ("Revenue", "Collected", "Orders") else _fmt(_avg or 0)
+        _tot_lbl = "Total in view" if _tr_metric in ("Revenue", "Collected", "Orders") else "Average per period"
+        st.markdown(
+            f'<div class="chart-stat"><div>{_tot_lbl}<b>{_tot_txt}</b></div>'
+            f'<div>Best {"month" if _freq == "M" else "week"}<b>{_lbl(_best_ix)} · {_fmt(_ser[_best_ix])}</b></div>'
+            f'<div>Last complete vs previous<b style="color:{_T["pos"] if (_chg or 0) >= 0 else _T["neg"]}">{_chg_txt}</b></div></div>',
+            unsafe_allow_html=True)
+
+        _x = list(_ser.index)
+        _hover_prefix = "GHS " if _money else ""
+        _pct = (_ser.pct_change() * 100).round(1)
+        _custom = [[(_lbl(ix)), ("in progress" if pp else (f"{pc:+.1f}% vs previous" if pd.notna(pc) else "first period"))]
+                   for ix, pp, pc in zip(_x, _is_partial, _pct)]
+        _htpl = f"<b>%{{customdata[0]}}</b><br>{_tr_metric}: {_hover_prefix}%{{y:,.0f}}<br>%{{customdata[1]}}<extra></extra>"
+        _accent = {"Revenue": BRAND_GREEN, "Collected": "#16a34a", "Orders": "#0ea5e9",
+                   "Avg order": "#f59e0b", "Customers": "#6366f1"}[_tr_metric]
         fig = go.Figure()
-        fig.add_bar(x=monthly["Month Label"], y=monthly["Discountedvalue"],
-                    marker=bar_marker(BRAND_GREEN), name="Revenue (GHS)",
-                    text=monthly["Discountedvalue"].apply(lambda x: f"GHS {x:,.2f}"),
-                    textposition="outside", textfont=dict(size=9))
-        fig.add_scatter(x=monthly["Month Label"], y=monthly["Discountedvalue"],
-                        mode="lines+markers", line=dict(color="#f59e0b", width=2.5, dash="dot"),
-                        marker=dict(size=6, color="#f59e0b"), name="Trend")
-        for _, row in monthly.dropna(subset=["pct"]).iterrows():
-            clr = "#16a34a" if row["pct"] >= 0 else "#dc2626"
-            fig.add_annotation(x=row["Month Label"], y=row["Discountedvalue"],
-                               text=f"{'+' if row['pct']>=0 else ''}{row['pct']:.0f}%",
-                               showarrow=False, yshift=32, font=dict(size=10, color=clr))
-        fig.update_layout(**white_layout(300),
-                          legend=dict(orientation="h", y=-0.28, x=0))
+        if _tr_style == "Bars":
+            _colors = [("rgba(201,151,90,0.45)" if pp else _accent) for pp in _is_partial]
+            fig.add_bar(x=_x, y=_ser.values, marker=dict(color=_colors, cornerradius=6,
+                        pattern=dict(shape=["/" if pp else "" for pp in _is_partial], fgcolor=BRAND_GOLD, size=6)),
+                        customdata=_custom, hovertemplate=_htpl, name=_tr_metric,
+                        text=[_fmt(v) for v in _ser.values] if len(_ser) <= 14 else None,
+                        textposition="outside", textfont=dict(size=10.5, color=_T["text_muted"]), cliponaxis=False)
+        else:
+            fig.add_scatter(x=_x, y=_ser.values, mode="lines+markers", name=_tr_metric,
+                            line=dict(color=_accent, width=3, shape="spline", smoothing=0.6),
+                            marker=dict(size=[9 if pp else 7 for pp in _is_partial], color=_T["card_bg_solid"],
+                                        line=dict(color=_accent, width=2.5)),
+                            fill="tozeroy" if _tr_style == "Area" else None,
+                            fillgradient=dict(type="vertical", colorscale=[[0, "rgba(0,0,0,0)"], [1, "rgba(%d,%d,%d,0.35)" % tuple(int(_accent[i:i+2], 16) for i in (1, 3, 5))]])
+                            if _tr_style == "Area" else None,
+                            customdata=_custom, hovertemplate=_htpl)
+        if _avg:
+            fig.add_hline(y=_avg, line=dict(color=BRAND_GOLD, width=1.5, dash="dash"),
+                          annotation=dict(text=f"avg {_fmt(_avg)}", font=dict(size=11, color=BRAND_GOLD),
+                                          bgcolor=_T["card_bg_solid"]),
+                          annotation_position="top right")
+        fig.update_layout(height=340, margin=dict(t=28, b=10, l=8, r=8), showlegend=False,
+                          hovermode="x", dragmode="zoom",
+                          xaxis=dict(tickformat="%b %Y" if _freq == "M" else "%d %b", showspikes=True,
+                                     spikemode="across", spikethickness=1, spikedash="dot", spikecolor=CHART_GRID),
+                          yaxis=dict(tickprefix="GHS " if _money else "", tickformat="~s", rangemode="tozero"))
         st.plotly_chart(fig, use_container_width=True, config=CHART_CFG)
-        card_close()
+    else:
+        st.info("No data for this selection.")
+    card_close()
 
-    with col2:
-        card_open("Sales by City", "Top Ghana cities by order value")
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        card_open("Sales by City", "Where revenue comes from")
         city_sales = (inv_y.groupby("Customer City")["Discountedvalue"]
                            .sum().reset_index()
-                           .rename(columns={"Customer City":"City","Discountedvalue":"Sales"})
-                           .sort_values("Sales", ascending=False).head(8))
+                           .rename(columns={"Customer City": "City", "Discountedvalue": "Sales"})
+                           .sort_values("Sales", ascending=False))
         city_sales = city_sales[city_sales["City"].notna() & (city_sales["City"] != "")]
-        fig2 = px.pie(city_sales, names="City", values="Sales", hole=0.5,
-                      color_discrete_sequence=[BRAND_GREEN,"#14b8a6","#f59e0b","#f97316","#8b5cf6","#ec4899","#16a34a","#dc2626"])
-        fig2.update_traces(textinfo="percent", textposition="inside",
-                           insidetextorientation="horizontal",
-                           textfont=dict(size=12, color="white"))
-        fig2.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                           margin=dict(t=10, b=10, l=10, r=10), height=300,
-                           showlegend=True, font=dict(color=CHART_FONT),
-                           legend=dict(orientation="v", x=1.02, y=0.5, font=dict(size=11, color=CHART_FONT)))
+        with st.container(key="ctl_city"):
+            _cv = st.segmented_control("View", ["Ranked", "Share"], default="Ranked", key="ov_city_view",
+                                       label_visibility="collapsed") or "Ranked"
+        _top = city_sales.head(8).copy()
+        _rest = city_sales["Sales"].iloc[8:].sum()
+        _tot_city = city_sales["Sales"].sum()
+        if _cv == "Ranked":
+            _top = _top.iloc[::-1]
+            _share = _top["Sales"] / _tot_city * 100 if _tot_city else 0
+            fig2 = go.Figure(go.Bar(
+                y=_top["City"], x=_top["Sales"], orientation="h",
+                marker=dict(color=_top["Sales"], colorscale=[[0, BRAND_GREEN_LIGHT], [1, BRAND_GREEN_DEEP]], cornerradius=6),
+                text=[f"{compact(v)} · {s_:.0f}%" for v, s_ in zip(_top["Sales"], _share)], textposition="outside",
+                textfont=dict(size=11, color=_T["text_muted"]), cliponaxis=False,
+                hovertemplate="<b>%{y}</b><br>GHS %{x:,.0f}<extra></extra>"))
+            fig2.update_layout(height=320, margin=dict(t=6, b=10, l=8, r=70), showlegend=False, bargap=0.38,
+                               xaxis=dict(visible=False, range=[0, _top["Sales"].max() * 1.32 if len(_top) else 1]),
+                               yaxis=dict(tickfont=dict(size=12, color=_T["text_body"])))
+        else:
+            _pie = _top[["City", "Sales"]].copy()
+            if _rest > 0:
+                _pie = pd.concat([_pie, pd.DataFrame([{"City": "Other", "Sales": _rest}])])
+            fig2 = go.Figure(go.Pie(labels=_pie["City"], values=_pie["Sales"], hole=0.62, sort=False,
+                                    marker=dict(colors=CHART_COLORWAY + ["#9ca3af"], line=dict(color=_T["card_bg_solid"], width=2)),
+                                    textinfo="percent", textfont=dict(size=11.5, color="#fff"),
+                                    hovertemplate="<b>%{label}</b><br>GHS %{value:,.0f} · %{percent}<extra></extra>"))
+            donut_center(fig2, compact(_tot_city), "total sales")
+            fig2.update_layout(height=320, margin=dict(t=6, b=6, l=6, r=6),
+                               legend=dict(orientation="v", x=1.0, y=0.5, font=dict(size=11.5, color=CHART_FONT)))
         st.plotly_chart(fig2, use_container_width=True, config=CHART_CFG)
         card_close()
 
-    col3, col4 = st.columns(2)
-    with col3:
-        card_open("Repayment Status", "Invoice repayment breakdown")
-        rs = inv_y["Repayment Status"].value_counts().reset_index()
-        rs.columns = ["Status", "Count"]
-        clrs = {"Open":BRAND_GOLD,"Repaid":"#16a34a","Overdue":"#dc2626","Due Soon":"#f59e0b"}
-        fig3 = px.bar(rs, x="Status", y="Count", color="Status",
-                      color_discrete_map=clrs, text="Count")
-        fig3.update_traces(textposition="outside", textfont=dict(size=11),
-                           marker_cornerradius=6, marker_line=dict(color="rgba(255,255,255,0.55)", width=1))
-        fig3.update_layout(**white_layout(240))
-        fig3.update_layout(showlegend=False, xaxis=dict(tickangle=0))
+    with col2:
+        card_open("Repayment Status", "Invoices by where they stand today")
+        rs = inv_y.groupby("Repayment Status").agg(Count=("ID", "count"), Value=("Discountedvalue", "sum")).reset_index()
+        rs = rs.rename(columns={"Repayment Status": "Status"})
+        clrs = {"Open": BRAND_GOLD, "Repaid": "#16a34a", "Overdue": "#dc2626", "Due Soon": "#f59e0b"}
+        with st.container(key="ctl_rs"):
+            _rv = st.segmented_control("Count by", ["Invoices", "Value"], default="Invoices", key="ov_rs_view",
+                                       label_visibility="collapsed") or "Invoices"
+        _col = "Count" if _rv == "Invoices" else "Value"
+        rs = rs.sort_values(_col, ascending=False)
+        fig3 = go.Figure(go.Pie(labels=rs["Status"], values=rs[_col], hole=0.62, sort=False,
+                                marker=dict(colors=[clrs.get(x, "#9ca3af") for x in rs["Status"]],
+                                            line=dict(color=_T["card_bg_solid"], width=2)),
+                                textinfo="percent", textfont=dict(size=11.5, color="#fff"),
+                                hovertemplate=("<b>%{label}</b><br>%{value:,} invoices · %{percent}<extra></extra>" if _col == "Count"
+                                               else "<b>%{label}</b><br>GHS %{value:,.0f} · %{percent}<extra></extra>")))
+        donut_center(fig3, f"{rs['Count'].sum():,}" if _col == "Count" else compact(rs["Value"].sum()),
+                     "invoices" if _col == "Count" else "invoiced")
+        fig3.update_layout(height=320, margin=dict(t=6, b=6, l=6, r=6),
+                           legend=dict(orientation="v", x=1.0, y=0.5, font=dict(size=11.5, color=CHART_FONT)))
         st.plotly_chart(fig3, use_container_width=True, config=CHART_CFG)
         card_close()
 
+    col3, col4 = st.columns([1, 1])
+    with col3:
+        card_open("Collected vs Invoiced", "Monthly cash-in against sales · the gap is what is still owed")
+        _ci = inv_y.groupby(inv_y["Created At"].dt.to_period("M").dt.start_time)["Discountedvalue"].sum()
+        _cc = rep_y.groupby(rep_y["Created At"].dt.to_period("M").dt.start_time)["Amount"].sum()
+        _cv_df = pd.DataFrame({"Invoiced": _ci, "Collected": _cc}).fillna(0).sort_index()
+        if len(_cv_df):
+            _rate = (_cv_df["Collected"] / _cv_df["Invoiced"].replace(0, pd.NA) * 100)
+            fig5 = go.Figure()
+            fig5.add_bar(x=_cv_df.index, y=_cv_df["Invoiced"], name="Invoiced",
+                         marker=dict(color="rgba(31,122,77,0.22)", cornerradius=5, line=dict(color=BRAND_GREEN, width=1)),
+                         hovertemplate="Invoiced: GHS %{y:,.0f}<extra></extra>")
+            fig5.add_bar(x=_cv_df.index, y=_cv_df["Collected"], name="Collected",
+                         marker=dict(color=BRAND_GREEN, cornerradius=5),
+                         hovertemplate="Collected: GHS %{y:,.0f}<extra></extra>")
+            fig5.add_scatter(x=_cv_df.index, y=_rate, name="Collection %", yaxis="y2", mode="lines+markers",
+                             line=dict(color=BRAND_GOLD, width=2.5, shape="spline", smoothing=0.5),
+                             marker=dict(size=6, color=BRAND_GOLD), hovertemplate="Collection rate: %{y:.0f}%<extra></extra>")
+            fig5.update_layout(height=320, margin=dict(t=10, b=10, l=8, r=8), barmode="overlay", bargap=0.35,
+                               hovermode="x unified",
+                               legend=dict(orientation="h", y=1.08, x=0, font=dict(size=11.5)),
+                               xaxis=dict(tickformat="%b %y"),
+                               yaxis=dict(tickprefix="GHS ", tickformat="~s", rangemode="tozero"),
+                               yaxis2=dict(overlaying="y", side="right", rangemode="tozero", ticksuffix="%",
+                                           showgrid=False, tickfont=dict(color=BRAND_GOLD, size=11)))
+            st.plotly_chart(fig5, use_container_width=True, config=CHART_CFG)
+        card_close()
+
     with col4:
-        card_open("Payment Mode", "Collection method split")
-        pm = rep_y["Payment Method"].value_counts().reset_index()
-        pm.columns = ["Method", "Count"]
-        pm_clrs = {"Mobile Money":BRAND_GOLD,"Bank Transfer":"#16a34a","Cash":"#f59e0b","Mpesa":"#8b5cf6"}
-        fig4 = px.pie(pm, names="Method", values="Count", hole=0.5,
-                      color="Method", color_discrete_map=pm_clrs)
-        fig4.update_traces(textinfo="percent", textposition="inside",
-                           insidetextorientation="horizontal",
-                           textfont=dict(size=12, color="white"))
-        fig4.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                           margin=dict(t=10, b=10, l=10, r=10), height=240,
-                           showlegend=True, font=dict(color=CHART_FONT),
-                           legend=dict(orientation="v", x=1.02, y=0.5, font=dict(size=11, color=CHART_FONT)))
+        card_open("Payment Mode", "How customers pay")
+        pm = rep_y.groupby("Payment Method").agg(Count=("Amount", "size"), Value=("Amount", "sum")).reset_index()
+        pm = pm.rename(columns={"Payment Method": "Method"}).sort_values("Value", ascending=False)
+        pm_clrs = {"Mobile Money": BRAND_GOLD, "Bank Transfer": "#16a34a", "Cash": "#f59e0b", "Mpesa": "#8b5cf6"}
+        fig4 = go.Figure(go.Pie(labels=pm["Method"], values=pm["Value"], hole=0.62, sort=False,
+                                marker=dict(colors=[pm_clrs.get(m, c) for m, c in zip(pm["Method"], CHART_COLORWAY[2:] * 3)],
+                                            line=dict(color=_T["card_bg_solid"], width=2)),
+                                customdata=pm["Count"], textinfo="percent", textfont=dict(size=11.5, color="#fff"),
+                                hovertemplate="<b>%{label}</b><br>GHS %{value:,.0f} · %{percent}<br>%{customdata:,} payments<extra></extra>"))
+        donut_center(fig4, compact(pm["Value"].sum()), "collected")
+        fig4.update_layout(height=320, margin=dict(t=6, b=6, l=6, r=6),
+                           legend=dict(orientation="v", x=1.0, y=0.5, font=dict(size=11.5, color=CHART_FONT)))
         st.plotly_chart(fig4, use_container_width=True, config=CHART_CFG)
         card_close()
 
@@ -3945,7 +4362,7 @@ elif page == "Quarterly Review":
 
 elif page == "Credit & Collections":
     _cc_text = lambda html: st.markdown(
-        f'<div style="font-size:13px;color:{_T["text_muted"]};margin:0 0 14px">{html}</div>',
+        f'<div class="page-note">{html}</div>',
         unsafe_allow_html=True)
     _cc_text("The Sales Credit & Collections Performance workbook, rebuilt from live Metabase data: "
              "invoice aging, receipt detail, customer credit matrix and monthly performance. Choose the "
@@ -4049,7 +4466,7 @@ elif page == "Credit & Collections":
 
 elif page == "Products":
     _ps_text = lambda html: st.markdown(
-        f'<div style="font-size:13px;color:{_T["text_muted"]};margin:0 0 14px">{html}</div>',
+        f'<div class="page-note">{html}</div>',
         unsafe_allow_html=True)
     _ps_frames, _ps_live, _ps_err = load_products()
     _ps_months = sorted(prr.lines(inv_scoped, _ps_frames.get("lines"))["Month"].dropna().unique())[::-1] \
@@ -4070,21 +4487,21 @@ elif page == "Products":
              + ("" if _ps_live else " <b>Metabase is unavailable, so this shows the last saved copy.</b>"))
 
     # Findings first: what the CEO should know
-    with st.container(border=True):
-        st.markdown(f"**What is happening: {_ps['label']}**")
-        for _x in _ps["points"]:
-            st.markdown(f"- {_x}")
-        if _ps["recs"]:
-            st.markdown("**Actions**")
-            for _x in _ps["recs"]:
-                st.markdown(f"- {_x}")
+    card_open()
+    _ps_brief = (f'<div class="brief-head">What is happening: {_ps["label"]}</div>'
+                 f'<ul class="brief-list">{"".join(f"<li>{_x}</li>" for _x in _ps["points"])}</ul>')
+    if _ps["recs"]:
+        _ps_brief += (f'<div class="brief-sub" style="color:{BRAND_GOLD}">⚑ Actions needed</div>'
+                      f'<ul class="brief-list brief-act">{"".join(f"<li>{_x}</li>" for _x in _ps["recs"])}</ul>')
+    st.markdown(_ps_brief, unsafe_allow_html=True)
+    card_close()
 
-    _ps_card = lambda label, value, sub, color: (
-        f'<div class="kpi-card" style="--accent:{color}"><div class="kpi-label">{label}</div>'
-        f'<div class="kpi-value">{value}</div><div class="kpi-sub">{sub}</div></div>')
+    _ps_card = lambda label, value, sub, color, **kw: kpi_card(label, value, sub, color, show_zero=True, **kw)
     _ps_fmt_g = lambda v: f"{v * 100:+.1f}% vs last month" if pd.notna(v) else "no sales last month"
     st.markdown('<div class="kpi-grid">' + "".join([
-        _ps_card("Product Revenue", f"GHS {_ps_t['revenue']:,.0f}", _ps_fmt_g(_ps_t["growth"]), BRAND_GREEN),
+        _ps_card("Product Revenue", f"GHS {_ps_t['revenue']:,.0f}",
+                 "vs last month" if pd.notna(_ps_t["growth"]) else "no sales last month", BRAND_GREEN,
+                 delta=_ps_t["growth"] * 100 if pd.notna(_ps_t["growth"]) else None),
         _ps_card("Gross Margin", f"{_ps_t['margin_pct'] * 100:.1f}%" if pd.notna(_ps_t["margin_pct"]) else "-",
                  f"GHS {_ps_t['margin']:,.0f} gross profit", "#16a34a"),
         _ps_card("Products Sold", f"{_ps_t['products']}",
@@ -4296,7 +4713,7 @@ elif page == "Admin" and IS_ADMIN:
 
 elif page == "Data Export":
     _de_text = lambda html: st.markdown(
-        f'<div style="font-size:13px;color:{_T["text_muted"]};margin:0 0 14px">{html}</div>',
+        f'<div class="page-note">{html}</div>',
         unsafe_allow_html=True)
     _de_text("Every core TribeCo table, scoped to Ghana only, in one workbook. "
              "For easy reference, all data are live from the Metabase.")
