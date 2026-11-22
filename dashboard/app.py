@@ -140,9 +140,9 @@ _THEME_TOKENS = {
         page_grad="linear-gradient(160deg, #f4f8f5 0%, #eef5f0 50%, #f8f4ec 100%)",
         card_bg="rgba(255,255,255,0.86)",
         card_border="rgba(2,75,48,0.09)",
-        card_shadow="0 1px 2px rgba(2,75,48,0.05), 0 6px 20px rgba(2,75,48,0.07)",
-        kpi_shadow="0 1px 2px rgba(2,75,48,0.05), 0 6px 20px rgba(2,75,48,0.07)",
-        kpi_shadow_hover="0 2px 6px rgba(2,75,48,0.08), 0 14px 32px rgba(2,75,48,0.13)",
+        card_shadow="0 1px 3px rgba(2,75,48,0.08), 0 8px 24px rgba(31,122,77,0.13)",
+        kpi_shadow="0 1px 3px rgba(2,75,48,0.08), 0 8px 24px rgba(31,122,77,0.14)",
+        kpi_shadow_hover="0 2px 6px rgba(2,75,48,0.10), 0 16px 36px rgba(31,122,77,0.22)",
         text_heading="#0d3b25",
         text_body="#374151",
         text_muted="#6b7280",
@@ -170,9 +170,9 @@ _THEME_TOKENS = {
         page_grad="linear-gradient(135deg, #050f0a 0%, #0a1f14 45%, #17130a 100%)",
         card_bg="rgba(16,36,27,0.82)",
         card_border="rgba(255,255,255,0.08)",
-        card_shadow="0 8px 32px rgba(0,0,0,0.45)",
-        kpi_shadow="0 1px 2px rgba(0,0,0,0.35), 0 12px 30px rgba(0,0,0,0.55)",
-        kpi_shadow_hover="0 4px 10px rgba(0,0,0,0.45), 0 20px 44px rgba(0,0,0,0.65)",
+        card_shadow="0 1px 2px rgba(0,0,0,0.40), 0 10px 30px rgba(63,168,115,0.12)",
+        kpi_shadow="0 1px 2px rgba(0,0,0,0.40), 0 10px 30px rgba(63,168,115,0.13)",
+        kpi_shadow_hover="0 4px 10px rgba(0,0,0,0.45), 0 18px 40px rgba(63,168,115,0.22)",
         text_heading="#eef6f0",
         text_body="#d7ded9",
         text_muted="#9fb0a6",
@@ -740,10 +740,10 @@ _ICON_RULES = [
     (("forecast", "projection", "growth", "trend", "projected"), "trend"),
     (("conc", "share", "top-", "top ", "gini", "mix"), "pie"),
     (("cit", "region", "location", "zone"), "pin"),
-    (("margin", "rate", "ratio"), "percent"),
     (("activation",), "zap"),
     (("repeat", "reorder", "retention"), "repeat"),
     (("reconcil", "match"), "link"),
+    (("margin", "rate", "ratio"), "percent"),
     (("partner", "signed", "new "), "userplus"),
     (("customer", "active", "buyer", "account"), "users"),
     (("aov", "basket", "order", "small"), "cart"),
@@ -762,7 +762,7 @@ def _icon_svg(name):
 def _pick_icon(label):
     l = str(label).lower()
     if l[:3] in _MONTHS:
-        return "calendar"
+        return None
     for keys, name in _ICON_RULES:
         if any(k in l for k in keys):
             return name
@@ -858,9 +858,10 @@ def kpi_card(label, value, subtitle, color, badge="", badge_color="",
         p = max(0.0, min(100.0, float(progress)))
         foot_extra = f'<div class="kpi-progress"><div class="kpi-track"><span style="width:{p:.1f}%"></span></div></div>'
     sub_html = f'<span class="kpi-sub">{subtitle}</span>' if subtitle else ""
+    _icon_name = icon or _pick_icon(label)
+    _icon_html = f'<span class="kpi-icon">{_icon_svg(_icon_name)}</span>' if _icon_name else ""
     return (f'<div class="kpi-card" style="--accent:{color}">'
-            f'<div class="kpi-top"><span class="kpi-icon">{_icon_svg(icon or _pick_icon(label))}</span>'
-            f'<span class="kpi-label">{label}</span>{badge_html}</div>'
+            f'<div class="kpi-top">{_icon_html}<span class="kpi-label">{label}</span>{badge_html}</div>'
             f'<div class="kpi-value">{_fmt_value(value)}</div>'
             f'<div class="kpi-foot">{_delta_pill(delta, delta_label, invert)}{sub_html}</div>'
             f'{foot_extra}</div>')
