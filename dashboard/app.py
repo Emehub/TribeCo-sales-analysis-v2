@@ -472,6 +472,11 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
     color: $text_heading; margin: 14px 0 6px; line-height: 1.1; white-space: nowrap;
     font-variant-numeric: tabular-nums;
 }
+.kpi-value-text {
+    font-size: clamp(14px, 6.5cqi, 19px); letter-spacing: -0.2px; line-height: 1.3;
+    white-space: normal; overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
 .kpi-unit { font-size: 0.5em; font-weight: 700; color: $text_muted; letter-spacing: 0.2px; margin-right: 5px; vertical-align: 0.32em; }
 .kpi-dec  { font-size: 0.62em; font-weight: 700; color: $text_muted; letter-spacing: 0; }
 .kpi-foot { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
@@ -858,11 +863,16 @@ def kpi_card(label, value, subtitle, color, badge="", badge_color="",
         p = max(0.0, min(100.0, float(progress)))
         foot_extra = f'<div class="kpi-progress"><div class="kpi-track"><span style="width:{p:.1f}%"></span></div></div>'
     sub_html = f'<span class="kpi-sub">{subtitle}</span>' if subtitle else ""
+    # Names (top product, top customer…) are long text, not numbers: smaller type that wraps
+    # onto two lines, full name on hover, so the card never overflows.
+    _is_text = sum(ch.isalpha() for ch in v_str.replace("GHS", "")) > 3
+    _value_html = (f'<div class="kpi-value kpi-value-text" title="{v_str}">{v_str}</div>' if _is_text
+                   else f'<div class="kpi-value">{_fmt_value(value)}</div>')
     _icon_name = icon or _pick_icon(label)
     _icon_html = f'<span class="kpi-icon">{_icon_svg(_icon_name)}</span>' if _icon_name else ""
     return (f'<div class="kpi-card" style="--accent:{color}">'
             f'<div class="kpi-top">{_icon_html}<span class="kpi-label">{label}</span>{badge_html}</div>'
-            f'<div class="kpi-value">{_fmt_value(value)}</div>'
+            f'{_value_html}'
             f'<div class="kpi-foot">{_delta_pill(delta, delta_label, invert)}{sub_html}</div>'
             f'{foot_extra}</div>')
 
