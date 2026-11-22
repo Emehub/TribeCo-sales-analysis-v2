@@ -139,7 +139,7 @@ _THEME_TOKENS = {
     "light": dict(
         page_grad="linear-gradient(160deg, #f4f8f5 0%, #eef5f0 50%, #f8f4ec 100%)",
         card_bg="rgba(255,255,255,0.86)",
-        card_border="rgba(2,75,48,0.09)",
+        card_border="rgba(31,122,77,0.18)",
         card_shadow="0 1px 3px rgba(2,75,48,0.08), 0 8px 24px rgba(31,122,77,0.13)",
         kpi_shadow="0 1px 3px rgba(2,75,48,0.08), 0 8px 24px rgba(31,122,77,0.14)",
         kpi_shadow_hover="0 2px 6px rgba(2,75,48,0.10), 0 16px 36px rgba(31,122,77,0.22)",
@@ -169,7 +169,7 @@ _THEME_TOKENS = {
     "dark": dict(
         page_grad="linear-gradient(135deg, #050f0a 0%, #0a1f14 45%, #17130a 100%)",
         card_bg="rgba(16,36,27,0.82)",
-        card_border="rgba(255,255,255,0.08)",
+        card_border="rgba(120,210,160,0.16)",
         card_shadow="0 1px 2px rgba(0,0,0,0.40), 0 10px 30px rgba(63,168,115,0.12)",
         kpi_shadow="0 1px 2px rgba(0,0,0,0.40), 0 10px 30px rgba(63,168,115,0.13)",
         kpi_shadow_hover="0 4px 10px rgba(0,0,0,0.45), 0 18px 40px rgba(63,168,115,0.22)",
@@ -390,7 +390,17 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
     transition: box-shadow 0.2s ease;
     animation: cardIn 0.36s cubic-bezier(.2,.8,.2,1) both;
 }
-[class*="st-key-card_"]:hover { box-shadow: $kpi_shadow_hover; }
+[class*="st-key-card_"]:hover { box-shadow: $kpi_shadow_hover; border-color: color-mix(in srgb, $brand_green 38%, transparent); }
+/* st.container(border=True) boxes match the cards */
+[data-testid="stMain"] [data-testid="stVerticalBlockBorderWrapper"] { border-color: $card_border; border-radius: 14px; }
+.summary-card {
+    background: $card_bg_solid; border: 1px solid $card_border; border-left: 4px solid var(--accent);
+    border-radius: 14px; padding: 14px 18px; margin-bottom: 0; box-shadow: $card_shadow;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.summary-card:hover { box-shadow: $kpi_shadow_hover; }
+.summary-title { font-size: 14.5px; font-weight: 750; color: $text_heading; margin-bottom: 4px; }
+.summary-text  { font-size: 13.5px; line-height: 1.55; color: $text_body; }
 @keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 [class*="st-key-card_"] [class*="st-key-card_"] { box-shadow: none; padding: 16px !important; animation: none; }
 .card-head { margin-bottom: 0; }
@@ -3403,6 +3413,59 @@ elif page == "YTD Review":
         # ON-SCREEN RENDER
         # ══════════════════════════════════════════════════════════════════════
 
+        # ── YTD scorecards ───────────────────────────────────────────────────
+        # Trend lines and arrows use complete months only (the month in progress reads as a drop).
+        _yr_full_mo = _yr_mo.iloc[:-1] if _yr_is_partial_month else _yr_mo
+        _yr_full_dso = _yr_dso_df.iloc[:-1] if _yr_is_partial_month else _yr_dso_df
+        def _yr_mom(series):
+            v = list(series.dropna())
+            return (v[-1] / v[-2] - 1) * 100 if len(v) >= 2 and v[-2] else None
+        _yr_rev_ytd = _yr_mo["Discountedvalue"].sum()
+        _yr_tgt_rows = _yr_mo[_yr_mo["Target"].notna()]
+        _yr_attain_ytd = (_yr_tgt_rows["Discountedvalue"].sum() / _yr_tgt_rows["Target"].sum() * 100
+                          if len(_yr_tgt_rows) and _yr_tgt_rows["Target"].sum() else None)
+        _yr_orders_ytd = int(_yr_mo["Orders"].sum())
+        _yr_new_ytd = int(_yr_cust_df["New"].sum())
+        _yr_coll_ytd = _yr_dso_df["Collected"].sum()
+        _yr_coll_rate = _yr_coll_ytd / _yr_rev_ytd * 100 if _yr_rev_ytd else 0
+        _yr_last_dso = _yr_dso_df["DSO"].dropna().iloc[-1] if _yr_dso_df["DSO"].notna().any() else None
+        _yr_cmp = (f"{_yr_full_mo['Month Label'].iloc[-1]} vs {_yr_full_mo['Month Label'].iloc[-2]}"
+                   if len(_yr_full_mo) >= 2 else "")
+        _yr_row1 = (
+            kpi_card("YTD Revenue", f"GHS {_yr_rev_ytd:,.0f}", f"Jan – {_yr_month_label}", BRAND_GREEN,
+                     delta=_yr_mom(_yr_full_mo["Discountedvalue"]), delta_label=_yr_cmp,
+                     spark=_yr_full_mo["Discountedvalue"].tolist())
+            + (kpi_card("Target Attainment", f"{_yr_attain_ytd:.1f}%",
+                        f"GHS {_yr_tgt_rows['Target'].sum():,.0f} target to date", BRAND_GOLD,
+                        progress=min(_yr_attain_ytd, 100), icon="target")
+               if _yr_attain_ytd is not None else
+               kpi_card("Target Attainment", "No target", "Add targets in revenue_target.csv", BRAND_GOLD, icon="target"))
+            + kpi_card("Orders", f"{_yr_orders_ytd:,}", f"Avg order GHS {_yr_rev_ytd / max(_yr_orders_ytd, 1):,.0f}",
+                       "#0ea5e9", delta=_yr_mom(_yr_full_mo["Orders"]), delta_label=_yr_cmp,
+                       spark=_yr_full_mo["Orders"].tolist())
+            + kpi_card("Customers Ordering", f"{_yr_n_customers_ytd:,}", f"{_yr_new_ytd} new this year", "#6366f1",
+                       spark=(_yr_cust_df.iloc[:-1] if _yr_is_partial_month else _yr_cust_df)["Active"].tolist())
+        )
+        _yr_row2 = (
+            kpi_card("Collected YTD", f"GHS {_yr_coll_ytd:,.0f}", f"{_yr_coll_rate:.1f}% of YTD revenue", "#16a34a",
+                     delta=_yr_mom(_yr_full_dso["Collected"]), delta_label=_yr_cmp,
+                     spark=_yr_full_dso["Collected"].tolist())
+            + kpi_card("Outstanding AR", f"GHS {_yr_total_ar:,.0f}", f"{len(_yr_ia_now):,} unpaid invoices", "#dc2626",
+                       progress=_yr_total_ar / _yr_rev_ytd * 100 if _yr_rev_ytd else 0)
+            + (kpi_card("Days Sales Outstanding", f"{_yr_last_dso:.0f} days",
+                        f"{_yr_last_dso - _yr_terms_days:+.0f} days vs the {_yr_terms_days}-day term",
+                        "#dc2626" if _yr_last_dso > _yr_terms_days else "#16a34a", icon="clock",
+                        spark=_yr_full_dso["DSO"].tolist())
+               if _yr_last_dso is not None else "")
+            + kpi_card("Top-5 Customer Share", f"{_yr_top5_pct:.1f}%", f"Top 10 = {_yr_top10_pct:.1f}% of revenue",
+                       "#f97316")
+        )
+        st.markdown(kpi_grid(_yr_row1), unsafe_allow_html=True)
+        st.markdown(kpi_grid(_yr_row2), unsafe_allow_html=True)
+        if _yr_cmp:
+            st.markdown(f'<div class="kpi-note">Arrows compare {_yr_cmp.replace(" vs ", " with ")}; '
+                        f'lines show each complete month this year.</div>', unsafe_allow_html=True)
+
         # ── Download ─────────────────────────────────────────────────────────
         if _PDF_AVAIL:
             def _build_ytd_pdf():
@@ -3545,33 +3608,6 @@ elif page == "YTD Review":
         else:
             st.warning("PDF export isn't available in this environment (fpdf2/matplotlib not installed).")
 
-        # ── Executive Summary ────────────────────────────────────────────────────
-        section_label("Executive Summary")
-        _yr_summary = [
-            ("🎯", "Revenue trajectory", BRAND_GOLD,
-             f"Attainment: " + ", ".join(f"{r['Month Label']} {r['Attain']:.0f}%"
-                                         for _, r in _yr_mo.iterrows() if pd.notna(r["Attain"]))),
-        ]
-        if len(_yr_dso_df) and pd.notna(_yr_dso_df["DSO"].iloc[-1]):
-            _yr_summary.append(("⏱️", f"Collections vs. {_yr_terms_days}-day terms", "#dc2626",
-                f"Latest DSO is {_yr_dso_df['DSO'].iloc[-1]:.0f} days "
-                f"({_yr_dso_df['DaysBeyondTerms'].iloc[-1]:+.0f} days beyond the standard "
-                f"{_yr_terms_days}-day term)."))
-        _yr_summary.append(("🏷️", "Two data gaps, smaller in practice than they first look", "#bf6908",
-            f"Cost data covers {_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}% of the full catalogue, but most "
-            f"of it has never sold, among products actually sold this year, coverage is "
-            f"{_yr_cost_cov_sold_n/_yr_cost_cov_sold_total*100:.0f}% ({_yr_cost_cov_sold_n} of "
-            f"{_yr_cost_cov_sold_total}). Similarly, {len(_yr_agro_ids)} of {len(rc)} customer records "
-            f"({len(_yr_agro_ids)/len(rc)*100:.0f}%) are tagged 'Agrovet', but {_yr_agro_note}."))
-        for _icon, _title, _color, _text in _yr_summary:
-            st.markdown(
-                f'<div style="background:{_T["card_bg"]};backdrop-filter:blur(14px);'
-                f'border:1px solid {_T["card_border"]};border-left:4px solid {_color};'
-                f'border-radius:12px;padding:14px 18px;margin-bottom:10px">'
-                f'<div style="font-weight:700;color:{_T["text_heading"]};margin-bottom:4px">{_icon} {_title}</div>'
-                f'<div style="font-size:13px;color:{_T["text_body"]}">{_text}</div></div>',
-                unsafe_allow_html=True)
-
         # ── 1. Revenue vs Target ─────────────────────────────────────────────────
         card_open("1. Commercial Performance, Revenue vs Target",
                                 "Monthly revenue against target, January to date")
@@ -3689,10 +3725,10 @@ elif page == "YTD Review":
                            line=dict(color="rgba(255,255,255,0.55)", width=1)),
                 text=[f"GHS {t:,.0f} · {int(n)} invoices" for t, n in zip(_yr_aging["Total"], _yr_aging["Count"])],
                 textposition="outside"))
-            _yr_fig7.update_layout(plot_bgcolor="white", paper_bgcolor="white",
+            _yr_fig7.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                                    margin=dict(t=10, b=10, l=10, r=120), height=max(140, 40*len(_yr_aging)),
                                    font=dict(family="Inter, sans-serif", size=12),
-                                   xaxis=dict(gridcolor="#f3f4f6", range=[0, _yr_aging["Total"].max()*1.35]))
+                                   xaxis=dict(gridcolor=CHART_GRID, range=[0, _yr_aging["Total"].max()*1.35]))
             st.plotly_chart(_yr_fig7, use_container_width=True, config=CHART_CFG)
         _yr_text("This ageing view is a current snapshot, not yet a historical trend, treat it as the "
                  "baseline for tracking going forward.")
@@ -3708,6 +3744,31 @@ elif page == "YTD Review":
                  f"full, mostly-unsold catalogue). Agrovet tagging is {_yr_agro_note_short}.",
                  muted=False)
         card_close()
+
+        # ── Executive Summary ────────────────────────────────────────────────────
+        section_label("Executive Summary")
+        _yr_summary = [
+            ("🎯", "Revenue trajectory", BRAND_GOLD,
+             f"Attainment: " + ", ".join(f"{r['Month Label']} {r['Attain']:.0f}%"
+                                         for _, r in _yr_mo.iterrows() if pd.notna(r["Attain"]))),
+        ]
+        if len(_yr_dso_df) and pd.notna(_yr_dso_df["DSO"].iloc[-1]):
+            _yr_summary.append(("⏱️", f"Collections vs. {_yr_terms_days}-day terms", "#dc2626",
+                f"Latest DSO is {_yr_dso_df['DSO'].iloc[-1]:.0f} days "
+                f"({_yr_dso_df['DaysBeyondTerms'].iloc[-1]:+.0f} days beyond the standard "
+                f"{_yr_terms_days}-day term)."))
+        _yr_summary.append(("🏷️", "Two data gaps, smaller in practice than they first look", "#bf6908",
+            f"Cost data covers {_yr_cost_cov_n/_yr_cost_cov_total*100:.0f}% of the full catalogue, but most "
+            f"of it has never sold, among products actually sold this year, coverage is "
+            f"{_yr_cost_cov_sold_n/_yr_cost_cov_sold_total*100:.0f}% ({_yr_cost_cov_sold_n} of "
+            f"{_yr_cost_cov_sold_total}). Similarly, {len(_yr_agro_ids)} of {len(rc)} customer records "
+            f"({len(_yr_agro_ids)/len(rc)*100:.0f}%) are tagged 'Agrovet', but {_yr_agro_note}."))
+        for _icon, _title, _color, _text in _yr_summary:
+            st.markdown(
+                f'<div class="summary-card" style="--accent:{_color}">'
+                f'<div class="summary-title">{_icon} {_title}</div>'
+                f'<div class="summary-text">{_text}</div></div>',
+                unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
