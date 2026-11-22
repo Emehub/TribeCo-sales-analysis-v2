@@ -165,6 +165,8 @@ _THEME_TOKENS = {
         tab_active_bg="#ffffff",
         pos="#15803d", neg="#b91c1c", track="rgba(2,75,48,0.08)",
         modebar_bg="rgba(255,255,255,0.9)",
+        frame_bg="linear-gradient(160deg, #dfeae3 0%, #e6efe9 55%, #ede8dd 100%)",
+        frame_shadow="0 1px 2px rgba(2,75,48,0.08), 0 10px 30px rgba(2,75,48,0.10)",
     ),
     "dark": dict(
         page_grad="linear-gradient(135deg, #050f0a 0%, #0a1f14 45%, #17130a 100%)",
@@ -195,6 +197,8 @@ _THEME_TOKENS = {
         tab_active_bg="rgba(255,255,255,0.10)",
         pos="#4ade80", neg="#f87171", track="rgba(255,255,255,0.09)",
         modebar_bg="rgba(15,35,26,0.9)",
+        frame_bg="#020805",
+        frame_shadow="0 0 0 1px rgba(120,210,160,0.08), 0 10px 30px rgba(0,0,0,0.5)",
     ),
 }
 _T = dict(_THEME_TOKENS[THEME], brand_green=BRAND_GREEN, brand_green_deep=BRAND_GREEN_DEEP,
@@ -261,12 +265,21 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
 [data-testid="stIconMaterial"] { font-family: 'Material Symbols Rounded' !important; }
 
 /* ── Page backdrop ── */
+/* App shell: the sidebar and the page sit as two rounded panels on a soft frame */
 [data-testid="stAppViewContainer"] {
-    background: $page_grad !important;
-    background-attachment: fixed !important;
+    background: $frame_bg !important;
+    padding: 12px; gap: 12px; box-sizing: border-box;
 }
 [data-testid="stHeader"] { background: transparent !important; }
-.main, [data-testid="stMain"] { background: transparent !important; }
+.main, [data-testid="stMain"] {
+    background: $page_grad !important;
+    border-radius: 24px; box-shadow: $frame_shadow;
+    height: 100% !important; max-height: 100%;
+}
+[data-testid="stAppViewContainer"] > div:has(> [data-testid="stMain"]) {
+    border-radius: 24px; overflow: hidden; min-height: 0; height: 100% !important;
+}
+[data-testid="stHeader"] { border-radius: 24px 24px 0 0; }
 
 /* ── Main layout ── */
 .main .block-container, [data-testid="stMainBlockContainer"] {
@@ -284,10 +297,11 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
 /* ════════════════════════════ Sidebar ════════════════════════════ */
 [data-testid="stSidebar"] {
     background: $sidebar_bg !important;
-    border-right: 1px solid $sidebar_border !important;
+    border: none !important; border-radius: 20px; overflow: hidden;
+    box-shadow: $frame_shadow;
     width: 248px !important; min-width: 248px !important; max-width: 248px !important;
 }
-[data-testid="stSidebar"] > div:first-child { width: 248px !important; }
+[data-testid="stSidebar"] > div:first-child { width: 248px !important; height: 100% !important; border-radius: 20px; }
 [data-testid="stSidebarContent"] { padding: 0 12px 16px !important; }
 [data-testid="stSidebarHeader"] { height: 40px !important; min-height: 0 !important; padding: 8px 4px 0 !important; margin: 0 !important; }
 [data-testid="stSidebarUserContent"] { padding: 0 !important; }
@@ -594,6 +608,10 @@ div[data-baseweb="popover"][data-testid="stPopoverBody"] * { color: #111827 !imp
     .main .block-container, [data-testid="stMainBlockContainer"] { padding: 24px 16px 40px !important; }
     .topbar-title { font-size: 22px; }
     [class*="st-key-card_"] { padding: 16px !important; }
+}
+@media (max-width: 767px) {
+    [data-testid="stAppViewContainer"] { padding: 0; gap: 0; }
+    .main, [data-testid="stMain"], [data-testid="stAppViewContainer"] > div:has(> [data-testid="stMain"]) { border-radius: 0; }
 }
 @media (max-width: 640px) {
     .kpi-grid, .insight-grid { grid-template-columns: 1fr !important; }
